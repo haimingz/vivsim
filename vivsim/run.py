@@ -4,7 +4,7 @@ from tqdm import tqdm
 import math
 import os
 import json
-import iblbm, dynamics
+import iblbm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
@@ -23,14 +23,40 @@ NU = params["NU"]
 
 NX = params["NX"]
 NY = params["NY"]
-NT = params["TM"]
+TM = params["TM"]
 N_MARKER = params["N_MARKER"]
 X_OBJ = params["X_CYLINDER"]
 Y_OBJ = params["Y_CYLINDER"]
 
+# define LBM parameters
+TAU = 3 * NU + 0.5  # relaxation time
+OMEGA = 1 / TAU  # relaxation parameter
+MRT_OMEGA = iblbm.get_omega_mrt(OMEGA)
+ARC_LEN = D * math.pi / N_MARKER  # arc length between the markers
+X1 = int(X_OBJ - 1.5 * D)
+X2 = int(X_OBJ + 1.5 * D)
+Y1 = int(Y_OBJ - 1.5 * D)
+Y2 = int(Y_OBJ + 1.5 * D)
 
-# coordinates
-X_MESH, Y_MESH = jnp.meshgrid(
+# ----------------- initialize properties -----------------
+
+# macroscopic properties
+rho = jnp.ones((NX, NY), dtype=jnp.float32)
+u = jnp.zeros((2, NX, NY), dtype=jnp.float32)
+u = u.at[0].set(U)
+
+# microscopic properties
+f = jnp.zeros((9, NX, NY), dtype=jnp.float32)
+f = iblbm.equilibrum(rho, u, f)
+feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)
+
+# structural dynamics
+d = jnp.zeros((2), dtype=jnp.float32)
+v = jnp.zeros((2), dtype=jnp.float32)
+a = jnp.zeros((2), dtype=jnp.float32)
+
+# mesh grid
+X, Y = jnp.meshgrid(
     jnp.arange(NX, dtype=jnp.int16), jnp.arange(NY, dtype=jnp.int16), indexing="ij"
 )
 X_MARKER = X_OBJ + 0.5 * D * jnp.cos(
@@ -39,37 +65,6 @@ X_MARKER = X_OBJ + 0.5 * D * jnp.cos(
 Y_MARKER = Y_OBJ + 0.5 * D * jnp.sin(
     jnp.linspace(0, jnp.pi * 2, N_MARKER, endpoint=False)
 )
-
-# ------------------ Lattice Boltzmann Method (LBM) ------------------
-
-TAU = 3 * NU + 0.5  # relaxation time
-OMEGA = 1 / TAU  # relaxation parameter
-ARC_LEN = D * math.pi / N_MARKER  # arc length between the markers
-# IBM region
-IBM_X1 = int(X_OBJ - 1.0 * D)
-IBM_X2 = int(X_OBJ + 1.5 * D)
-IBM_Y1 = int(Y_OBJ - 1.5 * D)
-IBM_Y2 = int(Y_OBJ + 1.5 * D)
-MRT_OMEGA = iblbm.generate_omega_mrt(OMEGA)
-
-# ----------------- initialize properties -----------------
-
-# microscopic properties
-f = jnp.zeros((9, NX, NY), dtype=jnp.float32)
-feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)
-
-# macroscopic properties
-rho = jnp.ones((NX, NY), dtype=jnp.float32)
-u = jnp.zeros((2, NX, NY), dtype=jnp.float32)
-u = u.at[0].set(U)
-
-f = iblbm.equilibrum(rho, u, f)
-
-# structural dynamics
-d = jnp.zeros((2), dtype=jnp.float32)
-v = jnp.zeros((2), dtype=jnp.float32)
-a = jnp.zeros((2), dtype=jnp.float32)
-
 
 # main loop
 @jax.jit
@@ -80,61 +75,46 @@ def update(f, feq, rho, u, d, v, a):
     rho, u = iblbm.get_macroscopic(f, rho, u)
 
     # Compute correction forces (Immersed Boundary Method)
-    g_fluid_sum = jnp.zeros((2, NX, NY))
-    g_markers_sum = jnp.zeros((2, N_MARKER))
+    g_markers = jnp.zeros((2, N_MARKER))
+    g_fluid = jnp.zeros((2, X2 - X1, Y2 - Y1))
 
-    for _ in range(3):
-        g_markers = jnp.zeros((2, N_MARKER))  # force to the marker
-        g_fluid = jnp.zeros((2, NX, NY))  # force to the fluid
+    for _ in range(1):
+        g_markers_diff = jnp.zeros((2, N_MARKER))  # force to the marker
+        g_fluid_diff = jnp.zeros((2, X2 - X1, Y2 - Y1))  # force to the fluid
 
         for i in range(N_MARKER):
             x_marker = X_MARKER[i] + d[0]  # x coordinate of the marker
-            y_marker = Y_MARKER[i] + d[1]  # y coordinate of the marker
-            kernel = iblbm.kernel3(X_MESH[IBM_X1:IBM_X2, IBM_Y1:IBM_Y2] - x_marker) \
-                * iblbm.kernel3(Y_MESH[IBM_X1:IBM_X2, IBM_Y1:IBM_Y2] - y_marker)
+            y_marker = Y_MARKER[i] + d[1]  # y coordinate of the marker            
+            kernel = iblbm.kernel3(x_marker, y_marker, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
 
             # velocity interpolation (at markers)
-            u_at_marker = jnp.einsum("xy,dxy->d", kernel, u[:, IBM_X1:IBM_X2, IBM_Y1:IBM_Y2])  # shape (2)
+            u_marker = iblbm.intepolate(u[:, X1:X2, Y1:Y2], kernel)
 
             # compute correction force (at markers)
-            g_needed_at_marker = 2 * (v - u_at_marker)  # shape (2)
+            g_marker_diff = iblbm.get_correction_g(v, u_marker)
 
             # accumulate correction forces
-            g_markers = g_markers.at[:, i].set(-g_needed_at_marker)  # force at markers
-            g_fluid = g_fluid.at[0, IBM_X1:IBM_X2, IBM_Y1:IBM_Y2].add(
-                kernel * g_needed_at_marker[0]
-            )  # spread force to fluid
-            g_fluid = g_fluid.at[1, IBM_X1:IBM_X2, IBM_Y1:IBM_Y2].add(
-                kernel * g_needed_at_marker[1]
-            )  # spread force to fluid
+            g_markers_diff = g_markers_diff.at[:, i].set(- g_marker_diff)            
+            g_fluid_diff += iblbm.spreading(g_marker_diff, kernel)
 
         # velocity correction
-        u = u.at[:, IBM_X1:IBM_X2, IBM_Y1:IBM_Y2].add(g_fluid[:, IBM_X1:IBM_X2, IBM_Y1:IBM_Y2] * 0.5)
+        u = u.at[:, X1:X2, Y1:Y2].add(iblbm.get_correction_u(g_fluid_diff))
 
         # record the total correction force to the fluid and markers
-        g_fluid_sum += g_fluid
-        g_markers_sum += g_markers
+        g_fluid += g_fluid_diff
+        g_markers += g_markers_diff
 
     # Compute dynamics
-    g_obj = jnp.sum(g_markers_sum, axis=1) * ARC_LEN
+    g_obj = jnp.sum(g_markers, axis=1) * ARC_LEN
     
-    ax, vx, dx = dynamics.newmark(a[0], v[0], d[0], g_obj[0], M, K, C)
-    # ax, vx, dx = 0, 0, 0
-    ay, vy, dy = dynamics.newmark(a[1], v[1], d[1], g_obj[1], M, K, C)
-    a = jnp.array([ax, ay])
-    v = jnp.array([vx, vy])
-    d = jnp.array([dx, dy])
-
-    # Compute discretized correction force
-    h = jnp.zeros((9, NX, NY))
-    h = iblbm.discretize_force(u, g_fluid_sum, h)
+    a, v, d = iblbm.newmark(a, v, d, g_obj, M, K, C)
 
     # Compute equilibrium
     feq = iblbm.equilibrum(rho, u, feq)
 
     # Collision with forces
     f = iblbm.collision_mrt(f, feq, MRT_OMEGA)
-    f = iblbm.post_collision_correction(f, h, OMEGA)
+    f = f.at[:, X1:X2, Y1:Y2].add(iblbm.get_correction_f(u[:, X1:X2, Y1:Y2], g_fluid, OMEGA,))
 
     # Streaming
     f = iblbm.streaming(f)
@@ -149,14 +129,14 @@ def update(f, feq, rho, u, d, v, a):
 
 PLOT = True
 PLOT_EVERY = 100
-PLOT_AFTER = 5000
-N_PLOTS = int((NT - PLOT_AFTER) // PLOT_EVERY)
+PLOT_AFTER = 500
+N_PLOTS = int((TM - PLOT_AFTER) // PLOT_EVERY)
 PLOT_CONTENT = "curl"
 
 if PLOT:
     plt.figure(figsize=(8, 4))
     
-for t in tqdm(range(NT)):
+for t in tqdm(range(TM)):
     f, feq, rho, u, d, v, a, g = update(f, feq, rho, u, d, v, a)
 
     
@@ -197,7 +177,7 @@ for t in tqdm(range(NT)):
         plt.axhline(Y_OBJ, color="k", linestyle="--", linewidth=0.5)
         
         # draw outline of the IBM region as a rectangle
-        plt.plot([IBM_X1, IBM_X1, IBM_X2, IBM_X2, IBM_X1], 
-                 [IBM_Y1, IBM_Y2, IBM_Y2, IBM_Y1, IBM_Y1], 
+        plt.plot([X1, X1, X2, X2, X1], 
+                 [Y1, Y2, Y2, Y1, Y1], 
                  "b", linestyle="--", linewidth=0.5)
         plt.pause(0.001)
