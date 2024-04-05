@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="50.599091mm"
+   height="15.705555mm"
+   viewBox="0 0 50.599091 15.705555"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-84.010097,-29.647221)">
+    <path
+       style="fill:none;stroke:#034fa3;stroke-width:0.705555;stroke-opacity:1"
+       d="m 85.000002,29.999999 c -0.999999,-10e-7 1,15 5,15 4,0 9,-14.999999 9.999998,-15 1,-10e-7 -0.999998,15 -4.999998,15 -4,0 -9,-14.999999 -10,-15 z"
+       id="path1" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.4192px;font-family:'Noto Sans CJK SC';-inkscape-font-specification:'Noto Sans CJK SC';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.705555;stroke-opacity:1"
+       x="104.1847"
+       y="42.371273"
+       id="text1"
+       transform="scale(0.98852999,1.0116031)"><tspan
+         id="tspan1"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Noto Sans CJK SC';-inkscape-font-specification:'Noto Sans CJK SC';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.705555"
+         x="104.1847"
+         y="42.371273">VIVSIM</tspan></text>
+  </g>
+</svg>
