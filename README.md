@@ -1,6 +1,6 @@
-<center>
+<p align="center">
 <img src ="assets/vivsim.svg"/>
-</center>
+</p>
 
 # VIVSIM 
 
