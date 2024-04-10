@@ -7,7 +7,7 @@ import json
 from iblbm import core, dynamics, post
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-
+import numpy as np
 
 # ----------------- read parameters from json file -----------------
 
@@ -148,7 +148,6 @@ for t in tqdm(range(TM)):
         plt.clf()
 
         if PLOT_CONTENT == "curl":
-
             curl = post.calculate_curl(u)
             plt.imshow(
                 curl.T,
@@ -178,12 +177,22 @@ for t in tqdm(range(TM)):
         plt.xlabel("x/D")
         plt.ylabel("y/D")
 
+        # draw a circle representing the cylinder
+        circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ - d[1]) / D), 0.5, 
+                            edgecolor='black', facecolor='white', fill=True)
+        plt.gca().add_artist(circle)
+        
+        # draw an arrow representing the force
+        # plt.arrow((X_OBJ + d[0]) / D, (Y_OBJ - d[1]) / D, g[0], g[1], 
+        #           color="b", width=0.01,head_width=0.05)
+                
         # draw the central lines
-        # plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
-        # plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
+        plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
+        plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
         
         # draw outline of the IBM region as a rectangle
         # plt.plot([X1, X1, X2, X2, X1], 
         #          [Y1, Y2, Y2, Y1, Y1], 
         #          "b", linestyle="--", linewidth=0.5)
+        
         plt.pause(0.001)
