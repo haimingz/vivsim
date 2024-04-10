@@ -107,8 +107,13 @@ def update(f, feq, rho, u, d, v, a, g):
         g_to_markers += - g_needed
         g_to_fluid += g_needed_spread
 
-    # Compute solid dynamics
+    # Compute force to the obj (including internal fluid force)
     g = jnp.sum(g_to_markers, axis=0) * L_ARC
+    
+    # eliminate internal fluid force (Feng’s rigid body approximation)
+    g += a * math.pi * D ** 2 / 4
+    
+    # Compute solid dynamics
     a, v, d = dynamics.newmark(a, v, d, g, M, K, C)
 
     # Compute equilibrium
@@ -126,7 +131,7 @@ def update(f, feq, rho, u, d, v, a, g):
     # Set Outlet BC at right wall (No gradient BC)
     f = core.right_outlet(f)
 
-    # Set Inlet BC at left wall (Non-equilibrium Bounce-Back)
+    # Set Inlet BC at left wall (Zou/He scheme)
     f, rho, u = core.left_inlet(f, rho, u, U0)
 
     # update new macroscopic
