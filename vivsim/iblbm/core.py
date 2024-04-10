@@ -1,17 +1,12 @@
 """This files provides the core functions for the lattice Boltzmann method (LBM) in 2D.
 
 All functions are pure functions as required by JAX. 
-
-I tried to not create any new arrays in the functions. Instead, the functions take in 
-defined arrays and return the updated ones. It turns out more efficient. My guess is
-that JAX can optimize the memory allocation better this way.
-
 All equations have been partially evaluated for the D2Q9 model to maximize efficiency.
 """
 
 import jax 
 import jax.numpy as jnp
-
+import numpy as np
 
 # --------------------------------- core LBM functions ---------------------------------
 
@@ -110,7 +105,7 @@ def get_omega_mrt(omega):
     - The MRT collision matrix.
     """
     # transformation matrix
-    M = jnp.array(
+    M = np.array(
         [
             [ 1,  1,  1,  1,  1,  1,  1,  1,  1],
             [-4, -1, -1, -1, -1,  2,  2,  2,  2],
@@ -124,10 +119,10 @@ def get_omega_mrt(omega):
         ]
     )
     # relaxation matrix
-    S = jnp.diag(jnp.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]))
+    S = np.diag(np.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]))
 
     # MRT collision matrix
-    return jnp.linalg.inv(M) @ S @ M
+    return jnp.array(np.linalg.inv(M) @ S @ M)
 
 
 def collision_mrt(f, feq, omega_mrt):
@@ -211,6 +206,7 @@ def stencil3(distance):
         ),
     )
 
+
 def kernel2(x, y, X, Y):
     """2D Kernel function of range 2.
     
@@ -223,6 +219,7 @@ def kernel2(x, y, X, Y):
     """
     
     return stencil2(X - x) * stencil2(Y - y)
+
 
 def kernel3(x, y, X, Y):
     """2D Kernel function f range 3.
@@ -265,19 +262,18 @@ def spread_g(g, kernel):
     return kernel * g[:, None, None]
 
 
-def get_g_correction(v, u, rho=1):
+def get_g_correction(v, u):
     """Computes the correction force to the fluid.    
     g = 2 * rho * (v - u) / dt
     """
-    return 2 * rho * (v - u)
+    return 2 * (v - u)
 
 
-
-def get_u_correction(g, rho=1):
+def get_u_correction(g):
     """Computes the velocity correction to the fluid.
     du = g * dt / (2 * rho)
     """
-    return g * 0.5 / rho 
+    return g * 0.5
 
 
 def get_source(u, g, omega):
