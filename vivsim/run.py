@@ -42,13 +42,22 @@ MDF_ITER = 1  # number of iterations for multi-direct forcing
 
 
 # ----------------- output parameters -----------------
-PLOT = False
+PLOT = True
 PLOT_EVERY = 50
 PLOT_AFTER = 00
 N_PLOTS = int((TM - PLOT_AFTER) // PLOT_EVERY)
-PLOT_CONTENT = "rho"
+PLOT_CONTENT = "curl"
 
 # ----------------- define properties -----------------
+
+# mesh grid
+X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.int16), 
+                    jnp.arange(NY, dtype=jnp.int16), indexing="ij")
+
+THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, endpoint=False)
+X_MARKERS = X_OBJ + 0.5 * D * jnp.cos(THETA_MAKERS)
+Y_MARKERS = Y_OBJ + 0.5 * D * jnp.sin(THETA_MAKERS)
+
 
 # macroscopic properties
 rho = jnp.ones((NX, NY), dtype=jnp.float32)  # density of fluid
@@ -64,60 +73,42 @@ v = jnp.zeros((2), dtype=jnp.float32)  # velocity
 a = jnp.zeros((2), dtype=jnp.float32)  # acceleration
 g = jnp.zeros((2), dtype=jnp.float32)  # force
 
+
 # initilize properties
-u = u.at[0].set(U0)
+# u = u.at[0].set(U0)
 f = core.equilibrum(rho, u, f)
 
-
-# mesh grid
-X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.int16), 
-                    jnp.arange(NY, dtype=jnp.int16), indexing="ij")
-
-THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, endpoint=False)
-X_MARKER = X_OBJ + 0.5 * D * jnp.cos(THETA_MAKERS)
-Y_MARKER = Y_OBJ + 0.5 * D * jnp.sin(THETA_MAKERS)
 
 # ----------------- define main loop -----------------
 @jax.jit
 def update(f, feq, rho, u, d, v, a, g):
-    """Update distribution functions for one time step"""
+    """Update for one time step"""
 
-    # new macroscopic (uncorrected)
-    rho, u = core.get_macroscopic(f, rho, u)
-
-    # Compute correction forces (Immersed Boundary Method)
-    g_to_markers = jnp.zeros((2, N_MARKER))  # force to the markers
+    # Immersed Boundary Method
+    g_to_markers = jnp.zeros((N_MARKER, 2))  # force to the markers
     g_to_fluid = jnp.zeros((2, X2 - X1, Y2 - Y1))  # force to the fluid
     
     for _ in range(MDF_ITER):
         
-        g_to_fluid_new = jnp.zeros((2, X2 - X1, Y2 - Y1))  # temporary force to the fluid
-
-        for i in range(N_MARKER):
-            
-            # kernel function
-            x_marker = X_MARKER[i] + d[0]  # x coordinate of the marker
-            y_marker = Y_MARKER[i] + d[1]  # y coordinate of the marker            
-            kernel = core.kernel3(x_marker, y_marker, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
-
-            # velocity interpolation (at markers)
-            u_at_marker = core.interpolate_u(u[:, X1:X2, Y1:Y2], kernel)
-
-            # compute correction force (at markers)          
-            g_correction = core.get_g_correction(v, u_at_marker)
-
-            # accumulate correction forces       
-            g_to_markers = g_to_markers.at[:, i].add(- g_correction)
-            g_to_fluid_new += core.spread_g(g_correction, kernel)
-
-        # velocity correction
-        u = u.at[:, X1:X2, Y1:Y2].add(core.get_u_correction(g_to_fluid_new))
-
-        # accumulate correction force to the fluid
-        g_to_fluid += g_to_fluid_new
+        # calculate the kernels
+        x_markers = X_MARKERS + d[0]  # x coordinates of the markers
+        y_markers = Y_MARKERS + d[1]  # y coordinates of the markers
+        kernels = jax.vmap(core.kernel3, in_axes=(0, 0, None, None))(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
+        
+        # interpolate velocity at the markers
+        u_markers = jax.vmap(core.interpolate_u, in_axes=(None, 0))(u[:, X1:X2, Y1:Y2], kernels)
+        
+        # calculate and apply the needed correction force to the fluid
+        g_needed = jax.vmap(core.get_g_correction, in_axes=(None, 0))(v, u_markers)
+        g_needed_spread = jnp.sum(jax.vmap(core.spread_g, in_axes=(0, 0))(g_needed, kernels), axis=0)
+        u = u.at[:, X1:X2, Y1:Y2].add(core.get_u_correction(g_needed_spread))
+        
+        # accumulate the coresponding correction force to the markers and the fluid
+        g_to_markers += - g_needed
+        g_to_fluid += g_needed_spread
 
     # Compute solid dynamics
-    g = jnp.sum(g_to_markers, axis=1) * L_ARC    
+    g = jnp.sum(g_to_markers, axis=0) * L_ARC
     a, v, d = dynamics.newmark(a, v, d, g, M, K, C)
 
     # Compute equilibrium
@@ -138,6 +129,9 @@ def update(f, feq, rho, u, d, v, a, g):
     # Set Inlet BC at left wall (Non-equilibrium Bounce-Back)
     f, rho, u = core.left_inlet(f, rho, u, U0)
 
+    # update new macroscopic
+    rho, u = core.get_macroscopic(f, rho, u)
+     
     return f, feq, rho, u, d, v, a, g
 
 # ----------------- start simulation -----------------
@@ -161,7 +155,9 @@ for t in tqdm(range(TM)):
                 extent=[0, NX/D, 0, NY/D],
                 cmap="seismic",
                 aspect="equal",
-                norm=mpl.colors.CenteredNorm(),
+                # norm=mpl.colors.CenteredNorm(),
+                vmax=0.03,
+                vmin=-0.03
             )
         
         if PLOT_CONTENT == "rho":
@@ -183,8 +179,8 @@ for t in tqdm(range(TM)):
         plt.ylabel("y/D")
 
         # draw the central lines
-        plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
-        plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
+        # plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
+        # plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
         
         # draw outline of the IBM region as a rectangle
         # plt.plot([X1, X1, X2, X2, X1], 
