@@ -159,9 +159,10 @@ for t in tqdm(range(TM)):
                 extent=[0, NX/D, 0, NY/D],
                 cmap="seismic",
                 aspect="equal",
-                # norm=mpl.colors.CenteredNorm(),
-                vmax=0.03,
-                vmin=-0.03
+                norm=mpl.colors.CenteredNorm(),
+                origin="lower"
+                # vmax=0.03,
+                # vmin=-0.03
             )
         
         if PLOT_CONTENT == "rho":
@@ -170,9 +171,10 @@ for t in tqdm(range(TM)):
                 extent=[0, NX/D, 0, NY/D],
                 cmap="seismic",
                 aspect="equal",
+                origin="lower"
                 # norm=mpl.colors.CenteredNorm(vcenter=1),
-                vmin=0.95,
-                vmax=1.05
+                # vmax=1.05
+                # vmin=0.95,
             )
         
         plt.colorbar()
@@ -183,7 +185,7 @@ for t in tqdm(range(TM)):
         plt.ylabel("y/D")
 
         # draw a circle representing the cylinder
-        circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ - d[1]) / D), 0.5, 
+        circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D), 0.5, 
                             edgecolor='black', facecolor='white', fill=True)
         plt.gca().add_artist(circle)
         
