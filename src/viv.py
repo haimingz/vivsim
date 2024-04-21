@@ -4,15 +4,16 @@ from tqdm import tqdm
 import math
 import os
 import json
-from iblbm import core, dynamics, post
+from vivsim import dyn, ib, lbm, post
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 
+
 # ----------------- read parameters from json file -----------------
 
 working_dir = os.path.dirname(os.path.abspath(__file__))
-with open(working_dir + "/parameters.json") as f:
+with open(working_dir + "/viv_para.json") as f:
     params = json.load(f)
 
 D = params["D"]
@@ -32,7 +33,7 @@ Y_OBJ = params["Y_CYLINDER"]
 
 TAU = 3 * NU + 0.5  # relaxation time
 OMEGA = 1 / TAU  # relaxation parameter
-MRT_OMEGA = core.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
+MRT_OMEGA = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
 L_ARC = D * math.pi / N_MARKER  # arc length between the markers
 X1 = int(X_OBJ - 0.7 * D)   # left boundary of the IBM region
 X2 = int(X_OBJ + 1.0 * D)   # right boundary of the IBM region
@@ -76,7 +77,7 @@ g = jnp.zeros((2), dtype=jnp.float32)  # force
 
 # initilize properties
 # u = u.at[0].set(U0)
-f = core.equilibrum(rho, u, f)
+f = lbm.get_equilibrum(rho, u, f)
 
 
 # ----------------- define main loop -----------------
@@ -93,15 +94,15 @@ def update(f, feq, rho, u, d, v, a, g):
         # calculate the kernels
         x_markers = X_MARKERS + d[0]  # x coordinates of the markers
         y_markers = Y_MARKERS + d[1]  # y coordinates of the markers
-        kernels = jax.vmap(core.kernel3, in_axes=(0, 0, None, None))(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
+        kernels = jax.vmap(ib.kernel3, in_axes=(0, 0, None, None))(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
         
         # interpolate velocity at the markers
-        u_markers = jax.vmap(core.interpolate_u, in_axes=(None, 0))(u[:, X1:X2, Y1:Y2], kernels)
+        u_markers = jax.vmap(ib.interpolate_u, in_axes=(None, 0))(u[:, X1:X2, Y1:Y2], kernels)
         
         # calculate and apply the needed correction force to the fluid
-        g_needed = jax.vmap(core.get_g_correction, in_axes=(None, 0))(v, u_markers)
-        g_needed_spread = jnp.sum(jax.vmap(core.spread_g, in_axes=(0, 0))(g_needed, kernels), axis=0)
-        u = u.at[:, X1:X2, Y1:Y2].add(core.get_u_correction(g_needed_spread))
+        g_needed = jax.vmap(ib.get_g_correction, in_axes=(None, 0))(v, u_markers)
+        g_needed_spread = jnp.sum(jax.vmap(ib.spread_g, in_axes=(0, 0))(g_needed, kernels), axis=0)
+        u = u.at[:, X1:X2, Y1:Y2].add(ib.get_u_correction(g_needed_spread))
         
         # accumulate the coresponding correction force to the markers and the fluid
         g_to_markers += - g_needed
@@ -114,28 +115,32 @@ def update(f, feq, rho, u, d, v, a, g):
     g += a * math.pi * D ** 2 / 4
     
     # Compute solid dynamics
-    a, v, d = dynamics.newmark(a, v, d, g, M, K, C)
+    # a, v, d = dynamics.newmark(a, v, d, g, M, K, C)
 
     # Compute equilibrium
-    feq = core.equilibrum(rho, u, feq)
+    feq = lbm.get_equilibrum(rho, u, feq)
 
     # Collision
-    f = core.collision_mrt(f, feq, MRT_OMEGA)
+    f = lbm.collision_mrt(f, feq, MRT_OMEGA)
     
     # Add source term
-    f = f.at[:, X1:X2, Y1:Y2].add(core.get_source(u[:, X1:X2, Y1:Y2], g_to_fluid, OMEGA))
+    f = f.at[:, X1:X2, Y1:Y2].add(ib.get_source(u[:, X1:X2, Y1:Y2], g_to_fluid, OMEGA))
 
     # Streaming
-    f = core.streaming(f)
+    f = lbm.streaming(f)
 
     # Set Outlet BC at right wall (No gradient BC)
-    f = core.right_outlet(f)
+    f = lbm.right_outlet(f)
 
     # Set Inlet BC at left wall (Zou/He scheme)
-    f, rho, u = core.left_inlet(f, rho, u, U0)
+    f, rho = lbm.left_velocity(f, rho, U0, 0)
+    f, rho = lbm.top_velocity(f, rho, U0, 0)
+    f, rho = lbm.bottom_velocity(f, rho, U0, 0)
+    # f = lbm.bottom_wall(f)
+    # f = lbm.top_wall(f)
 
     # update new macroscopic
-    rho, u = core.get_macroscopic(f, rho, u)
+    rho, u = lbm.get_macroscopic(f, rho, u)
      
     return f, feq, rho, u, d, v, a, g
 
@@ -186,7 +191,8 @@ for t in tqdm(range(TM)):
 
         # draw a circle representing the cylinder
         circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D), 0.5, 
-                            edgecolor='black', facecolor='white', fill=True)
+                            edgecolor='black', linewidth=0.5,
+                            facecolor='white', fill=True)
         plt.gca().add_artist(circle)
         
         # draw an arrow representing the force
