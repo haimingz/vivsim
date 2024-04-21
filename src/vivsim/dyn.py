@@ -1,4 +1,4 @@
-
+import jax.numpy as jnp
 
 def newmark(a, v, d, g, m, k, c, dt=1, gamma=0.5, beta=0.25):
     """Newmark-beta method for dynamics"""

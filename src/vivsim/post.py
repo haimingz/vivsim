@@ -8,3 +8,7 @@ def calculate_curl(u):
     uy_x = jnp.gradient(u[1], axis=0)
     curl = ux_y - uy_x
     return curl
+
+@jax.jit 
+def calculate_velocity(u):
+    return jnp.sqrt(u[0]**2 + u[1]**2)
