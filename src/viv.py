@@ -115,7 +115,7 @@ def update(f, feq, rho, u, d, v, a, g):
     g += a * math.pi * D ** 2 / 4
     
     # Compute solid dynamics
-    # a, v, d = dynamics.newmark(a, v, d, g, M, K, C)
+    a, v, d = dyn.newmark(a, v, d, g, M, K, C)
 
     # Compute equilibrium
     feq = lbm.get_equilibrum(rho, u, feq)

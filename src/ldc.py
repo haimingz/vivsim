@@ -5,21 +5,23 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from vivsim import lbm, post
 
-
+# control parameters
 U0 = 0.5  # velocity *
 NX = 512  # number of grid points in x direction *
 NY = 512  # number of grid points in y direction *
 RE = 5000  # Reynolds number *
+
+# derived parameters
 NU = U0 * NX / RE  # kinematic viscosity
-
-TM = 80000
-
-# collision operators
-
 TAU = 3 * NU + 0.5  # relaxation time
 OMEGA = 1 / TAU  # relaxation parameter
 OMEGA_MRT = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
 
+# optput parameters
+TM = 80000
+PLOT = True
+PLOT_EVERY = 50
+PLOT_AFTER = 00
 
 # main loop
 @jax.jit
@@ -44,13 +46,10 @@ def update(f, feq, rho, u):
     # new macroscopic properties
     rho, u = lbm.get_macroscopic(f, rho, u)
     
-    return f, feq, rho, u, 
+    return f, feq, rho, u
 
 
 # ----------------- initialize properties -----------------
-PLOT = True
-PLOT_EVERY = 50
-PLOT_AFTER = 00
 
 # macroscopic properties
 rho = jnp.ones((NX, NY))
