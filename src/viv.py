@@ -134,8 +134,6 @@ def update(f, feq, rho, u, d, v, a, g):
 
     # Set Inlet BC at left wall (Zou/He scheme)
     f, rho = lbm.left_velocity(f, rho, U0, 0)
-    f, rho = lbm.top_velocity(f, rho, U0, 0)
-    f, rho = lbm.bottom_velocity(f, rho, U0, 0)
     # f, rho = lbm.top_velocity(f, rho, U0, 0)
     # f, rho = lbm.bottom_velocity(f, rho, U0, 0)
     # f = lbm.bottom_wall(f)
@@ -198,6 +196,7 @@ if PLOT:
     # plt.plot([X1, X1, X2, X2, X1], 
     #          [Y1, Y2, Y2, Y1, Y1], 
     #          "b", linestyle="--", linewidth=0.5)
+    plt.tight_layout()
 
 
 for t in tqdm(range(TM)):

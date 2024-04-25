@@ -9,7 +9,7 @@ from vivsim import lbm, post
 U0 = 0.5  # velocity *
 NX = 512  # number of grid points in x direction *
 NY = 512  # number of grid points in y direction *
-RE = 5000  # Reynolds number *
+RE = 10000  # Reynolds number *
 
 # derived parameters
 NU = U0 * NX / RE  # kinematic viscosity
@@ -20,7 +20,7 @@ OMEGA_MRT = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
 # optput parameters
 TM = 80000
 PLOT = True
-PLOT_EVERY = 100
+PLOT_EVERY = 120
 PLOT_AFTER = 00
 
 # main loop
@@ -62,7 +62,7 @@ f = lbm.get_equilibrum(rho, u, feq)
 
 if PLOT:
     mpl.rcParams['figure.raise_window'] = False
-    fig, ax = plt.subplots(figsize=(9, 7))
+    fig, ax = plt.subplots(figsize=(5, 4))
     im = plt.imshow(
         post.calculate_velocity(u).T,
         cmap="Blues",
