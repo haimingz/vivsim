@@ -112,7 +112,7 @@ def update(f, feq, rho, u, d, v, a, g):
     g = jnp.sum(g_to_markers, axis=0) * L_ARC
     
     # eliminate internal fluid force (Feng’s rigid body approximation)
-    g += a * math.pi * D ** 2 / 4
+    # g += a * math.pi * D ** 2 / 4
     
     # Compute solid dynamics
     a, v, d = dyn.newmark(a, v, d, g, M, K, C)
@@ -136,6 +136,8 @@ def update(f, feq, rho, u, d, v, a, g):
     f, rho = lbm.left_velocity(f, rho, U0, 0)
     f, rho = lbm.top_velocity(f, rho, U0, 0)
     f, rho = lbm.bottom_velocity(f, rho, U0, 0)
+    # f, rho = lbm.top_velocity(f, rho, U0, 0)
+    # f, rho = lbm.bottom_velocity(f, rho, U0, 0)
     # f = lbm.bottom_wall(f)
     # f = lbm.top_wall(f)
 
