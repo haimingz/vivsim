@@ -14,7 +14,7 @@ Accelerated vortex-induced vibration (VIV) simulation using immersed boundary la
 
 
 <p align="center">
-<img src ="assets/ldc.gif"/>
+    <img src ="assets/ldc.gif"/>
 </p>
 
-> This is a real-time simulation of lid-driven cavity at Re = 10000 with 512x512 lattice nodes running on Nvidia Geforce 1080 (plotting every 120 time steps)
+> Simulation of lid-driven cavity at Re = 20000 with 1000x1000 lattice nodes (takes about 5 min on Nvidia Geforce 1080).
