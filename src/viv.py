@@ -150,62 +150,67 @@ if PLOT:
     mpl.rcParams['figure.raise_window'] = False
     plt.figure(figsize=(8, 4))
     
+    if PLOT_CONTENT == "curl":
+        curl = post.calculate_curl(u)
+        im = plt.imshow(
+            curl.T,
+            extent=[0, NX/D, 0, NY/D],
+            cmap="seismic",
+            aspect="equal",
+            norm=mpl.colors.CenteredNorm(),
+            origin="lower"
+            # vmax=0.03,
+            # vmin=-0.03
+        )
+        
+    if PLOT_CONTENT == "rho":
+        im = plt.imshow(
+            rho.T,
+            extent=[0, NX/D, 0, NY/D],
+            cmap="seismic",
+            aspect="equal",
+            origin="lower"
+            # norm=mpl.colors.CenteredNorm(vcenter=1),
+            # vmax=1.05
+            # vmin=0.95,
+        )
+    
+    plt.colorbar()
+    
+    # plt.xticks([])
+    # plt.yticks([])
+    plt.xlabel("x/D")
+    plt.ylabel("y/D")
+
+    # draw a circle representing the cylinder
+    circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D), 0.5, 
+                        edgecolor='black', linewidth=0.5,
+                        facecolor='white', fill=True)
+    plt.gca().add_artist(circle)
+                
+    # draw the central lines
+    plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
+    plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
+    
+    # draw outline of the IBM region as a rectangle
+    # plt.plot([X1, X1, X2, X2, X1], 
+    #          [Y1, Y2, Y2, Y1, Y1], 
+    #          "b", linestyle="--", linewidth=0.5)
+
+
 for t in tqdm(range(TM)):
     f, feq, rho, u, d, v, a, g = update(f, feq, rho, u, d, v, a, g)
-
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
-        plt.clf()
 
         if PLOT_CONTENT == "curl":
-            curl = post.calculate_curl(u)
-            plt.imshow(
-                curl.T,
-                extent=[0, NX/D, 0, NY/D],
-                cmap="seismic",
-                aspect="equal",
-                norm=mpl.colors.CenteredNorm(),
-                origin="lower"
-                # vmax=0.03,
-                # vmin=-0.03
-            )
+            im.set_data(post.calculate_curl(u).T)
+            im.autoscale()
+            circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
         
         if PLOT_CONTENT == "rho":
-            plt.imshow(
-                rho.T,
-                extent=[0, NX/D, 0, NY/D],
-                cmap="seismic",
-                aspect="equal",
-                origin="lower"
-                # norm=mpl.colors.CenteredNorm(vcenter=1),
-                # vmax=1.05
-                # vmin=0.95,
-            )
-        
-        plt.colorbar()
-        
-        # plt.xticks([])
-        # plt.yticks([])
-        plt.xlabel("x/D")
-        plt.ylabel("y/D")
-
-        # draw a circle representing the cylinder
-        circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D), 0.5, 
-                            edgecolor='black', linewidth=0.5,
-                            facecolor='white', fill=True)
-        plt.gca().add_artist(circle)
-        
-        # draw an arrow representing the force
-        # plt.arrow((X_OBJ + d[0]) / D, (Y_OBJ - d[1]) / D, g[0], g[1], 
-        #           color="b", width=0.01,head_width=0.05)
-                
-        # draw the central lines
-        plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
-        plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
-        
-        # draw outline of the IBM region as a rectangle
-        # plt.plot([X1, X1, X2, X2, X1], 
-        #          [Y1, Y2, Y2, Y1, Y1], 
-        #          "b", linestyle="--", linewidth=0.5)
+            im.set_data(rho.T)
+            im.autoscale()
+            circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
         
         plt.pause(0.001)

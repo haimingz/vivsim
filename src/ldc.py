@@ -20,7 +20,7 @@ OMEGA_MRT = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
 # optput parameters
 TM = 80000
 PLOT = True
-PLOT_EVERY = 50
+PLOT_EVERY = 100
 PLOT_AFTER = 00
 
 # main loop
@@ -62,20 +62,21 @@ f = lbm.get_equilibrum(rho, u, feq)
 
 if PLOT:
     mpl.rcParams['figure.raise_window'] = False
-    plt.figure(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(9, 7))
+    im = plt.imshow(
+        post.calculate_velocity(u).T,
+        cmap="Blues",
+        aspect="equal",
+        origin="lower",
+        )
+    plt.colorbar()
     
 for t in tqdm(range(TM)):
     f, feq, rho, u  = update(f, feq, rho, u)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
-        plt.clf()
-        plt.imshow(
-            post.calculate_velocity(u).T,
-            cmap="Blues",
-            aspect="equal",
-            origin="lower",
-        )
-        plt.colorbar()
+        im.set_data(post.calculate_velocity(u).T)
+        im.autoscale()
         plt.pause(0.001)
 
 
