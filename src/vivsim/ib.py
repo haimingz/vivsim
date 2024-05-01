@@ -102,7 +102,7 @@ def get_source(u, g, omega):
     """Computes the source term needed to be added to the distribution functions.
     
     Parameters:
-    - u: The velocity vector with shape (2, NX, Ny).
+    - u: The velocity vector with shape (2, NX, NY).
     - g: The force vector with shape (2, NX, NY).
     - omega: The relaxation parameter.
     
