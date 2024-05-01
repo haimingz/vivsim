@@ -9,17 +9,17 @@ import os
 # simulation parameters
 U0 = 0.5  # velocity * (must < 0.5)
 RE_GRID = 20 # Reynolds number based on grid size * (must < 22)
-NX = 1000  # number of grid points in x direction *
-NY = 1000  # number of grid points in y direction *
+NX = 500  # number of grid points in x direction *
+NY = 500  # number of grid points in y direction *
 
 # optput parameters
 TM = 60000  # number of time steps *
-PLOT = False  # whether to plot the results
+PLOT = True  # whether to plot the results
 PLOT_EVERY = 200  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
-SAVE = True  # whether to save the results
+SAVE = False  # whether to save the results
 SAVE_EVERY = 100  # save every n time steps
-SAVE_AFTER = 19900 # save after n time steps
+SAVE_AFTER = 0 # save after n time steps
 SAVE_DSAMP = 4 # spatially downsample the output by n
 SAVE_FORMAT = jnp.float16  # precision of the output
 SAVE_PATH = os.path.dirname(__file__) + "/../output/ldc/"  # path to save the output 
