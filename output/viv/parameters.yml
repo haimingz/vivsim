@@ -1,0 +1,30 @@
+# configuration file for viv.py
+
+# physics parameters for viv
+RE: 500  # Reynolds number
+UR: 5  # Reduced velocity
+MR: 10  # Mass ratio
+ZETA: 0   # Damping ratio
+D: 20   # Cylinder diameter
+U0: 0.1  # Inlet velocity
+
+# domain settings
+NX: 400  # Number of grid points in x direction
+NY: 200   # Number of grid points in y direction
+X_OBJ: 100   # x-coordinate of the cylinder
+Y_OBJ: 100   # y-coordinate of the cylinder
+N_MARKER: 100   # Number of markers on the circle
+TM: 30000   # Maximum number of time steps
+
+# simulation settings
+SAVE: True  # whether to save the results
+SAVE_EVERY: 100 # Save every n time steps
+SAVE_AFTER: 0  # Save after n time steps
+SAVE_DSAMP: 1  # Save downsample factor
+SAVE_FORMAT: f16  # Save format
+
+# visualization settings
+PLOT: True  # whether to plot the results
+PLOT_EVERY: 50  # plot every n time steps
+PLOT_AFTER: 00  # plot after n time steps
+PLOT_CONTENT: curl  # plot the curl or density
