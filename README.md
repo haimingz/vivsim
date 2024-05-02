@@ -10,14 +10,14 @@ Accelerated vortex-induced vibration (VIV) simulation using immersed boundary la
 
 ### Fluid flow without interaction with objects
 
-| ![](assets/ldc.gif) | ![](assets/fot.gif) |
+| ![LDC](studies/lid_driven_cavity/ldc.gif) | ![FOT](studies/flow_over_text/fot.gif) |
 | -------- | -------- | 
 | Lid-driven cavity (Re = 20000) | Flow over texts (Re=3000) | 
 
 ### Fluid-Structure Interaction (FSI)
 
 <p align="center">
-    <img src ="assets/viv.gif"/>
+    <img src ="studies/vortex-induced vibration/case_demo/viv.gif"/>
 </p>
 Vorticity contour of the VIV of a cylinder at Re = 1000 with 800x400 cells and 100 immersed boundary markers. The simulation takes about 1 min on Nvidia Geforce 1080.
 
