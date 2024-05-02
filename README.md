@@ -15,6 +15,12 @@ Accelerated vortex-induced vibration (VIV) simulation using immersed boundary la
 > Velocity contour of lid-driven cavity at Re = 20000 with 1000x1000 cells (takes about 5 min on Nvidia Geforce 1080).
 
 <p align="center">
+    <img src ="assets/fot.gif"/>
+</p>
+
+> Velocity contour of flow over text-shaped obstacle.
+
+<p align="center">
     <img src ="assets/viv.gif"/>
 </p>
 
