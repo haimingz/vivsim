@@ -1,5 +1,6 @@
 matplotlib
 numpy 
 tqdm
+jupyter
 --find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 jax[cuda12_pip]

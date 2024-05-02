@@ -18,3 +18,14 @@ Accelerated vortex-induced vibration (VIV) simulation using immersed boundary la
 </p>
 
 > Simulation of lid-driven cavity at Re = 20000 with 1000x1000 lattice nodes (takes about 5 min on Nvidia Geforce 1080).
+
+## Getting Started
+
+To locally install for development:
+
+```bash
+git clone https://github.com/haimingz/vivsim.git
+cd vivsim
+pip install -r requirements.txt
+pip install -e .
+```
