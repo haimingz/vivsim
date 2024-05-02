@@ -1,0 +1,18 @@
+# configuration file for ldc.py
+
+# simulation parameters
+U0: 0.5  # velocity * (must < 0.5)
+RE_GRID: 20 # Reynolds number based on grid size * (must < 22)
+NX: 1000  # number of grid points in x direction *
+NY: 1000  # number of grid points in y direction *
+
+# optput settings
+TM: 60000  # number of time steps *
+PLOT: True  # whether to plot the results
+PLOT_EVERY: 200  # plot every n time steps
+PLOT_AFTER: 00  # plot after n time steps
+SAVE: False  # whether to save the results
+SAVE_EVERY: 100  # save every n time steps
+SAVE_AFTER: 0 # save after n time steps
+SAVE_DSAMP: 4 # spatially downsample the output by n
+SAVE_FORMAT: f16  # precision of the output

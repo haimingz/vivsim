@@ -12,13 +12,13 @@ Accelerated vortex-induced vibration (VIV) simulation using immersed boundary la
     <img src ="assets/ldc.gif"/>
 </p>
 
-> Simulation of lid-driven cavity at Re = 20000 with 1000x1000 lattice nodes (takes about 5 min on Nvidia Geforce 1080).
+> Velocity contour of lid-driven cavity at Re = 20000 with 1000x1000 cells (takes about 5 min on Nvidia Geforce 1080).
 
 <p align="center">
     <img src ="assets/viv.gif"/>
 </p>
 
-> This is a real-time VIV simulation at Re = 800 with 800x500 lattice nodes and 100 immersed boundary markers running on Nvidia Geforce 1080 (plotting every 50 time steps).
+> A closed-up vortocity contour of VIV at Re = 1000 with 800x400 cells and 100 immersed boundary markers (takes about 1 min on Nvidia Geforce 1080).
 
 
 ## Capabilities
