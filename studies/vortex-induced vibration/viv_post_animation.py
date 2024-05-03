@@ -68,5 +68,5 @@ def update(i):
 # ----------------------- generate animation -----------------------
 
 ani = FuncAnimation(fig, update, frames=range(SAVE_AFTER + SAVE_EVERY, int(TM * 0.8), SAVE_EVERY * 2), interval=1)
-ani.save(ROOT_PATH + 'viv.gif', fps=60)
-# plt.show()
+# ani.save(ROOT_PATH + 'viv.gif', fps=60)
+plt.show()

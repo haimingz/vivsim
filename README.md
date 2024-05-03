@@ -10,9 +10,9 @@ Accelerated vortex-induced vibration (VIV) simulation using immersed boundary la
 
 ### Fluid flow without interaction with objects
 
-| ![LDC](studies/lid_driven_cavity/ldc.gif) | ![FOT](studies/flow_over_text/fot.gif) |
+| ![LDC](studies/lid_driven_cavity/case_demo/ldc.gif) | ![FOT](studies/flow_through_text/vivsim/ftt.gif) |
 | -------- | -------- | 
-| Lid-driven cavity (Re = 20000) | Flow over texts (Re=3000) | 
+| Lid-driven cavity (Re = 20000) | Flow through texts (Re=3000) | 
 
 ### Fluid-Structure Interaction (FSI)
 

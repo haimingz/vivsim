@@ -7,8 +7,31 @@
    viewBox="0 0 50.599091 15.705555"
    version="1.1"
    id="svg1"
+   sodipodi:docname="vivsim.svg"
+   inkscape:version="1.3.2 (091e20ef0f, 2023-11-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="5.359739"
+     inkscape:cx="95.527041"
+     inkscape:cy="29.665624"
+     inkscape:window-width="3440"
+     inkscape:window-height="1295"
+     inkscape:window-x="0"
+     inkscape:window-y="37"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
   <defs
      id="defs1" />
   <g
@@ -18,16 +41,11 @@
        style="fill:none;stroke:#034fa3;stroke-width:0.705555;stroke-opacity:1"
        d="m 85.000002,29.999999 c -0.999999,-10e-7 1,15 5,15 4,0 9,-14.999999 9.999998,-15 1,-10e-7 -0.999998,15 -4.999998,15 -4,0 -9,-14.999999 -10,-15 z"
        id="path1" />
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.4192px;font-family:'Noto Sans CJK SC';-inkscape-font-specification:'Noto Sans CJK SC';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.705555;stroke-opacity:1"
-       x="104.1847"
-       y="42.371273"
+    <path
+       d="m 114.681,39.413105 -2.67605,-6.90685 h 0.98938 l 1.79503,5.017596 q 0.21672,0.603053 0.36278,1.130725 0.16018,-0.565362 0.37219,-1.130725 l 1.8657,-5.017596 h 0.93285 l -2.70432,6.90685 z m 4.61713,0 v -6.90685 h 0.914 v 6.90685 z m 4.49935,0 -2.67605,-6.90685 h 0.98938 l 1.79503,5.017596 q 0.21672,0.603053 0.36277,1.130725 0.16019,-0.565362 0.3722,-1.130725 l 1.8657,-5.017596 h 0.93285 l -2.70432,6.90685 z m 4.1507,-2.219049 0.86218,-0.07538 q 0.0613,0.518249 0.28268,0.852756 0.22615,0.329795 0.69728,0.537094 0.47114,0.202589 1.06006,0.202589 0.52296,0 0.92343,-0.155475 0.40046,-0.155475 0.59363,-0.424022 0.19787,-0.273259 0.19787,-0.593631 0,-0.325084 -0.18845,-0.565363 -0.18846,-0.244991 -0.6219,-0.409888 -0.27797,-0.108361 -1.22966,-0.334507 -0.9517,-0.230856 -1.33332,-0.433444 -0.49469,-0.259125 -0.73968,-0.640745 -0.24028,-0.386331 -0.24028,-0.862178 0,-0.522961 0.29681,-0.975251 0.29682,-0.457002 0.86689,-0.69257 0.57008,-0.235568 1.26736,-0.235568 0.76795,0 1.35216,0.249702 0.58892,0.244991 0.90458,0.725549 0.31566,0.480559 0.33922,1.088324 l -0.87632,0.06596 q -0.0707,-0.654879 -0.48055,-0.989385 -0.40518,-0.334507 -1.2014,-0.334507 -0.8292,0 -1.21082,0.306238 -0.37691,0.301527 -0.37691,0.730261 0,0.372197 0.26855,0.612476 0.26384,0.24028 1.37572,0.494693 1.11659,0.249702 1.53119,0.438156 0.60305,0.27797 0.89044,0.706704 0.2874,0.424022 0.2874,0.979962 0,0.551229 -0.31566,1.04121 -0.31566,0.48527 -0.9093,0.758529 -0.58892,0.268547 -1.3286,0.268547 -0.93756,0 -1.57359,-0.273259 -0.63132,-0.273259 -0.9941,-0.819776 -0.35806,-0.551229 -0.37691,-1.243798 z m 6.90214,2.219049 v -6.90685 h 0.91401 v 6.90685 z m 2.49702,0 v -6.90685 h 1.37572 l 1.63484,4.890389 q 0.22614,0.683147 0.32979,1.022365 0.11779,-0.376909 0.36749,-1.107169 l 1.65369,-4.805585 h 1.22966 v 6.90685 h -0.88102 v -5.780836 l -2.00704,5.780836 h -0.82449 l -1.99762,-5.879774 v 5.879774 z"
        id="text1"
-       transform="scale(0.98852999,1.0116031)"><tspan
-         id="tspan1"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Noto Sans CJK SC';-inkscape-font-specification:'Noto Sans CJK SC';fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.705555"
-         x="104.1847"
-         y="42.371273">VIVSIM</tspan></text>
+       style="font-size:9.64886px;font-family:Arial;-inkscape-font-specification:'Arial, Normal';stroke-width:0.65339"
+       transform="scale(0.91544383,1.0923663)"
+       aria-label="VIVSIM" />
   </g>
 </svg>

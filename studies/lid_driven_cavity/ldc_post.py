@@ -35,5 +35,5 @@ def update(i):
     return im
 
 ani = FuncAnimation(fig, update, frames=range(SAVE_AFTER + SAVE_EVERY,TM,SAVE_EVERY * 5), interval=1)
-ani.save('ldc.gif', writer='imagemagick', fps=60)
-# plt.show()
+# ani.save('ldc.gif', fps=60)
+plt.show()
