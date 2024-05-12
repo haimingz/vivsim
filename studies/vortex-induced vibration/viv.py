@@ -102,12 +102,12 @@ def update(f, feq, rho, u, d, v, a, g):
     g_to_markers = jnp.zeros((N_MARKER, 2))  # force to the markers
     g_to_fluid = jnp.zeros((2, X2 - X1, Y2 - Y1))  # force to the fluid
     
-    for _ in range(MDF_ITER):
+    # calculate the kernels
+    x_markers = X_MARKERS + d[0]  # x coordinates of the markers
+    y_markers = Y_MARKERS + d[1]  # y coordinates of the markers
+    kernels = jax.vmap(ib.kernel3, in_axes=(0, 0, None, None))(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
         
-        # calculate the kernels
-        x_markers = X_MARKERS + d[0]  # x coordinates of the markers
-        y_markers = Y_MARKERS + d[1]  # y coordinates of the markers
-        kernels = jax.vmap(ib.kernel3, in_axes=(0, 0, None, None))(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
+    for _ in range(MDF_ITER):
         
         # interpolate velocity at the markers
         u_markers = jax.vmap(ib.interpolate_u, in_axes=(None, 0))(u[:, X1:X2, Y1:Y2], kernels)
