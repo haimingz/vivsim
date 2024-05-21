@@ -6,6 +6,8 @@
 
 Accelerated vortex-induced vibration (VIV) simulation using immersed boundary lattice Boltzmann method (IB-LBM) powered by JAX.
 
+Currently, this repo is under early development so APIs may change constantly. Troubleshooting and implementation ideas are welcomed.
+
 ## Examples
 
 ### Fluid flow without interaction with objects
@@ -57,7 +59,9 @@ Fluid-Structure Interaction
 
 ## Getting Started
 
-To locally install for development:
+This package is based on JAX, whose installation may depend on the OS and hardware. Please refer to the [JAX Documentation](https://jax.readthedocs.io/en/latest/installation.html) for the latest installation guidance. 
+
+To locally install VIVSIM for development:
 
 ```bash
 git clone https://github.com/haimingz/vivsim.git
@@ -66,4 +70,9 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-Please refer to https://jax.readthedocs.io/en/latest/installation.html for the latest installation documentation. 
+Also, you can create and run the following cell to install VIVSIM on Google Collab:
+
+```python
+!pip install git+https://github.com/haimingz/vivsim
+```
+
