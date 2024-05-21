@@ -11,13 +11,13 @@ Accelerated vortex-induced vibration (VIV) simulation using immersed boundary la
 ### Fluid flow without interaction with objects
 
 <p align="center">
-    <img src ="assets/ldc_compressed.gif" width=500/>
+    <img src ="assets/cavity.gif" width=500/>
 </p>
 
 > Simulation of lid-driven cavity at Re = 20000 on a 1000x1000 lattice grid.
 
 <p align="center">
-    <img src ="assets/ftt_vivsim_compressed.gif" width=500/>
+    <img src ="assets/text.gif" width=500/>
 </p>
 
 > Simulation of flow pass through objects (texts) on a 1000x1000 lattice grid.
@@ -25,13 +25,13 @@ Accelerated vortex-induced vibration (VIV) simulation using immersed boundary la
 ### Fluid-Structure Interaction (FSI)
 
 <p align="center">
-    <img src ="assets/viv_1000_compressed.gif" width=800/>
+    <img src ="assets/viv_1000.gif" width=800/>
 </p>
 
 > Vorticity contour showing the VIV of a cylinder with Vr = 5 and Re = 1000. The simulation was conducted on a 800x400 lattice grid with 100 immersed boundary markers, taking about 1 min on Nvidia Geforce GTX 1080.
 
 <p align="center">
-    <img src ="assets/viv_10000_compressed.gif" width=800/>
+    <img src ="assets/viv_10000.gif" width=800/>
 </p>
 
 > Velocity and vorticity contours showing the VIV of a cylinder with Vr = 5 and Re = 10000. The simulation was conducted on a 8000x4000 lattice grid with 1200 immersed boundary markers, taking about 30 min on 8 Nvidia A800.
