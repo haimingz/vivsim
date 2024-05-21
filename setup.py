@@ -8,5 +8,5 @@ setuptools.setup(
    author='Haiming Zhu',
    author_email='zhuhaiming@gmail.com',
    url="https://github.com/haimingz/vivsim", 
-   install_requires=['numpy', 'jax', 'tqdm', 'matplotlib', 'jupyter'],
+   # install_requires=['numpy', 'jax', 'tqdm', 'matplotlib', 'jupyter'],
 )
