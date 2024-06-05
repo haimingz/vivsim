@@ -91,12 +91,14 @@ def update(f, feq, rho, u, d, v, a, g):
         
     for _ in range(MDF):
         
-        # interpolate velocity at the markers
+        # velocity interpolation (at markers)
         u_markers = jax.vmap(ib.interpolate_u, in_axes=(None, 0))(u[:, X1:X2, Y1:Y2], kernels)
         
-        # calculate and apply the needed correction force to the fluid
+        # compute correction force (at markers) 
         g_needed = jax.vmap(ib.get_g_correction, in_axes=(None, 0))(v, u_markers)
         g_needed_spread = jnp.sum(jax.vmap(ib.spread_g, in_axes=(0, 0))(g_needed, kernels), axis=0)
+        
+        # velocity correction
         u = u.at[:, X1:X2, Y1:Y2].add(ib.get_u_correction(g_needed_spread))
         
         # accumulate the coresponding correction force to the markers and the fluid

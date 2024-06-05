@@ -59,7 +59,7 @@ f = lbm.get_equilibrum(rho, u, f)
 @jax.jit
 def update(f, feq, rho, u):
 
-     # Compute equilibrium distribution function
+    # Compute equilibrium distribution function
     feq = lbm.get_equilibrum(rho, u, feq)
 
      # Collision
