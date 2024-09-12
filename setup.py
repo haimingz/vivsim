@@ -6,7 +6,6 @@ setuptools.setup(
    version='1.0',
    description='Accelerated vortex-induced vibration (VIV) simulation using immersed boundary lattice Boltzmann method (IB-LBM) powered by JAX.',
    author='Haiming Zhu',
-   author_email='zhuhaiming@gmail.com',
+   author_email='zhuhaiming@tju.edu.cn',
    url="https://github.com/haimingz/vivsim", 
-   # install_requires=['numpy', 'jax', 'tqdm', 'matplotlib', 'jupyter'],
 )
