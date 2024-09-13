@@ -43,11 +43,11 @@ def get_macroscopic(f, rho, u):
 
     Parameters:
     - f: The distribution function with shape (9, NX, NY).
-    - rho: The density with shape (2, NX, NY).
+    - rho: The density with shape (NX, NY).
     - u: The velocity with shape (2, NX, NY).
 
     Returns:
-    - rho: The density with shape (2, NX, NY).
+    - rho: The density with shape (NX, NY).
     - u: The velocity with shape (2, NX, NY).
     """
     rho = jnp.sum(f, axis=0)
@@ -140,6 +140,16 @@ def collision_mrt(f, feq, omega_mrt):
     return jnp.tensordot(omega_mrt, feq - f, axes=([1], [0])) + f
 
 # --------------------------------- boundary conditions ---------------------------------
+# 6   2   5
+#   \ | /
+# 3 - 0 - 1
+#   / | \
+# 7   4   8 
+
+right_indices = jnp.array([1, 5, 8])
+left_indices = jnp.array([3, 7, 6])
+top_indices = jnp.array([2, 5, 6])
+bottom_indices = jnp.array([4, 7, 8])
 
 def left_wall(f):
     """Applies wall BC at the left of the domain (bounce back scheme).
@@ -151,9 +161,7 @@ def left_wall(f):
     - f: Updated distribution functions after applying the boundary conditions.
     """
 
-    f = f.at[1, 0].set(f[3, 0])
-    f = f.at[5, 0].set(f[7, 0])
-    f = f.at[8, 0].set(f[6, 0])
+    f = f.at[right_indices, 0].set(f[left_indices, 0])
     return f
 
 def right_wall(f):
@@ -166,9 +174,7 @@ def right_wall(f):
     - f: Updated distribution functions after applying the boundary conditions.
     """
 
-    f = f.at[3, -1].set(f[1, -1])
-    f = f.at[7, -1].set(f[5, -1])
-    f = f.at[6, -1].set(f[8, -1])
+    f = f.at[left_indices, -1].set(f[right_indices, -1])
     return f
 
 def bottom_wall(f):
@@ -181,9 +187,7 @@ def bottom_wall(f):
     - f: Updated distribution functions after applying the boundary conditions.
     """
 
-    f = f.at[2, :, 0].set(f[4, :, 0])
-    f = f.at[5, :, 0].set(f[7, :, 0])
-    f = f.at[6, :, 0].set(f[8, :, 0])
+    f = f.at[top_indices, :, 0].set(f[bottom_indices, :, 0])
     return f
 
 def top_wall(f):
@@ -196,9 +200,7 @@ def top_wall(f):
     - f: Updated distribution functions after applying the boundary conditions.
     """
 
-    f = f.at[4, :, 0].set(f[2, :, 0])
-    f = f.at[7, :, 0].set(f[5, :, 0])
-    f = f.at[8, :, 0].set(f[6, :, 0])
+    f = f.at[bottom_indices, :, 0].set(f[top_indices, :, 0])
     return f
 
 def right_outlet(f):
@@ -210,10 +212,7 @@ def right_outlet(f):
     Returns:
     - f: Updated distribution functions after applying the boundary conditions.
     """
-
-    f = f.at[3, -1].set(f[3, -2])
-    f = f.at[6, -1].set(f[6, -2])
-    f = f.at[7, -1].set(f[7, -2])
+    f = f.at[left_indices, -1].set(f[left_indices, -2])
     return f
 
 def left_outlet(f):
@@ -226,9 +225,7 @@ def left_outlet(f):
     - f: Updated distribution functions after applying the boundary conditions.
     """
 
-    f = f.at[1, 0].set(f[1, 1])
-    f = f.at[5, 0].set(f[5, 1])
-    f = f.at[8, 0].set(f[8, 1])
+    f = f.at[right_indices, 0].set(f[right_indices, 1])
     return f
 
 def top_outlet(f):
@@ -241,9 +238,7 @@ def top_outlet(f):
     - f: Updated distribution functions after applying the boundary conditions.
     """
 
-    f = f.at[2, :, -1].set(f[2, :, -2])
-    f = f.at[5, :, -1].set(f[5, :, -2])
-    f = f.at[6, :, -1].set(f[6, :, -2])
+    f = f.at[top_indices, :, -1].set(f[top_indices, :, -2])
     return f
 
 def bottom_outlet(f):
@@ -256,9 +251,7 @@ def bottom_outlet(f):
     - f: Updated distribution functions after applying the boundary conditions.
     """
 
-    f = f.at[4, :, 0].set(f[4, :, 1])
-    f = f.at[7, :, 0].set(f[7, :, 1])
-    f = f.at[8, :, 0].set(f[8, :, 1])
+    f = f.at[bottom_indices, :, 0].set(f[bottom_indices, :, 1])
     return f
 
 def left_velocity(f, rho, ux, uy):
@@ -276,9 +269,9 @@ def left_velocity(f, rho, ux, uy):
 
     rho_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / (1 - ux)
     rho = rho.at[0].set(rho_wall)
-    f = f.at[1, 0].set(f[3, 0] + 2 / 3 * rho_wall * ux)
-    f = f.at[5, 0].set(f[7, 0] - 0.5 * (f[2, 0] - f[4, 0]) + 1 / 6 * rho_wall * ux + 0.5 * rho_wall * uy)
-    f = f.at[8, 0].set(f[6, 0] + 0.5 * (f[2, 0] - f[4, 0]) + 1 / 6 * rho_wall * ux - 0.5 * rho_wall * uy)
+    f = f.at[1, 0].set(f[3, 0] + 2 / 3 * ux * rho_wall)
+    f = f.at[5, 0].set(f[7, 0] - 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux + 0.5 * uy) * rho_wall)
+    f = f.at[8, 0].set(f[6, 0] + 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux - 0.5 * uy) * rho_wall)
     return f, rho
 
 def right_velocity(f, rho, ux, uy):
@@ -296,9 +289,9 @@ def right_velocity(f, rho, ux, uy):
     
     rho_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / (1 + ux)
     rho = rho.at[-1].set(rho_wall)
-    f = f.at[3, -1].set(f[1, -1] - 2 / 3 * rho_wall * ux)
-    f = f.at[7, -1].set(f[5, -1] + 0.5 * (f[2, -1] - f[4, -1]) - 1 / 6 * rho_wall * ux - 0.5 * rho_wall * uy)
-    f = f.at[6, -1].set(f[8, -1] - 0.5 * (f[2, -1] - f[4, -1]) - 1 / 6 * rho_wall * ux + 0.5 * rho_wall * uy)
+    f = f.at[3, -1].set(f[1, -1] - 2 / 3 * ux * rho_wall)
+    f = f.at[7, -1].set(f[5, -1] + 0.5 * (f[2, -1] - f[4, -1]) + (- 1 / 6 * ux - 0.5 * uy) * rho_wall)
+    f = f.at[6, -1].set(f[8, -1] - 0.5 * (f[2, -1] - f[4, -1]) + (- 1 / 6 * ux + 0.5 * uy) * rho_wall)
     return f, rho
 
 def top_velocity(f, rho, ux, uy):
@@ -314,11 +307,11 @@ def top_velocity(f, rho, ux, uy):
     - rho (ndarray): Updated density after applying the boundary conditions.
     """
     
-    rho_wall = (f[0, :,-1] + f[1, :,-1] + f[3, :,-1] + 2 * (f[2, :,-1] + f[5, :,-1] + f[6, :,-1])) / (1 + uy)
+    rho_wall = (jnp.sum(f[0, :,-1] + f[1, :,-1] + f[3, :,-1], axis=0) + 2 * (f[2, :,-1] + f[5, :,-1] + f[6, :,-1])) / (1 + uy)
     rho = rho.at[:, -1].set(rho_wall)
-    f = f.at[4, :, -1].set(f[2, :, -1] - 2 / 3 * rho_wall * uy)
-    f = f.at[7, :, -1].set(f[5, :, -1] + 0.5 * (f[1, :, -1] - f[3, :, -1]) - 1 / 6 * rho_wall * uy - 0.5 * rho_wall * ux)
-    f = f.at[8, :, -1].set(f[6, :, -1] - 0.5 * (f[1, :, -1] - f[3, :, -1]) - 1 / 6 * rho_wall * uy + 0.5 * rho_wall * ux)
+    f = f.at[4, :, -1].set(f[2, :, -1] - 2 / 3 * uy * rho_wall)
+    f = f.at[7, :, -1].set(f[5, :, -1] + 0.5 * (f[1, :, -1] - f[3, :, -1]) + (1 / 6 * uy - 0.5 * ux) * rho_wall)
+    f = f.at[8, :, -1].set(f[6, :, -1] - 0.5 * (f[1, :, -1] - f[3, :, -1]) + (1 / 6 * uy + 0.5 * ux) * rho_wall)
     return f, rho
 
 def bottom_velocity(f, rho, ux, uy):
@@ -336,9 +329,9 @@ def bottom_velocity(f, rho, ux, uy):
     
     rho_wall = (f[0, :,0] + f[1, :,0] + f[3, :,0] + 2 * (f[4, :,0] + f[7, :,0] + f[8, :,0])) / (1 - uy)
     rho = rho.at[:, 0].set(rho_wall)
-    f = f.at[2, :, 0].set(f[4, :, 0] + 2 / 3 * rho_wall * uy)
-    f = f.at[5, :, 0].set(f[7, :, 0] - 0.5 * (f[1, :, 0] - f[3, :, 0]) + 1 / 6 * rho_wall * uy + 0.5 * rho_wall * ux)
-    f = f.at[6, :, 0].set(f[8, :, 0] + 0.5 * (f[1, :, 0] - f[3, :, 0]) + 1 / 6 * rho_wall * uy - 0.5 * rho_wall * ux)
+    f = f.at[2, :, 0].set(f[4, :, 0] + 2 / 3 * uy * rho_wall)
+    f = f.at[5, :, 0].set(f[7, :, 0] - 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy + 0.5 * ux) * rho_wall)
+    f = f.at[6, :, 0].set(f[8, :, 0] + 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy - 0.5 * ux) * rho_wall)
     return f, rho
 
 def obstacle_bounce(f, mask):
