@@ -12,6 +12,14 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from vivsim import dyn, ib, lbm, post
 
+import os
+os.environ['XLA_FLAGS'] = (
+    '--xla_gpu_enable_triton_softmax_fusion=true '
+    '--xla_gpu_triton_gemm_any=True '
+    # '--xla_gpu_enable_async_collectives=true '
+    '--xla_gpu_enable_latency_hiding_scheduler=true '
+    '--xla_gpu_enable_highest_priority_async_stream=true '
+)
 
 # physics parameters for viv
 RE = 1000  # Reynolds number
@@ -30,7 +38,7 @@ N_MARKER = 100   # Number of markers on the circle
 TM = 60000   # Maximum number of time steps
 
 # plot options
-PLOT = True  # whether to plot the results
+PLOT = False  # whether to plot the results
 PLOT_EVERY = 100  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 

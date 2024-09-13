@@ -9,15 +9,25 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from vivsim import lbm, post
 
+import os
+os.environ['XLA_FLAGS'] = (
+    '--xla_gpu_enable_triton_softmax_fusion=true '
+    '--xla_gpu_triton_gemm_any=True '
+    # '--xla_gpu_enable_async_collectives=true '
+    '--xla_gpu_enable_latency_hiding_scheduler=true '
+    '--xla_gpu_enable_highest_priority_async_stream=true '
+)
+# jax.config.update('jax_platform_name', 'cpu')
+
 # define control parameters
 U0 = 0.5  # velocity (must < 0.5 for stability)
 RE_GRID = 20 # Reynolds number based on grid size (must < 22 for stability)
 NX = 200  # number of grid points in x direction
 NY = 200  # number of grid points in y direction
-TM = 20000  # number of time steps
+TM = 50000  # number of time steps
 
 # plot options
-PLOT = True  # whether to plot the results
+PLOT = False  # whether to plot the results
 PLOT_EVERY = 200  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
@@ -70,8 +80,10 @@ if PLOT:
     plt.colorbar()
 
 # start simulation 
-for t in tqdm(range(TM)):
-    f, feq, rho, u  = jax.jit(update)(f, feq, rho, u)
+update_jitted = jax.jit(update)
+
+for t in tqdm(range(TM)):   
+    f, feq, rho, u  = update_jitted(f, feq, rho, u)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
         im.set_data(post.calculate_velocity(u).T)
