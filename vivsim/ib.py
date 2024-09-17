@@ -396,5 +396,3 @@ def calculate_torque_obj(x_markers, y_markers, X_CENTER, Y_CENTER, d,  h_markers
     torque = jnp.sum(jnp.cross(coord_rel, (h_markers * marker_distance).T, axis=0))
     return torque
 
-# ----------------- Internal fluid -----------------
-

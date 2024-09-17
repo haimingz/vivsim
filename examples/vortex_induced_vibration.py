@@ -40,7 +40,7 @@ U0 = 0.05  # Inlet velocity
 TM = 60000   # Maximum number of time steps
 
 # plot options
-PLOT = True  # whether to plot the results
+PLOT = False  # whether to plot the results
 PLOT_EVERY = 100  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
@@ -92,7 +92,7 @@ def update(f, feq, rho, u, d, v, a, h):
 
     # Immersed Boundary Method
     x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
-    h_markers, g, u = ib.multi_direct_forcing(u, v, X, Y, x_markers, y_markers, X1, X2, Y1, Y2, MDF)
+    h_markers, g, u = ib.multi_direct_forcing(u, X, Y, v, x_markers, y_markers, X1, X2, Y1, Y2, MDF)
 
     # Compute force to the obj (including internal fluid force)
     h = ib.calculate_force_obj(h_markers, L_ARC)

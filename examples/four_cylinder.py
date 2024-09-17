@@ -19,21 +19,21 @@ os.environ['XLA_FLAGS'] = (
 
 
 # physics parameters for viv
-RE = 100  # Reynolds number
+RE = 500  # Reynolds number
 UR = 5  # Reduced velocity
 MR = 10  # Mass ratio
 ZETA = 0   # Damping ratio
 
 # geometric parameters
 D = 20   # Cylinder diameter
-NX = 30 * D  # Number of grid points in x direction
-NY = 20 * D   # Number of grid points in y direction
-X_OBJ = 12 * D   # x-coordinate of the cylinder
-Y_OBJ = 10 * D   # y-coordinate of the cylinder
+NX = 40 * D  # Number of grid points in x direction
+NY = 30 * D   # Number of grid points in y direction
+X_OBJ = 20 * D   # x-coordinate of the cylinder
+Y_OBJ = 15 * D   # y-coordinate of the cylinder
 N_MARKER_EACH = 4 * D   # Number of markers on the circle
 
 # time parameters
-U0 = 0.1  # Inlet velocity
+U0 = 0.05  # Inlet velocity
 TM = 60000   # Maximum number of time steps
 
 # plot options
@@ -102,11 +102,11 @@ N_MARKER = 4 * N_MARKER_EACH
 
 INERTIA = 4 * (M / 4) * SPACING ** 2  # moment of inertia
 
-K_ROT = 2500
+K_ROT = 500
 
 M_MATRIX = jnp.diag(jnp.array([M, M, INERTIA]))
 K_MATRIX = jnp.diag(jnp.array([K, K, K_ROT]))
-C_MATRIX = jnp.diag(jnp.array([C, C, 5000]))
+C_MATRIX = jnp.diag(jnp.array([C, C, 500]))
 
 # create empty arrays
 rho = jnp.ones((NX, NY), dtype=jnp.float32)  # density of fluid
@@ -189,20 +189,51 @@ if PLOT:
     plt.xlabel("x/D")
     plt.ylabel("y/D")
 
-    # # draw a circle representing the cylinder
-    # circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D), 0.5, 
-    #                     edgecolor='black', linewidth=0.5,
-    #                     facecolor='white', fill=True)
-    # plt.gca().add_artist(circle)
+    # draw athe geometry
+    x_center1 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 0 + d[2]) + d[0]
+    y_center1 = Y_OBJ + SPACING * jnp.sin(jnp.pi / 8 + jnp.pi / 2 * 0 + d[2]) + d[1]
+    x_center2 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 1 + d[2]) + d[0]
+    y_center2 = Y_OBJ + SPACING * jnp.sin(jnp.pi / 8 + jnp.pi / 2 * 1 + d[2]) + d[1]
+    x_center3 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 2 + d[2]) + d[0]
+    y_center3 = Y_OBJ + SPACING * jnp.sin(jnp.pi / 8 + jnp.pi / 2 * 2 + d[2]) + d[1]
+    x_center4 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 3 + d[2]) + d[0]
+    y_center4 = Y_OBJ + SPACING * jnp.sin(jnp.pi / 8 + jnp.pi / 2 * 3 + d[2]) + d[1]    
+    
+    circle1 = plt.Circle((x_center1 / D, y_center1 / D), 0.5, 
+                        edgecolor='black', linewidth=0.5,
+                        facecolor='white', fill=True)
+    circle2 = plt.Circle((x_center2 / D, y_center2 / D), 0.5, 
+                        edgecolor='black', linewidth=0.5,
+                        facecolor='white', fill=True)
+    circle3 = plt.Circle((x_center3 / D, y_center3 / D), 0.5, 
+                        edgecolor='black', linewidth=0.5,
+                        facecolor='white', fill=True)
+    circle4 = plt.Circle((x_center4 / D, y_center4 / D), 0.5, 
+                        edgecolor='black', linewidth=0.5,
+                        facecolor='white', fill=True)
+    plt.gca().add_artist(circle1)
+    plt.gca().add_artist(circle2)
+    plt.gca().add_artist(circle3)
+    plt.gca().add_artist(circle4)
+    
+    line1 = plt.Line2D([x_center1 / D, x_center2 / D], [y_center1 / D, y_center2 / D], color="black", linewidth=0.5)
+    line2 = plt.Line2D([x_center2 / D, x_center3 / D], [y_center2 / D, y_center3 / D], color="black", linewidth=0.5)
+    line3 = plt.Line2D([x_center3 / D, x_center4 / D], [y_center3 / D, y_center4 / D], color="black", linewidth=0.5)
+    line4 = plt.Line2D([x_center4 / D, x_center1 / D], [y_center4 / D, y_center1 / D], color="black", linewidth=0.5)
+    
+    plt.gca().add_artist(line1)
+    plt.gca().add_artist(line2)
+    plt.gca().add_artist(line3)
+    plt.gca().add_artist(line4)
                 
     # draw the central lines
     plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
     plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
     
     # draw outline of the IBM region as a rectangle
-    plt.plot(jnp.array([X1, X1, X2, X2, X1]) / D, 
-             jnp.array([Y1, Y2, Y2, Y1, Y1]) / D, 
-             "b", linestyle="--", linewidth=0.5)
+    # plt.plot(jnp.array([X1, X1, X2, X2, X1]) / D, 
+    #          jnp.array([Y1, Y2, Y2, Y1, Y1]) / D, 
+    #          "b", linestyle="--", linewidth=0.5)
     
     plt.tight_layout()
 
@@ -214,7 +245,29 @@ for t in tqdm(range(TM)):
 
         im.set_data(post.calculate_curl(u).T)
         # im.autoscale()
-        # circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
+        
+        x_center1 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 0 + d[2]) + d[0]
+        y_center1 = Y_OBJ + SPACING * jnp.sin(jnp.pi / 8 + jnp.pi / 2 * 0 + d[2]) + d[1]
+        x_center2 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 1 + d[2]) + d[0]
+        y_center2 = Y_OBJ + SPACING * jnp.sin(jnp.pi / 8 + jnp.pi / 2 * 1 + d[2]) + d[1]
+        x_center3 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 2 + d[2]) + d[0]
+        y_center3 = Y_OBJ + SPACING * jnp.sin(jnp.pi / 8 + jnp.pi / 2 * 2 + d[2]) + d[1]
+        x_center4 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 3 + d[2]) + d[0]
+        y_center4 = Y_OBJ + SPACING * jnp.sin(jnp.pi / 8 + jnp.pi / 2 * 3 + d[2]) + d[1]
+        
+        circle1.center = (x_center1 / D, y_center1 / D)
+        circle2.center = (x_center2 / D, y_center2 / D)
+        circle3.center = (x_center3 / D, y_center3 / D)
+        circle4.center = (x_center4 / D, y_center4 / D)
+        
+        line1.set_xdata([x_center1 / D, x_center2 / D])
+        line1.set_ydata([y_center1 / D, y_center2 / D])
+        line2.set_xdata([x_center2 / D, x_center3 / D])
+        line2.set_ydata([y_center2 / D, y_center3 / D])
+        line3.set_xdata([x_center3 / D, x_center4 / D])
+        line3.set_ydata([y_center3 / D, y_center4 / D])
+        line4.set_xdata([x_center4 / D, x_center1 / D])
+        line4.set_ydata([y_center4 / D, y_center1 / D])
         
         plt.pause(0.001)
 
