@@ -1,8 +1,12 @@
 """This files provides the core functions for the lattice Boltzmann method (LBM) in 2D.
 
-* Bhatnagar-Gross-Krook (BGK) model and multiple relaxation time (MRT) model are implemented for collision
-* no-slip boundary is applied using bounce back scheme at domain boundaries and obstacles
-* non-equilibrium bounce back (Zou/He) scheme is adopted for dirichlet BC at domain boundaries
+Collision models:
+* Bhatnagar-Gross-Krook (BGK) model: collision_bgk
+* multiple relaxation time (MRT) model: collision_mrt
+
+Boundary conditions:
+* no-slip boundary for domain boundaries and obstacles
+* non-equilibrium bounce back (Zou/He) boundary for velocity inlet
 * no-gradient method is used for outlet BC
 
 All equations have been partially evaluated for the D2Q9 model to maximize efficiency.

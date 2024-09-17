@@ -22,23 +22,25 @@ os.environ['XLA_FLAGS'] = (
 )
 
 # physics parameters for viv
-RE = 1000  # Reynolds number
+RE = 100  # Reynolds number
 UR = 5  # Reduced velocity
 MR = 10  # Mass ratio
 ZETA = 0   # Damping ratio
-D = 50   # Cylinder diameter
-U0 = 0.05  # Inlet velocity
 
-# domain settings
-NX = 800  # Number of grid points in x direction
-NY = 400   # Number of grid points in y direction
-X_OBJ = 300   # x-coordinate of the cylinder
-Y_OBJ = 200   # y-coordinate of the cylinder
-N_MARKER = 100   # Number of markers on the circle
+# geometric parameters
+D = 50   # Cylinder diameter
+NX = 20 * D  # Number of grid points in x direction
+NY = 10 * D   # Number of grid points in y direction
+X_OBJ = 10 * D   # x-coordinate of the cylinder
+Y_OBJ = 5 * D   # y-coordinate of the cylinder
+N_MARKER = 4 * D   # Number of markers on the circle
+
+# time parameters
+U0 = 0.05  # Inlet velocity
 TM = 60000   # Maximum number of time steps
 
 # plot options
-PLOT = False  # whether to plot the results
+PLOT = True  # whether to plot the results
 PLOT_EVERY = 100  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
@@ -55,18 +57,18 @@ OMEGA = 1 / TAU  # relaxation parameter
 MRT_OMEGA = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
 L_ARC = D * math.pi / N_MARKER  # arc length between the markers
 RE_GRID = RE / D  # Reynolds number based on grid size
-X1 = int(X_OBJ - 0.7 * D)   # left boundary of the IBM region
+X1 = int(X_OBJ - 0.7 * D)   # left boundary of the IBM region 
 X2 = int(X_OBJ + 1.0 * D)   # right boundary of the IBM region
 Y1 = int(Y_OBJ - 1.5 * D)   # bottom boundary of the IBM region
 Y2 = int(Y_OBJ + 1.5 * D)   # top boundary of the IBM region
 MDF = 3  # number of iterations for multi-direct forcing
 
 # generate mesh grid
-X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.int16), 
-                    jnp.arange(NY, dtype=jnp.int16), 
+X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.uint16), 
+                    jnp.arange(NY, dtype=jnp.uint16), 
                     indexing="ij")
 
-THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, endpoint=False)
+THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, dtype=jnp.float32, endpoint=False)
 X_MARKERS = X_OBJ + 0.5 * D * jnp.cos(THETA_MAKERS)
 Y_MARKERS = Y_OBJ + 0.5 * D * jnp.sin(THETA_MAKERS)
 
@@ -78,7 +80,7 @@ feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # equilibrium distribution func
 d = jnp.zeros((2), dtype=jnp.float32)  # displacement
 v = jnp.zeros((2), dtype=jnp.float32)  # velocity
 a = jnp.zeros((2), dtype=jnp.float32)  # acceleration
-g = jnp.zeros((2), dtype=jnp.float32)  # force
+h = jnp.zeros((2), dtype=jnp.float32)  # force
 
 # initialize
 u = u.at[0].set(U0)
@@ -86,41 +88,20 @@ f = lbm.get_equilibrum(rho, u, f)
 
 # define main loop 
 @jax.jit
-def update(f, feq, rho, u, d, v, a, g):
+def update(f, feq, rho, u, d, v, a, h):
 
     # Immersed Boundary Method
-    g_to_markers = jnp.zeros((N_MARKER, 2))  # force to the markers
-    g_to_fluid = jnp.zeros((2, X2 - X1, Y2 - Y1))  # force to the fluid
-    
-    # calculate the kernels
-    x_markers = X_MARKERS + d[0]  # x coordinates of the markers
-    y_markers = Y_MARKERS + d[1]  # y coordinates of the markers
-    kernels = jax.vmap(ib.kernel3, in_axes=(0, 0, None, None))(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
-        
-    for _ in range(MDF):
-        
-        # velocity interpolation (at markers)
-        u_markers = jax.vmap(ib.interpolate_u, in_axes=(None, 0))(u[:, X1:X2, Y1:Y2], kernels)
-        
-        # compute correction force (at markers) 
-        g_needed = jax.vmap(ib.get_g_correction, in_axes=(None, 0))(v, u_markers)
-        g_needed_spread = jnp.sum(jax.vmap(ib.spread_g, in_axes=(0, 0))(g_needed, kernels), axis=0)
-        
-        # velocity correction
-        u = u.at[:, X1:X2, Y1:Y2].add(ib.get_u_correction(g_needed_spread))
-        
-        # accumulate the coresponding correction force to the markers and the fluid
-        g_to_markers += - g_needed
-        g_to_fluid += g_needed_spread
+    x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
+    h_markers, g, u = ib.multi_direct_forcing(u, v, X, Y, x_markers, y_markers, X1, X2, Y1, Y2, MDF)
 
     # Compute force to the obj (including internal fluid force)
-    g = jnp.sum(g_to_markers, axis=0) * L_ARC
+    h = ib.calculate_force_obj(h_markers, L_ARC)
     
     # eliminate internal fluid force (Feng's rigid body approximation)
-    g += a * math.pi * D ** 2 / 4  # found unstable for high Re
+    h -= a * math.pi * D ** 2 / 4  # found unstable for high Re
     
     # Compute solid dynamics
-    a, v, d = dyn.newmark(a, v, d, g, M, K, C)
+    a, v, d = dyn.newmark2dof(a, v, d, h, M, K, C)
 
     # Compute equilibrium
     feq = lbm.get_equilibrum(rho, u, feq)
@@ -129,7 +110,7 @@ def update(f, feq, rho, u, d, v, a, g):
     f = lbm.collision_mrt(f, feq, MRT_OMEGA)
     
     # Add source term
-    f = f.at[:, X1:X2, Y1:Y2].add(ib.get_source(u[:, X1:X2, Y1:Y2], g_to_fluid, OMEGA))
+    f = f.at[:, X1:X2, Y1:Y2].add(ib.get_source(u[:, X1:X2, Y1:Y2], g, OMEGA))
 
     # Streaming
     f = lbm.streaming(f)
@@ -143,7 +124,7 @@ def update(f, feq, rho, u, d, v, a, g):
     # update new macroscopic
     rho, u = lbm.get_macroscopic(f, rho, u)
      
-    return f, feq, rho, u, d, v, a, g
+    return f, feq, rho, u, d, v, a, h
 
 # create the plot template
 if PLOT:
@@ -181,15 +162,15 @@ if PLOT:
     plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
     
     # draw outline of the IBM region as a rectangle
-    # plt.plot([X1, X1, X2, X2, X1], 
-    #          [Y1, Y2, Y2, Y1, Y1], 
-    #          "b", linestyle="--", linewidth=0.5)
+    plt.plot(jnp.array([X1, X1, X2, X2, X1]) / D, 
+             jnp.array([Y1, Y2, Y2, Y1, Y1]) / D, 
+             "b", linestyle="--", linewidth=0.5)
     
     plt.tight_layout()
 
 # start simulation 
 for t in tqdm(range(TM)):
-    f, feq, rho, u, d, v, a, g = update(f, feq, rho, u, d, v, a, g)
+    f, feq, rho, u, d, v, a, h = update(f, feq, rho, u, d, v, a, h)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
 
