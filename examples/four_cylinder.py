@@ -121,10 +121,12 @@ h = jnp.zeros((3), dtype=jnp.float32)  # force
 # initialize
 u = u.at[0].set(U0)
 f = lbm.get_equilibrum(rho, u, f)
+rho_next = jnp.ones((NY), dtype=jnp.float32)
+u_next = jnp.zeros((2, NY), dtype=jnp.float32)
 
 # define main loop 
 @jax.jit
-def update(f, feq, rho, u, d, v, a, h):
+def update(f, feq, rho, u, d, v, a, h, rho_right_next, u_right_next):
 
     # Immersed Boundary Method
     x_markers, y_markers = ib.update_markers_coords_3dof(X_MARKERS, Y_MARKERS, X_OBJ, Y_OBJ, d)
@@ -150,11 +152,21 @@ def update(f, feq, rho, u, d, v, a, h):
     # Add source term
     f = f.at[:, X1:X2, Y1:Y2].add(ib.get_source(u[:, X1:X2, Y1:Y2], g, OMEGA))
 
+    # non-reflecting bounday condition 
+   
+    # u = u.at[:,-1].set(u_right_next) 
+    # rho = rho.at[-1].set(rho_right_next)    
+    f = f.at[:,-1].set(lbm.get_equilibrum(rho_right_next, u_right_next, feq[:,-1]))
+    
+    rhot_right, ut_right = lbm.cbc_right(rho, u)
+    rho_right_next = rho[-1] + rhot_right
+    u_right_next = u[:,-1] + ut_right
+    
     # Streaming
     f = lbm.streaming(f)
 
     # Set Outlet BC at right wall (No gradient BC)
-    f = lbm.right_outlet(f)
+    # f = lbm.right_outlet(f)
 
     # Set Inlet BC at left wall (Zou/He scheme)
     f, rho = lbm.left_velocity(f, rho, U0, 0)
@@ -162,7 +174,7 @@ def update(f, feq, rho, u, d, v, a, h):
     # update new macroscopic
     rho, u = lbm.get_macroscopic(f, rho, u)
      
-    return f, feq, rho, u, d, v, a, h
+    return f, feq, rho, u, d, v, a, h, rho_right_next, u_right_next
 
 # create the plot template
 if PLOT:
@@ -173,13 +185,14 @@ if PLOT:
     curl = post.calculate_curl(u)
     im = plt.imshow(
         curl.T,
+        # rho.T,
         extent=[0, NX/D, 0, NY/D],
         cmap="seismic",
         aspect="equal",
         origin="lower",
         # norm=mpl.colors.CenteredNorm(),
-        vmax=0.1,
-        vmin=-0.1,
+        vmax=0.05,
+        vmin=-0.05,
     )
 
     plt.colorbar()
@@ -239,11 +252,12 @@ if PLOT:
 
 # start simulation 
 for t in tqdm(range(TM)):
-    f, feq, rho, u, d, v, a, h = update(f, feq, rho, u, d, v, a, h)
+    f, feq, rho, u, d, v, a, h, rho_next, u_next = update(f, feq, rho, u, d, v, a, h, rho_next, u_next)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
 
         im.set_data(post.calculate_curl(u).T)
+        # im.set_data(rho.T)
         # im.autoscale()
         
         x_center1 = X_OBJ + SPACING * jnp.cos(jnp.pi / 8 + jnp.pi / 2 * 0 + d[2]) + d[0]

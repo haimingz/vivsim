@@ -358,3 +358,28 @@ def obstacle_bounce(f, mask):
     f_ = f_.at[7, mask].set(f[5, mask])
     f_ = f_.at[8, mask].set(f[6, mask])
     return f_
+
+
+def cbc_right(rho, u):
+    """characteristic boundary condition for the right BC"""
+
+    uxx = (3 * u[0,-1] - 4 * u[0, -2] + u[0, -3]) / 2
+    uyx = (3 * u[1,-1] - 4 * u[1, -2] + u[1, -3]) / 2
+    rhox = (3 * rho[-1] - 4 * rho[-2] + rho[-3]) / 2
+    uyy = jnp.gradient(u[1, -1])
+    uxy = jnp.gradient(u[0, -1])
+    rhoy = jnp.gradient(rho[-1])
+    
+    lx1 = (u[0, -1] - 1 / jnp.sqrt(3)) * (1 / 3 * rhox - 1 / jnp.sqrt(3) * rho[-1] * uxx)
+    lx2 = u[0, -1] * uyx
+    lx3 = (u[0, -1] + 1 / jnp.sqrt(3)) * (1 / 3 * rhox + 1 / jnp.sqrt(3) * rho[-1] * uxx)
+    
+    rhot = -1.5 * lx1 - u[1,-1] * rhoy - rho[-1] * uyy    
+    uxt = 0.5 * jnp.sqrt(3) / rho[-1] * lx1 - u[1,-1] * uxy 
+    uyt = - lx2 - 1 / 3 / rho[-1] * rhoy - u[1,-1] * uyy
+    
+    ut = jnp.zeros_like(u[:,-1])
+    ut = ut.at[0].set(uxt)
+    ut = ut.at[1].set(uyt)
+    
+    return rhot, ut
