@@ -204,7 +204,7 @@ def top_wall(f):
     - f: Updated distribution functions after applying the boundary conditions.
     """
 
-    f = f.at[bottom_indices, :, 0].set(f[top_indices, :, 0])
+    f = f.at[bottom_indices, :, -1].set(f[top_indices, :, -1])
     return f
 
 def right_outlet(f):
@@ -311,7 +311,7 @@ def top_velocity(f, rho, ux, uy):
     - rho (ndarray): Updated density after applying the boundary conditions.
     """
     
-    rho_wall = (jnp.sum(f[0, :,-1] + f[1, :,-1] + f[3, :,-1], axis=0) + 2 * (f[2, :,-1] + f[5, :,-1] + f[6, :,-1])) / (1 + uy)
+    rho_wall = (f[0, :,-1] + f[1, :,-1] + f[3, :,-1] + 2 * (f[2, :,-1] + f[5, :,-1] + f[6, :,-1])) / (1 + uy)
     rho = rho.at[:, -1].set(rho_wall)
     f = f.at[4, :, -1].set(f[2, :, -1] - 2 / 3 * uy * rho_wall)
     f = f.at[7, :, -1].set(f[5, :, -1] + 0.5 * (f[1, :, -1] - f[3, :, -1]) + (1 / 6 * uy - 0.5 * ux) * rho_wall)
@@ -348,6 +348,7 @@ def obstacle_bounce(f, mask):
     Returns:
     - f: Updated distribution functions after applying the boundary conditions.
     """
+    
     f_ = f
     f_ = f_.at[1, mask].set(f[3, mask])
     f_ = f_.at[2, mask].set(f[4, mask])
