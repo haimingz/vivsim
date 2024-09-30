@@ -27,7 +27,7 @@ NY = 200  # number of grid points in y direction
 TM = 50000  # number of time steps
 
 # plot options
-PLOT = False  # whether to plot the results
+PLOT = True  # whether to plot the results
 PLOT_EVERY = 200  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
@@ -57,10 +57,10 @@ def update(f, feq, rho, u):
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.left_wall(f)
-    f = lbm.right_wall(f)
-    f = lbm.bottom_wall(f)
-    f, rho = lbm.top_velocity(f, rho, U0, 0)
+    f = lbm.left_noslip_bb(f)
+    f = lbm.right_noslip_bb(f)
+    f = lbm.bottom_noslip_bb(f)
+    f, rho = lbm.top_velocity_nebb(f, rho, U0, 0)
         
     # get new macroscopic properties
     rho, u = lbm.get_macroscopic(f, rho, u)

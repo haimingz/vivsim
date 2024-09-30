@@ -40,7 +40,7 @@ U0 = 0.05  # Inlet velocity
 TM = 60000   # Maximum number of time steps
 
 # plot options
-PLOT = False  # whether to plot the results
+PLOT = True  # whether to plot the results
 PLOT_EVERY = 100  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
@@ -116,10 +116,10 @@ def update(f, feq, rho, u, d, v, a, h):
     f = lbm.streaming(f)
 
     # Set Outlet BC at right wall (No gradient BC)
-    f = lbm.right_outlet(f)
+    f = lbm.right_outlet_simple(f)
 
     # Set Inlet BC at left wall (Zou/He scheme)
-    f, rho = lbm.left_velocity(f, rho, U0, 0)
+    f, rho = lbm.left_velocity_nebb(f, rho, U0, 0)
 
     # update new macroscopic
     rho, u = lbm.get_macroscopic(f, rho, u)

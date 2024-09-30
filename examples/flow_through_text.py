@@ -14,8 +14,8 @@ from vivsim import lbm, post
 
 # define control parameters
 U0 = 0.05  # velocity 
-TEXT = 'VIVSIM'  # text to be displayed
-FONT = 'arial.ttf'  # font file
+TEXT = 'F'  # text to be displayed
+FONT = 'times.ttf'  # font file
 SIZE = 100  # font size
 RE_GRID = 3  # Reynolds number based on grid size
 NX = 500  # number of grid points in x direction
@@ -69,11 +69,11 @@ def update(f, feq, rho, u):
     f = lbm.streaming(f)
 
      # Boundary conditions
-    f = lbm.top_outlet(f)
-    f, rho = lbm.bottom_velocity(f, rho, 0, U0)
+    f = lbm.top_outlet_simple(f)
+    f, rho = lbm.bottom_velocity_nebb(f, rho, 0, U0)
     
      # Obstacle
-    f = lbm.obstacle_bounce(f, mask)
+    f = lbm.obj_noslip_bb(f, mask)
     
      # get new macroscopic properties
     rho, u = lbm.get_macroscopic(f, rho, u)
