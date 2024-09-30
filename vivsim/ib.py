@@ -1,6 +1,8 @@
 """This file contains the functions associated with the immersed boundary (IB) method.
 
-The IB method is used to transfer the force between the fluid (discretized into a regular Eulerian lattice) and the object (represented by a set of Lagrangian markers). The markers can move freely in the lattice meaning the markers and lattice are not aligned. 
+The IB method is used to transfer the force between the fluid (discretized into a regular Eulerian lattice) 
+and the object (represented by a set of Lagrangian markers). 
+The markers can move freely in the lattice meaning the markers and lattice are not aligned. 
 
 In this file, the following notations are used:
 - u: The velocity field of the fluid (distributed).
