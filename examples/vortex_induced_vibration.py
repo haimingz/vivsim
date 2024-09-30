@@ -116,10 +116,10 @@ def update(f, feq, rho, u, d, v, a, h):
     f = lbm.streaming(f)
 
     # Set Outlet BC at right wall (No gradient BC)
-    f = lbm.right_outlet_simple(f)
+    f = lbm.right_outflow(f)
 
     # Set Inlet BC at left wall (Zou/He scheme)
-    f, rho = lbm.left_velocity_nebb(f, rho, U0, 0)
+    f, rho = lbm.left_velocity(f, rho, U0, 0)
 
     # update new macroscopic
     rho, u = lbm.get_macroscopic(f, rho, u)
