@@ -4,9 +4,9 @@
 
 # VIVSIM 
 
-Accelerated vortex-induced vibration (VIV) simulation using immersed boundary lattice Boltzmann method (IB-LBM) powered by JAX.
+VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) simulations based on the immersed boundary -lattice Boltzmann method (IB-LBM). It was originated from a research project requiring efficient simulation codes for studying vortex-induced vibration (VIV) of underwater structures. 
 
-Currently, this repo is under early development so APIs may change constantly. Troubleshooting and implementation ideas are welcomed.
+Similar to projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators (mainly GPUs) with little extra efforts.
 
 ## Examples
 
