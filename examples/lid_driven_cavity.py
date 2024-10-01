@@ -22,8 +22,8 @@ os.environ['XLA_FLAGS'] = (
 # define control parameters
 U0 = 0.5  # velocity (must < 0.5 for stability)
 RE_GRID = 20 # Reynolds number based on grid size (must < 22 for stability)
-NX = 200  # number of grid points in x direction
-NY = 200  # number of grid points in y direction
+NX = 500  # number of grid points in x direction
+NY = 500  # number of grid points in y direction
 TM = 50000  # number of time steps
 
 # plot options
@@ -60,7 +60,7 @@ def update(f, feq, rho, u):
     f = lbm.left_soild(f)
     f = lbm.right_soild(f)
     f = lbm.bottom_soild(f)
-    f, rho = lbm.top_velocity(f, rho, U0, 0)
+    f = lbm.top_velocity(f, U0, 0)
         
     # get new macroscopic properties
     rho, u = lbm.get_macroscopic(f, rho, u)

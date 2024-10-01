@@ -1,14 +1,14 @@
 """
-This files provides the core functions for the lattice Boltzmann method (LBM) in 2D.
+This file provides the core functions for the lattice Boltzmann method (LBM) in 2D.
 
 Collision models:
-* Bhatnagar-Gross-Krook (BGK) model (or Single relaxation time (SRT) model)
-* multiple relaxation time (MRT) model
+* Bhatnagar-Gross-Krook (BGK) model | Single Relaxation Time (SRT) model
+* Multiple Relaxation Time (MRT) model
 
 Boundary conditions:
-* No-slip boundary for domain boundaries and obstacles using the bounce-back scheme
-* Velocity boundary for open boundaries using the Zou/He scheme
-* Non-reflection BC for open boundaries using Characteristic boundary condition (CBC) scheme 
+* Solid (No-slip) boundary at domain boundaries and obstacles using the bounce-back scheme
+* Velocity (Dirichlet) boundary at domain boundaries using the NEBB | Zou/He scheme
+* Outflow (No-gradient) boundary at domain boundaries via copying the second last row/column 
 
 All equations have been partially evaluated for the D2Q9 model to maximize efficiency.
 """
@@ -159,6 +159,7 @@ left_indices = jnp.array([3, 7, 6])
 top_indices = jnp.array([2, 5, 6])
 bottom_indices = jnp.array([4, 7, 8])
 
+
 # Bounce-back scheme for no-slip boundaries
 
 def left_soild(f):
@@ -238,76 +239,65 @@ def obj_solid(f, mask):
 
 # Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme for open boundaries with given velocities
 
-def left_velocity(f, rho, ux, uy):
+def left_velocity(f, ux_left, uy_left):
     """
     Enforce given velocity at the left of the domain 
     using the Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme.
 
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
-        rho (ndarray of shape (NX, NY)): The macroscopic density.
-        ux (scalar or ndarray of the same shape as the boundary): The x-component of the velocity.
-        uy (scalar or ndarray of the same shape as the boundary): The y-component of the velocity.
+        ux_left, uy_left (scalar or ndarray of shape NY): The macroscopic velocity at left boundary.
 
     Returns:
         f (ndarray of shape (9, NX, NY)): The updated distribution function.
-        rho (ndarray of shape (NX, NY)): The updated macroscopic density.
     """
 
-    rho_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / (- ux + 1)
-    rho = rho.at[0].set(rho_wall)
-    f = f.at[1, 0].set(f[3, 0] + 2 / 3 * ux * rho_wall)
-    f = f.at[5, 0].set(f[7, 0] - 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux + 0.5 * uy) * rho_wall)
-    f = f.at[8, 0].set(f[6, 0] + 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux - 0.5 * uy) * rho_wall)
-    return f, rho
+    rho_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / (- ux_left + 1)
+    f = f.at[1, 0].set(f[3, 0] + 2 / 3 * ux_left * rho_wall)
+    f = f.at[5, 0].set(f[7, 0] - 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux_left + 0.5 * uy_left) * rho_wall)
+    f = f.at[8, 0].set(f[6, 0] + 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux_left - 0.5 * uy_left) * rho_wall)
+    return f
 
-def right_velocity(f, rho, ux, uy):
+def right_velocity(f, ux_right, uy_right):
     """
     Enforce given velocity at the right of the domain 
     using the Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme.
     
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
-        rho (ndarray of shape (NX, NY)): The macroscopic density.
-        ux (scalar or ndarray of the same shape as the boundary): The x-component of the velocity.
-        uy (scalar or ndarray of the same shape as the boundary): The y-component of the velocity.
+        ux_right, uy_right (scalar or ndarray of shape NY): The macroscopic velocity at right boundary.
     
     Returns:
         f (ndarray of shape (9, NX, NY)): The updated distribution function.
-        rho (ndarray of shape (NX, NY)): The updated macroscopic density.
     """
     
-    rho_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / (ux + 1)
-    rho = rho.at[-1].set(rho_wall)
-    f = f.at[3, -1].set(f[1, -1] - 2 / 3 * ux * rho_wall)
-    f = f.at[7, -1].set(f[5, -1] + 0.5 * (f[2, -1] - f[4, -1]) + (- 1 / 6 * ux - 0.5 * uy) * rho_wall)
-    f = f.at[6, -1].set(f[8, -1] - 0.5 * (f[2, -1] - f[4, -1]) + (- 1 / 6 * ux + 0.5 * uy) * rho_wall)
-    return f, rho
+    rho_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / (ux_right + 1)
+    f = f.at[3, -1].set(f[1, -1] - 2 / 3 * ux_right * rho_wall)
+    f = f.at[7, -1].set(f[5, -1] + 0.5 * (f[2, -1] - f[4, -1]) + (- 1 / 6 * ux_right - 0.5 * uy_right) * rho_wall)
+    f = f.at[6, -1].set(f[8, -1] - 0.5 * (f[2, -1] - f[4, -1]) + (- 1 / 6 * ux_right + 0.5 * uy_right) * rho_wall)
+    return f
 
-def top_velocity(f, rho, ux, uy):
+def top_velocity(f, ux_top, uy_top):
     """
     Enforce given velocity at the top of the domain 
     using the Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme.
     
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
-        rho (ndarray of shape (NX, NY)): The macroscopic density.
-        ux (scalar or ndarray of the same shape as the boundary): The x-component of the velocity.
-        uy (scalar or ndarray of the same shape as the boundary): The y-component of the velocity.
+        ux_top, uy_top (scalar or ndarray of shape NX): The macroscopic velocity at top boundary.
     
     Returns:
         f (ndarray of shape (9, NX, NY)): The updated distribution function.
         rho (ndarray of shape (NX, NY)): The updated macroscopic density.
     """
     
-    rho_wall = (f[0, :,-1] + f[1, :,-1] + f[3, :,-1] + 2 * (f[2, :,-1] + f[5, :,-1] + f[6, :,-1])) / (uy + 1)
-    rho = rho.at[:, -1].set(rho_wall)
-    f = f.at[4, :, -1].set(f[2, :, -1] - 2 / 3 * uy * rho_wall)
-    f = f.at[7, :, -1].set(f[5, :, -1] + 0.5 * (f[1, :, -1] - f[3, :, -1]) + (1 / 6 * uy - 0.5 * ux) * rho_wall)
-    f = f.at[8, :, -1].set(f[6, :, -1] - 0.5 * (f[1, :, -1] - f[3, :, -1]) + (1 / 6 * uy + 0.5 * ux) * rho_wall)
-    return f, rho
+    rho_wall = (f[0, :,-1] + f[1, :,-1] + f[3, :,-1] + 2 * (f[2, :,-1] + f[5, :,-1] + f[6, :,-1])) / (uy_top + 1)
+    f = f.at[4, :, -1].set(f[2, :, -1] - 2 / 3 * uy_top * rho_wall)
+    f = f.at[7, :, -1].set(f[5, :, -1] + 0.5 * (f[1, :, -1] - f[3, :, -1]) + (1 / 6 * uy_top - 0.5 * ux_top) * rho_wall)
+    f = f.at[8, :, -1].set(f[6, :, -1] - 0.5 * (f[1, :, -1] - f[3, :, -1]) + (1 / 6 * uy_top + 0.5 * ux_top) * rho_wall)
+    return f
 
-def bottom_velocity(f, rho, ux, uy):
+def bottom_velocity(f, ux_bottom, uy_bottom):
     """
     Enforce given velocity at the bottom of the domain 
     using the Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme.
@@ -315,20 +305,19 @@ def bottom_velocity(f, rho, ux, uy):
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
         rho (ndarray of shape (NX, NY)): The macroscopic density.
-        ux (scalar or ndarray of the same shape as the boundary): The x-component of the velocity.
-        uy (scalar or ndarray of the same shape as the boundary): The y-component of the velocity.
+        ux_bottom, uy_bottom (scalar or ndarray of shape NX): The macroscopic velocity at bottom boundary.
     
     Returns:
         f (ndarray of shape (9, NX, NY)): The updated distribution function.
         rho (ndarray of shape (NX, NY)): The updated macroscopic density.
     """
     
-    rho_wall = (f[0, :,0] + f[1, :,0] + f[3, :,0] + 2 * (f[4, :,0] + f[7, :,0] + f[8, :,0])) / (- uy + 1)
-    rho = rho.at[:, 0].set(rho_wall)
-    f = f.at[2, :, 0].set(f[4, :, 0] + 2 / 3 * uy * rho_wall)
-    f = f.at[5, :, 0].set(f[7, :, 0] - 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy + 0.5 * ux) * rho_wall)
-    f = f.at[6, :, 0].set(f[8, :, 0] + 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy - 0.5 * ux) * rho_wall)
-    return f, rho
+    rho_wall = (f[0, :,0] + f[1, :,0] + f[3, :,0] + 2 * (f[4, :,0] + f[7, :,0] + f[8, :,0])) / (- uy_bottom + 1)
+    # rho = rho.at[:, 0].set(rho_wall)
+    f = f.at[2, :, 0].set(f[4, :, 0] + 2 / 3 * uy_bottom * rho_wall)
+    f = f.at[5, :, 0].set(f[7, :, 0] - 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy_bottom + 0.5 * ux_bottom) * rho_wall)
+    f = f.at[6, :, 0].set(f[8, :, 0] + 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy_bottom - 0.5 * ux_bottom) * rho_wall)
+    return f
 
 
 # Enforce an outflow boundary by simply copying the second last row/column (1st order accuracy)

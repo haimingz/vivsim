@@ -2,7 +2,7 @@
 
 The IB method is used to transfer the force between the fluid (discretized into a regular Eulerian lattice) 
 and the object (represented by a set of Lagrangian markers). 
-The markers can move freely in the lattice meaning the markers and lattice are not aligned. 
+The markers can move freely in the lattice, meaning the markers and lattice are not aligned. 
 
 In this file, the following notations are used:
 - u: The velocity field of the fluid (distributed).
@@ -23,13 +23,27 @@ import jax.numpy as jnp
 
 
 def stencil2(distance):
-    """1D stencil function of range 2 for interpolation."""
+    """1D stencil function of range 2 for interpolation.
+    
+    Args:
+        distance (scalar): The distance between the marker and the lattice.
+    
+    Returns:
+        out (scalar): The kernel function value. 
+    """
     
     return jnp.where(jnp.abs(distance) <= 1, 1 - jnp.abs(distance), 0)
 
 
 def stencil3(distance):
-    """1D stencil function of range 3 for interpolation."""
+    """1D stencil function of range 3 for interpolation.
+    
+    Args:
+        distance (scalar): The distance between the marker and the lattice.
+    
+    Returns:
+        out (scalar): The kernel function value. 
+    """
     
     distance = jnp.abs(distance)
     return jnp.where(
@@ -46,12 +60,12 @@ def stencil3(distance):
 def get_kernel2(x_marker, y_marker, x_lattice, y_lattice):
     """2D Kernel function of range 2.
     
-    Parameters:
-    - x_marker, y_marker: The coordinates of a marker (scalar).
-    - x_lattice, y_lattice: The coordinates of the lattice with shape (NX, NY).
+    Args:
+        x_marker, y_marker (scalar): The coordinates of a marker.
+        x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
     
     Returns:
-    - The kernel function with shape (NX, NY).
+        out (ndarray of shape (NX, NY)): The kernel function values.
     """
     
     return stencil2(x_lattice - x_marker) * stencil2(y_lattice - y_marker)
@@ -60,12 +74,12 @@ def get_kernel2(x_marker, y_marker, x_lattice, y_lattice):
 def get_kernel3(x_marker, y_marker, x_lattice, y_lattice):
     """2D Kernel function of range 3.
     
-    Parameters:
-    - x_marker, y_marker: The coordinates of a marker (scalar).
-    - x_lattice, y_lattice: The coordinates of the lattice with shape (NX, NY).
+    Args:
+        x_marker, y_marker (scalar): The coordinates of a marker.
+        x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
     
     Returns:
-    - The kernel function with shape (NX, NY).
+        out (ndarray of shape (NX, NY)): The kernel function values.
     """
     
     return stencil3(x_lattice - x_marker) * stencil3(y_lattice - y_marker)
@@ -74,12 +88,12 @@ def get_kernel3(x_marker, y_marker, x_lattice, y_lattice):
 def get_kernels2(x_markers, y_markers, x_lattice, y_lattice):
     """2D Kernel function of range 2.
     
-    Parameters:
-    - x_marker, y_marker: The coordinates of markers with shape (N_MARKERS).
-    - x_lattice, y_lattice: The coordinates of the lattice with shape (NX, NY).
+    Args:
+        x_markers, y_markers (ndaray of shape (N_MARKER)): The coordinates of markers.
+        x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
     
     Returns:
-    - The kernel function with shape (N_MARKER, NX, NY).
+        out (ndarray of shape (N_MARKER, NX, NY))： The kernel function values.
     """
     
     return (stencil2(x_lattice[None, ...] - x_markers[:, None, None]) \
@@ -89,12 +103,12 @@ def get_kernels2(x_markers, y_markers, x_lattice, y_lattice):
 def get_kernels3(x_markers, y_markers, x_lattice, y_lattice):
     """2D Kernel function of range 3.
     
-    Parameters:
-    - x_marker, y_marker: The coordinates of markers with shape (N_MARKERS).
-    - x_lattice, y_lattice: The coordinates of the lattice with shape (NX, NY).
+    Args:
+        x_markers, y_markers (ndaray of shape (N_MARKER)): The coordinates of markers.
+        x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
     
     Returns:
-    - The kernel function with shape (N_MARKER, NX, NY).
+        out (ndarray of shape (N_MARKER, NX, NY))： The kernel function values.
     """
     
     return (stencil3(x_lattice[None, ...] - x_markers[:, None, None]) \
@@ -103,15 +117,16 @@ def get_kernels3(x_markers, y_markers, x_lattice, y_lattice):
 
 # ----------------- Fluid Velocity Interpolation -----------------
 
+
 def interpolate_u_marker(u, kernel):
     """Interpolate the fluid velocity (u) at a marker.
     
-    Parameters:
-    - u: The velocity field with shape (2, NX, NY).
-    - kernel: The kernel function with shape (NX, NY).
+    Args:
+        u: The velocity field with shape (2, NX, NY).
+        kernel: The kernel function with shape (NX, NY).
     
     Returns:
-    - The interpolated fluid velocity at a marker with shape (2).
+        The interpolated fluid velocity at a marker with shape (2).
     """
     
     return jnp.einsum("xy,dxy->d", kernel, u)
@@ -120,12 +135,12 @@ def interpolate_u_marker(u, kernel):
 def interpolate_u_markers(u, kernels):
     """Interpolate the fluid velocity at all markers.
     
-    Parameters:
-    - u: The velocity field with shape (2, NX, NY).
-    - kernels: The kernel functions with shape (N_MARKER, NX, NY).
+    Args:
+        u: The velocity field with shape (2, NX, NY).
+        kernels: The kernel functions with shape (N_MARKER, NX, NY).
     
     Returns:
-    - The interpolated fluid velocity at all markers with shape (N_MARKER, 2).
+        The interpolated fluid velocity at all markers with shape (N_MARKER, 2).
     """
     
     return jnp.einsum("nxy,dxy->nd", kernels, u)
@@ -138,12 +153,12 @@ def get_delta_g_marker(v_marker, u_marker):
     """Compute the correction force to the fluid.
     Accoding to g = 2 * rho * (v - u) / dt
     
-    Parameters:
-    - v_marker: The velocity of the object at the marker with shape (2).
-    - u_marker: The interpolated velocity of the fluid at the marker with shape (2).
+    Args:
+        v_marker: The velocity of the object at the marker with shape (2).
+        u_marker: The interpolated velocity of the fluid at the marker with shape (2).
     
     Returns:
-    - The correction force with shape (2).
+        The correction force with shape (2).
     """
     
     return 2 * (v_marker - u_marker)
@@ -153,12 +168,12 @@ def get_delta_g_markers(v_markers, u_markers):
     """Compute the correction force to the fluid.    
     Accoding to g = 2 * rho * (v - u) / dt
     
-    Parameters:
-    - v_markers: The velocity of the object at the markers with shape (N_MARKER, 2) or (2).
-    - u_markers: The interpolated velocity of the fluid at the markers with shape (N_MARKER, 2).
+    Args:
+        v_markers: The velocity of the object at the markers with shape (N_MARKER, 2) or (2).
+        u_markers: The interpolated velocity of the fluid at the markers with shape (N_MARKER, 2).
     
     Returns:
-    - The correction forces with shape (N_MARKER, 2).
+        The correction forces with shape (N_MARKER, 2).
     """
     if v_markers.ndim == 1:
         return 2 * (v_markers[None,...] - u_markers)
@@ -169,12 +184,12 @@ def get_delta_g_markers(v_markers, u_markers):
 def distribute_g_marker(g_marker, kernel):
     """Spread the force to the lattice.
     
-    Parameters:
-    - force: The force vector with shape (2).
-    - kernel: The kernel function with shape (NX, NY).
+    Args:
+        force: The force vector with shape (2).
+        kernel: The kernel function with shape (NX, NY).
     
     Returns:
-    - The force field with shape (2, NX, NY)."""
+        The force field with shape (2, NX, NY)."""
     
     return kernel * g_marker[:, None, None]
 
@@ -182,12 +197,12 @@ def distribute_g_marker(g_marker, kernel):
 def distribute_g_markers(g_markers, kernels):
     """Spread the force to the lattice.
     
-    Parameters:
-    - forces: The force vector with shape (N_MARKER, 2).
-    - kernels: The kernel functions with shape (N_MARKER, NX, NY).
+    Args:
+        forces: The force vector with shape (N_MARKER, 2).
+        kernels: The kernel functions with shape (N_MARKER, NX, NY).
     
     Returns:
-    - The force field with shape (2, NX, NY)."""
+        The force field with shape (2, NX, NY)."""
     
     return jnp.einsum("nd,nxy->dxy", g_markers, kernels)
 
@@ -196,22 +211,22 @@ def distribute_g_markers(g_markers, kernels):
 
 
 def get_delta_u(g):
-    """Computes the velocity correction to the fluid.
-    du = g * dt / (2 * rho)
+    """Compute the velocity correction to the fluid.
+        du = g * dt / (2 * rho)
     """
     return g * 0.5
 
 
 def get_source(u, g, omega):
-    """Computes the source term needed to be added to the distribution functions.
+    """Compute the source term needed to be added to the distribution functions.
     
-    Parameters:
-    - u: The velocity vector with shape (2, NX, NY).
-    - g: The force vector with shape (2, NX, NY).
-    - omega: The relaxation parameter.
+    Args:
+        u: The velocity vector with shape (2, NX, NY).
+        g: The force vector with shape (2, NX, NY).
+        omega: The relaxation parameter.
     
     Returns:
-    - The source term with shape (9, NX, NY).
+        The source term with shape (9, NX, NY).
     """
 
     gxux = g[0] * u[0]
@@ -242,12 +257,12 @@ def get_source(u, g, omega):
 def update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d):
     """update the real-time position of the markers (consider 2DOF)
     
-    Parameters:
-    - X_MARKERS, Y_MARKERS: The original coordinates of the markers with shape (N_MARKER).
-    - d: The displacement of the object with shape (2).
+    Args:
+        X_MARKERS, Y_MARKERS: The original coordinates of the markers with shape (N_MARKER).
+        d: The displacement of the object with shape (2).
     
     Returns:
-    - x_markers, y_markers: The updated coordinates with shape (N_MARKER).
+        x_markers, y_markers: The updated coordinates with shape (N_MARKER).
     """
     
     x_markers = X_MARKERS + d[0] 
@@ -258,13 +273,13 @@ def update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d):
 def update_markers_coords_3dof(X_MARKERS, Y_MARKERS, X_CENTER, Y_CENTER, d):
     """update the real-time position of the markers (consider 3DOF)
     
-    Parameters:
-    - X_MARKERS, Y_MARKERS: The original coordinates of the markers with shape (N_MARKER).
-    - X_CENTER, Y_CENTER: The coordinates of the object center.
-    - d: The displacement of the object with shape (3).
+    Args:
+        X_MARKERS, Y_MARKERS: The original coordinates of the markers with shape (N_MARKER).
+        X_CENTER, Y_CENTER: The coordinates of the object center.
+        d: The displacement of the object with shape (3).
     
     Returns:
-    - x_markers, y_markers: The updated coordinates with shape (N_MARKER).
+        x_markers, y_markers: The updated coordinates with shape (N_MARKER).
     """
 
     # # rotation_matrix (2x2)
@@ -292,12 +307,12 @@ def update_markers_coords_3dof(X_MARKERS, Y_MARKERS, X_CENTER, Y_CENTER, d):
 def update_markers_velocity_3dof(x_marker, y_marker, X_CENTER, Y_CENTER, d, v):
     """Compute the velocity of the markers.
     
-    Parameters:
-    - v: The velocity of the object with shape (3).
-    - d: The displacement of the object with shape (d).
+    Args:
+        v: The velocity of the object with shape (3).
+        d: The displacement of the object with shape (d).
     
     Returns:
-    - The velocity of the markers with shape (N_MARKER, 2).
+        The velocity of the markers with shape (N_MARKER, 2).
     """
     x_rel = x_marker - X_CENTER - d[0]
     y_rel = y_marker - Y_CENTER - d[1]
@@ -319,19 +334,19 @@ def multi_direct_forcing(
     ):
     """Implement the multi-direct forcing method.
     
-    Parameters:
-    - u: The velocity field with shape (2, NX, NY).
-    - d: The displacement of the object with shape (2).
-    - v_markers: The velocity of the object with shape (N_MARKER, 2).
-    - X, Y: The mesh grid with shape (NX, NY).
-    - X_MARKERS, Y_MARKERS: The coordinates of the markers with shape (N_MARKER).
-    - X1, X2, Y1, Y2 (int): The range of the IBM region.
-    - N_ITER (int): The number of iterations for multi-direct forcing.
+    Args:
+        u: The velocity field with shape (2, NX, NY).
+        d: The displacement of the object with shape (2).
+        v_markers: The velocity of the object with shape (N_MARKER, 2).
+        X, Y: The mesh grid with shape (NX, NY).
+        X_MARKERS, Y_MARKERS: The coordinates of the markers with shape (N_MARKER).
+        X1, X2, Y1, Y2 (int): The range of the IBM region.
+        N_ITER (int): The number of iterations for multi-direct forcing.
     
     Returns:
-    - h_markers: The hydrodynamic force to the markers with shape (N_MARKER, 2).
-    - g: The distributed IB force to the fluid with shape (2, NX, NY).
-    - u: The updated velocity field with shape (2, NX, NY).
+        h_markers: The hydrodynamic force to the markers with shape (N_MARKER, 2).
+        g: The distributed IB force to the fluid with shape (2, NX, NY).
+        u: The updated velocity field with shape (2, NX, NY).
     """
     
     # initialize the force terms
@@ -367,12 +382,12 @@ def multi_direct_forcing(
 def calculate_force_obj(h_markers, marker_distance):
     """Compute the total force to the object.
     
-    Parameters:
-    - h_markers: The hydrodynamic force to the markers with shape (N_MARKER, 2).
-    - marker_distance: The distance between the markers.
+    Args:
+        h_markers: The hydrodynamic force to the markers with shape (N_MARKER, 2).
+        marker_distance: The distance between the markers.
     
     Returns:
-    - The total force to the object with shape (2).
+        The total force to the object with shape (2).
     """
     
     return jnp.sum(h_markers, axis=0) * marker_distance
@@ -381,14 +396,14 @@ def calculate_force_obj(h_markers, marker_distance):
 def calculate_torque_obj(x_markers, y_markers, X_CENTER, Y_CENTER, d,  h_markers, marker_distance):
     """Calculate the torque applied to the object.
     
-    Parameters:
-    - x_markers, y_markers: The coordinates of the markers with shape (N_MARKER).
-    - X_CENTER, Y_CENTER: The coordinates of the object center.
-    - h_markers: The distributed force to the fluid with shape (N_MARKER, 2).
-    - marker_distance: The distance between the markers.
+    Args:
+        x_markers, y_markers: The coordinates of the markers with shape (N_MARKER).
+        X_CENTER, Y_CENTER: The coordinates of the object center.
+        h_markers: The distributed force to the fluid with shape (N_MARKER, 2).
+        marker_distance: The distance between the markers.
     
     Returns:
-    - The torque (scalar).
+        The torque (scalar).
     """
     
     x_rel = x_markers - X_CENTER - d[0]

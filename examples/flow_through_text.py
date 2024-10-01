@@ -14,7 +14,7 @@ from vivsim import lbm, post
 
 # define control parameters
 U0 = 0.05  # velocity 
-TEXT = 'F'  # text to be displayed
+TEXT = 'VIVSIM'  # text to be displayed
 FONT = 'times.ttf'  # font file
 SIZE = 100  # font size
 RE_GRID = 3  # Reynolds number based on grid size
@@ -62,15 +62,15 @@ def update(f, feq, rho, u):
     # Compute equilibrium distribution function
     feq = lbm.get_equilibrum(rho, u, feq)
 
-     # Collision
+    # Collision
     f = lbm.collision_mrt(f, feq, OMEGA_MRT)
 
-     # Streaming
+    # Streaming
     f = lbm.streaming(f)
 
-     # Boundary conditions
+    # Boundary conditions
     f = lbm.top_outflow(f)
-    f, rho = lbm.bottom_velocity(f, rho, 0, U0)
+    f = lbm.bottom_velocity(f, 0, U0)
     
      # Obstacle
     f = lbm.obj_solid(f, mask)

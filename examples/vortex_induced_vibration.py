@@ -119,7 +119,7 @@ def update(f, feq, rho, u, d, v, a, h):
     f = lbm.right_outflow(f)
 
     # Set Inlet BC at left wall (Zou/He scheme)
-    f, rho = lbm.left_velocity(f, rho, U0, 0)
+    f = lbm.left_velocity(f, U0, 0)
 
     # update new macroscopic
     rho, u = lbm.get_macroscopic(f, rho, u)
