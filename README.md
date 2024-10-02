@@ -44,17 +44,17 @@ Lattice Models
 - D2Q9
   
 Collision Models
-- Bhatnagar-Gross-Krook (BGK) model
+- Single Relaxation Time (SRT) model
 - Multiple Relaxation Time (MRT) model
 
 Boundary Conditions:
-- Velocity boundary using Non-Equlibrium Bounce Back (Zou-He) method
-- No slip boundary using Halfway Bounce-Back method
-- Outlet boundary using no gradient method
+- Velocity boundary using Non-Equilibrium Bounce Back (NEBB) method
+- No-slip boundary using Halfway Bounce-Back method
+- Outflow boundary simply by copying the second last column/row
 - Periodic boundary
 
 Fluid-Structure Interaction
-- Multi Direct-Forcing Immersed Boundary method
+- Multi Direct-Forcing Immersed Boundary method.
 - Confined Immersed Boundary technique to speed up VIV simulation
 
 ## Getting Started
@@ -68,9 +68,9 @@ git clone https://github.com/haimingz/vivsim.git
 pip install -e vivsim
 ```
 
-Also, you can create and run the following cell to install VIVSIM on Google Collab:
+Alternatively, you can run the following command in a cell on Google Colab to install VIVSIM and run simulations using free/paid GPU on the cloud.
 
 ```python
 !pip install git+https://github.com/haimingz/vivsim
 ```
-
+You can also create a singularity image from the provided definition file `vivsim.def` and execute your code on High Performance Computing (HPC) clusters. More detailed instructions can be found in our [Documentation](https://github.com/haimingz/vivsim/wiki/Getting-Started).
