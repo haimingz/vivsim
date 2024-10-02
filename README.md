@@ -65,9 +65,7 @@ To locally install VIVSIM for development:
 
 ```bash
 git clone https://github.com/haimingz/vivsim.git
-cd vivsim
-pip install -r requirements.txt
-pip install -e .
+pip install -e vivsim
 ```
 
 Also, you can create and run the following cell to install VIVSIM on Google Collab:
