@@ -59,7 +59,7 @@ def get_macroscopic(f, rho, u):
     u = u.at[1].set((f[2] + f[5] + f[6] - f[4] - f[7] - f[8]) / rho)
     return rho, u
 
-def get_equilibrum(rho, u, feq):
+def get_equilibrium(rho, u, feq):
     """
     Calculate the equilibrium distribution function.
 

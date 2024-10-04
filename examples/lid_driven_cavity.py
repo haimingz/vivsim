@@ -44,13 +44,13 @@ rho = jnp.ones((NX, NY), dtype=jnp.float32)  # density
 u = jnp.zeros((2, NX, NY), dtype=jnp.float32)  # velocity
 
 # initialize
-f = lbm.get_equilibrum(rho, u, f)
+f = lbm.get_equilibrium(rho, u, f)
 
 # define the update function for each time step
 def update(f, feq, rho, u):
     
     # Collision
-    feq = lbm.get_equilibrum(rho, u, feq)
+    feq = lbm.get_equilibrium(rho, u, feq)
     f = lbm.collision_mrt(f, feq, OMEGA_MRT)
 
     # Streaming
