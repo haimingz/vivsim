@@ -2,7 +2,7 @@
 <img src ="assets/vivsim.svg"/>
 </p>
 
-# VIVSIM 
+## VIVSIM
 
 VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) simulations based on the immersed boundary -lattice Boltzmann method (IB-LBM). It was originated from a research project requiring efficient simulation codes for studying vortex-induced vibration (VIV) of underwater structures. 
 
@@ -59,18 +59,17 @@ Fluid-Structure Interaction
 
 ## Getting Started
 
-This package is based on JAX, whose installation may depend on the OS and hardware. Please refer to the [JAX Documentation](https://jax.readthedocs.io/en/latest/installation.html) for the latest installation guidance. 
-
 To locally install VIVSIM for development:
 
 ```bash
 git clone https://github.com/haimingz/vivsim.git
 pip install -e vivsim
 ```
+This package is based on JAX, whose installation may depend on the OS and hardware. If the above command does not work well, please refer to the [JAX Documentation](https://jax.readthedocs.io/en/latest/installation.html) for the latest installation guidance. 
 
 Alternatively, you can run the following command in a cell on Google Colab to install VIVSIM and run simulations using free/paid GPU on the cloud.
 
 ```python
 !pip install git+https://github.com/haimingz/vivsim
 ```
-You can also create a singularity image from the provided definition file `vivsim.def` and execute your code on High Performance Computing (HPC) clusters. More detailed instructions can be found in our [Documentation](https://github.com/haimingz/vivsim/wiki/Getting-Started).
+You can also create a Singularity image from the provided definition file `vivsim.def` and execute your code on High Performance Computing (HPC) clusters. More detailed instructions can be found in our [Documentation](https://github.com/haimingz/vivsim/wiki/Getting-Started).
