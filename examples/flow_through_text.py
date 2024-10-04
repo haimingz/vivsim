@@ -53,14 +53,14 @@ f = jnp.zeros((9, NX, NY), dtype=jnp.float32)   # distribution function
 feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)   # equilibrium distribution function
 
 # initialize
-f = lbm.get_equilibrum(rho, u, f)
+f = lbm.get_equilibrium(rho, u, f)
 
 # define main loop
 @jax.jit
 def update(f, feq, rho, u):
 
     # Compute equilibrium distribution function
-    feq = lbm.get_equilibrum(rho, u, feq)
+    feq = lbm.get_equilibrium(rho, u, feq)
 
     # Collision
     f = lbm.collision_mrt(f, feq, OMEGA_MRT)

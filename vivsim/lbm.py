@@ -59,7 +59,7 @@ def get_macroscopic(f, rho, u):
     u = u.at[1].set((f[2] + f[5] + f[6] - f[4] - f[7] - f[8]) / rho)
     return rho, u
 
-def get_equilibrum(rho, u, feq):
+def get_equilibrium(rho, u, feq):
     """
     Calculate the equilibrium distribution function.
 
@@ -162,7 +162,7 @@ bottom_indices = jnp.array([4, 7, 8])
 
 # Bounce-back scheme for no-slip boundaries
 
-def left_soild(f):
+def left_solid(f):
     """Enforce a solid boundary at the left of the domain using the Bounce Back (BB) scheme.
 
     Args:
@@ -175,7 +175,7 @@ def left_soild(f):
     f = f.at[right_indices, 0].set(f[left_indices, 0])
     return f
 
-def right_soild(f):
+def right_solid(f):
     """Enforce a solid boundary at the right of the domain using the Bounce Back (BB) scheme.
 
     Args:
@@ -188,7 +188,7 @@ def right_soild(f):
     f = f.at[left_indices, -1].set(f[right_indices, -1])
     return f
 
-def bottom_soild(f):
+def bottom_solid(f):
     """Enforce a solid boundary at the bottom of the domain using the Bounce Back (BB) scheme.
 
     Args:

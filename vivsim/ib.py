@@ -89,7 +89,7 @@ def get_kernels2(x_markers, y_markers, x_lattice, y_lattice):
     """2D Kernel function of range 2.
     
     Args:
-        x_markers, y_markers (ndaray of shape (N_MARKER)): The coordinates of markers.
+        x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of markers.
         x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
     
     Returns:
@@ -104,7 +104,7 @@ def get_kernels3(x_markers, y_markers, x_lattice, y_lattice):
     """2D Kernel function of range 3.
     
     Args:
-        x_markers, y_markers (ndaray of shape (N_MARKER)): The coordinates of markers.
+        x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of markers.
         x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
     
     Returns:
@@ -151,7 +151,7 @@ def interpolate_u_markers(u, kernels):
 
 def get_delta_g_marker(v_marker, u_marker):
     """Compute the correction force to the fluid.
-    Accoding to g = 2 * rho * (v - u) / dt
+    According to g = 2 * rho * (v - u) / dt
     
     Args:
         v_marker: The velocity of the object at the marker with shape (2).
@@ -166,7 +166,7 @@ def get_delta_g_marker(v_marker, u_marker):
 
 def get_delta_g_markers(v_markers, u_markers):
     """Compute the correction force to the fluid.    
-    Accoding to g = 2 * rho * (v - u) / dt
+    According to g = 2 * rho * (v - u) / dt
     
     Args:
         v_markers: The velocity of the object at the markers with shape (N_MARKER, 2) or (2).
@@ -207,7 +207,7 @@ def distribute_g_markers(g_markers, kernels):
     return jnp.einsum("nd,nxy->dxy", g_markers, kernels)
 
 
-# ----------------- Update Fluid Velocity and Distibution-----------------
+# ----------------- Update Fluid Velocity and Distribution-----------------
 
 
 def get_delta_u(g):
@@ -367,9 +367,9 @@ def multi_direct_forcing(
         delta_g = distribute_g_markers(delta_g_markers, kernels)
         
         # velocity correction
-        u = u.at[:, X1:X2, Y1:Y2].add(get_delta_u(delta_g))
+        u = u.at[:, X1:X2, Y1:Y2].add(get_delta_u(delta_g, omega))
         
-        # accumulate the coresponding correction force to the markers and the fluid
+        # accumulate the corresponding correction force to the markers and the fluid
         h_markers += - delta_g_markers
         g += delta_g
         

@@ -44,22 +44,22 @@ rho = jnp.ones((NX, NY), dtype=jnp.float32)  # density
 u = jnp.zeros((2, NX, NY), dtype=jnp.float32)  # velocity
 
 # initialize
-f = lbm.get_equilibrum(rho, u, f)
+f = lbm.get_equilibrium(rho, u, f)
 
 # define the update function for each time step
 def update(f, feq, rho, u):
     
     # Collision
-    feq = lbm.get_equilibrum(rho, u, feq)
+    feq = lbm.get_equilibrium(rho, u, feq)
     f = lbm.collision_mrt(f, feq, OMEGA_MRT)
 
     # Streaming
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.left_soild(f)
-    f = lbm.right_soild(f)
-    f = lbm.bottom_soild(f)
+    f = lbm.left_solid(f)
+    f = lbm.right_solid(f)
+    f = lbm.bottom_solid(f)
     f = lbm.top_velocity(f, U0, 0)
         
     # get new macroscopic properties

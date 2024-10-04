@@ -31,7 +31,7 @@ ZETA = 0   # Damping ratio
 D = 50   # Cylinder diameter
 NX = 20 * D  # Number of grid points in x direction
 NY = 10 * D   # Number of grid points in y direction
-X_OBJ = 10 * D   # x-coordinate of the cylinder
+X_OBJ = 6 * D   # x-coordinate of the cylinder
 Y_OBJ = 5 * D   # y-coordinate of the cylinder
 N_MARKER = 4 * D   # Number of markers on the circle
 
@@ -84,7 +84,7 @@ h = jnp.zeros((2), dtype=jnp.float32)  # force
 
 # initialize
 u = u.at[0].set(U0)
-f = lbm.get_equilibrum(rho, u, f)
+f = lbm.get_equilibrium(rho, u, f)
 
 # define main loop 
 @jax.jit
@@ -104,7 +104,7 @@ def update(f, feq, rho, u, d, v, a, h):
     a, v, d = dyn.newmark2dof(a, v, d, h, M, K, C)
 
     # Compute equilibrium
-    feq = lbm.get_equilibrum(rho, u, feq)
+    feq = lbm.get_equilibrium(rho, u, feq)
 
     # Collision
     f = lbm.collision_mrt(f, feq, MRT_OMEGA)
