@@ -17,7 +17,7 @@ In this file, the following notations are used:
 """
 
 import jax.numpy as jnp
-
+from .lbm import get_u_correction
 
 # ----------------- Kernel functions -----------------
 
@@ -207,50 +207,6 @@ def distribute_g_markers(g_markers, kernels):
     return jnp.einsum("nd,nxy->dxy", g_markers, kernels)
 
 
-# ----------------- Update Fluid Velocity and Distribution-----------------
-
-
-def get_delta_u(g):
-    """Compute the velocity correction to the fluid.
-        du = g * dt / (2 * rho)
-    """
-    return g * 0.5
-
-
-def get_source(u, g, omega):
-    """Compute the source term needed to be added to the distribution functions.
-    
-    Args:
-        u: The velocity vector with shape (2, NX, NY).
-        g: The force vector with shape (2, NX, NY).
-        omega: The relaxation parameter.
-    
-    Returns:
-        The source term with shape (9, NX, NY).
-    """
-
-    gxux = g[0] * u[0]
-    gyuy = g[1] * u[1]
-    gxuy = g[0] * u[1]
-    gyux = g[1] * u[0]
-    
-    foo = (1 - 0.5 * omega)
-
-    _ = jnp.zeros((9, u.shape[1], u.shape[2]))
-    
-    _ = _.at[0].set(4 / 3 * (-gxux - gyuy)) * foo
-    _ = _.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy)) * foo
-    _ = _.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux)) * foo
-    _ = _.at[3].set(1 / 3 * (2 * gxux - g[0] - gyuy)) * foo
-    _ = _.at[4].set(1 / 3 * (2 * gyuy - g[1] - gxux)) * foo
-    _ = _.at[5].set(1 / 12 * (2 * gxux + 3 * gxuy + g[0] + 3 * gyux + 2 * gyuy + g[1])) * foo
-    _ = _.at[6].set(1 / 12 * (2 * gxux - 3 * gxuy - g[0] - 3 * gyux + 2 * gyuy + g[1])) * foo
-    _ = _.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1])) * foo
-    _ = _.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1])) * foo
-
-    return _
-
-
 # ----------------- Object -> Markers -----------------
 
 
@@ -330,7 +286,7 @@ def multi_direct_forcing(
     u, X, Y,  # fluid velocity field and mesh grid
     v_markers, x_markers, y_markers,  # markers velocity and coordinates
     X1=0, X2=-1, Y1=0, Y2=-1,  # the range of the IBM region
-    N_ITER=3,  # number of iterations for multi-direct forcing
+    N_ITER=3,
     ):
     """Implement the multi-direct forcing method.
     
@@ -367,7 +323,7 @@ def multi_direct_forcing(
         delta_g = distribute_g_markers(delta_g_markers, kernels)
         
         # velocity correction
-        u = u.at[:, X1:X2, Y1:Y2].add(get_delta_u(delta_g, omega))
+        u = u.at[:, X1:X2, Y1:Y2].add(get_u_correction(delta_g))
         
         # accumulate the corresponding correction force to the markers and the fluid
         h_markers += - delta_g_markers

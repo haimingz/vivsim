@@ -110,7 +110,7 @@ def update(f, feq, rho, u, d, v, a, h):
     f = lbm.collision_mrt(f, feq, MRT_OMEGA)
     
     # Add source term
-    f = f.at[:, X1:X2, Y1:Y2].add(ib.get_source(u[:, X1:X2, Y1:Y2], g, OMEGA))
+    f = f.at[:, X1:X2, Y1:Y2].add(lbm.get_source(u[:, X1:X2, Y1:Y2], g, OMEGA))
 
     # Streaming
     f = lbm.streaming(f)

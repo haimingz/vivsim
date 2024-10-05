@@ -5,6 +5,9 @@ Collision models:
 * Bhatnagar-Gross-Krook (BGK) model | Single Relaxation Time (SRT) model
 * Multiple Relaxation Time (MRT) model
 
+Forcing schemes
+* Guo's scheme
+
 Boundary conditions:
 * Solid (No-slip) boundary at domain boundaries and obstacles using the bounce-back scheme
 * Velocity (Dirichlet) boundary at domain boundaries using the NEBB | Zou/He scheme
@@ -146,6 +149,49 @@ def collision_mrt(f, feq, omega_mrt):
         feq (ndarray of shape (9, NX, NY)): The updated distribution function after the collision step.
     """
     return jnp.tensordot(omega_mrt, feq - f, axes=([1], [0])) + f
+
+# ----------------- forcing schemes -----------------
+
+def get_u_correction(g, rho=1):
+    """Compute the velocity correction according to Guo's scheme.
+        du = g * dt / (2 * rho)
+    """
+    return g * 0.5 / rho
+
+
+def get_source(u, g, omega):
+    """Compute the source term needed to be added to the distribution functions
+    according to Guo's scheme.
+    
+    Args:
+        u: The velocity vector with shape (2, NX, NY).
+        g: The force vector with shape (2, NX, NY).
+        omega: The relaxation parameter.
+    
+    Returns:
+        The source term with shape (9, NX, NY).
+    """
+
+    gxux = g[0] * u[0]
+    gyuy = g[1] * u[1]
+    gxuy = g[0] * u[1]
+    gyux = g[1] * u[0]
+    
+    foo = (1 - 0.5 * omega)
+
+    _ = jnp.zeros((9, u.shape[1], u.shape[2]))
+    
+    _ = _.at[0].set(4 / 3 * (- gxux - gyuy))
+    _ = _.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy))
+    _ = _.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux))
+    _ = _.at[3].set(1 / 3 * (2 * gxux - g[0] - gyuy))
+    _ = _.at[4].set(1 / 3 * (2 * gyuy - g[1] - gxux))
+    _ = _.at[5].set(1 / 12 * (2 * gxux + 3 * gxuy + g[0] + 3 * gyux + 2 * gyuy + g[1]))
+    _ = _.at[6].set(1 / 12 * (2 * gxux - 3 * gxuy - g[0] - 3 * gyux + 2 * gyuy + g[1]))
+    _ = _.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1]))
+    _ = _.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1]))
+
+    return _ * foo
 
 # --------------------------------- boundary conditions ---------------------------------
 # 6   2   5
