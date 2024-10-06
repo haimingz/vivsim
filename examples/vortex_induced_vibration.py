@@ -31,12 +31,12 @@ ZETA = 0   # Damping ratio
 D = 50   # Cylinder diameter
 NX = 20 * D  # Number of grid points in x direction
 NY = 10 * D   # Number of grid points in y direction
-X_OBJ = 6 * D   # x-coordinate of the cylinder
+X_OBJ = 8 * D   # x-coordinate of the cylinder
 Y_OBJ = 5 * D   # y-coordinate of the cylinder
-N_MARKER = 4 * D   # Number of markers on the circle
+N_MARKER = 5 * D  # Number of markers on the circle
 
 # time parameters
-U0 = 0.05  # Inlet velocity
+U0 = 0.1 # Inlet velocity
 TM = 60000   # Maximum number of time steps
 
 # plot options
@@ -62,7 +62,7 @@ X1 = int(X_OBJ - 0.7 * D)   # left boundary of the IBM region
 X2 = int(X_OBJ + 1.0 * D)   # right boundary of the IBM region
 Y1 = int(Y_OBJ - 1.5 * D)   # bottom boundary of the IBM region
 Y2 = int(Y_OBJ + 1.5 * D)   # top boundary of the IBM region
-MDF = 3  # number of iterations for multi-direct forcing
+NITER_MDF = 3  # number of iterations for multi-direct forcing
 
 # generate mesh grid
 X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.uint16), 
@@ -93,7 +93,29 @@ def update(f, feq, rho, u, d, v, a, h):
 
     # Immersed Boundary Method
     x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
-    h_markers, g, u = ib.multi_direct_forcing(u, X, Y, v, x_markers, y_markers, X1, X2, Y1, Y2, MDF)
+    
+    h_markers = jnp.zeros((x_markers.shape[0], 2))  # hydrodynamic force to the markers
+    g = jnp.zeros((2, X2 - X1, Y2 - Y1))  # distributed IB force to the fluid
+    
+   
+    # calculate the kernel functions for all markers
+    kernels = ib.get_kernels(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2], ib.kernel_func4)
+    
+    for _ in range(NITER_MDF):
+        
+        # velocity interpolation
+        u_markers = ib.interpolate_u_markers(u[:, X1:X2, Y1:Y2], kernels)
+        
+        # compute correction force
+        delta_g_markers = ib.get_g_markers_needed(v, u_markers)
+        delta_g = ib.spread_g_needed(delta_g_markers, kernels, L_ARC)
+        
+        # velocity correction
+        u = u.at[:, X1:X2, Y1:Y2].add(lbm.get_u_correction(delta_g))
+        
+        # accumulate the corresponding correction force to the markers and the fluid
+        h_markers += - delta_g_markers
+        g += delta_g 
 
     # Compute force to the obj (including internal fluid force)
     h = ib.calculate_force_obj(h_markers, L_ARC)
