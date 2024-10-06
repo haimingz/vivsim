@@ -108,8 +108,8 @@ def update(f, feq, rho, u, d, v, a, h):
         u_markers = ib.interpolate_u_markers(u[:, X1:X2, Y1:Y2], kernels)
         
         # compute correction force
-        delta_g_markers = ib.get_g_markers_needed(v, u_markers)
-        delta_g = ib.spread_g_needed(delta_g_markers, kernels, L_ARC)
+        delta_g_markers = ib.get_g_markers_needed(v, u_markers, L_ARC)
+        delta_g = ib.spread_g_needed(delta_g_markers, kernels)
         
         # velocity correction
         u = u.at[:, X1:X2, Y1:Y2].add(lbm.get_u_correction(delta_g))
@@ -119,7 +119,7 @@ def update(f, feq, rho, u, d, v, a, h):
         g += delta_g 
 
     # Compute force to the obj (including internal fluid force)
-    h = ib.calculate_force_obj(h_markers, L_ARC)
+    h = ib.calculate_force_obj(h_markers)
     
     # eliminate internal fluid force (Feng's rigid body approximation)
     h -= a * math.pi * D ** 2 / 4  # found unstable for high Re
