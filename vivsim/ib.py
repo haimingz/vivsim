@@ -17,8 +17,6 @@ In this file, the following notations are used:
 """
 
 import jax.numpy as jnp
-from .lbm import get_u_correction
-
 
 
 # ----------------- Kinetics from Object to Markers -----------------
@@ -174,7 +172,7 @@ def interpolate_u_markers(u, kernels):
     return jnp.einsum("nxy,dxy->nd", kernels, u)
 
 
-def get_g_markers_needed(v_markers, u_markers, rho=1):
+def get_g_markers_needed(v_markers, u_markers, marker_distance, rho=1):
     """Compute the needed forces required to enforce no-slip boundary at markers.
     according to g = 2 * rho * (v - u) / dt.
     
@@ -189,10 +187,10 @@ def get_g_markers_needed(v_markers, u_markers, rho=1):
     if v_markers.ndim == 1:
         return 2 * (v_markers[None,...] - u_markers)
        
-    return 2 * (v_markers - u_markers) * rho
+    return 2 * (v_markers - u_markers) * rho * marker_distance
 
 
-def spread_g_needed(g_markers, kernels, marker_distance):
+def spread_g_needed(g_markers, kernels):
     """Spread the correction force that act only at the markers to the fluid.
     
     Args:
@@ -203,20 +201,12 @@ def spread_g_needed(g_markers, kernels, marker_distance):
         out (ndarray of shape (2, NX, NY)): The force field applied to the fluid.
     """
     
-<<<<<<< ours
     return jnp.einsum("nd,nxy->dxy", g_markers, kernels)
-<<<<<<< ours
-=======
-=======
-    return jnp.einsum("nd,nxy->dxy", g_markers, kernels) * marker_distance
->>>>>>> theirs
->>>>>>> theirs
-
 
 # ----------------- Markers -> Object -----------------
 
 
-def calculate_force_obj(h_markers, marker_distance):
+def calculate_force_obj(h_markers):
     """Compute the total force to the object.
     
     Args:
@@ -227,10 +217,10 @@ def calculate_force_obj(h_markers, marker_distance):
         The total force to the object with shape (2).
     """
     
-    return jnp.sum(h_markers, axis=0) * marker_distance
+    return jnp.sum(h_markers, axis=0)
 
 
-def calculate_torque_obj(x_markers, y_markers, X_CENTER, Y_CENTER, d,  h_markers, marker_distance):
+def calculate_torque_obj(x_markers, y_markers, X_CENTER, Y_CENTER, d, h_markers):
     """Calculate the torque applied to the object.
     
     Args:
@@ -246,7 +236,5 @@ def calculate_torque_obj(x_markers, y_markers, X_CENTER, Y_CENTER, d,  h_markers
     x_rel = x_markers - X_CENTER - d[0]
     y_rel = y_markers - Y_CENTER - d[1]
     
-    coord_rel = jnp.vstack((x_rel, y_rel))
-    torque = jnp.sum(jnp.cross(coord_rel, (h_markers * marker_distance).T, axis=0))
-    return torque
+    return jnp.sum(x_rel * h_markers[:, 1] - y_rel * h_markers[:, 0])
 
