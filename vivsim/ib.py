@@ -22,27 +22,27 @@ from .lbm import get_u_correction
 # ----------------- Kernel functions -----------------
 
 
-def stencil2(distance):
-    """1D stencil function of range 2 for interpolation.
+def kernel_func2(distance):
+    """kernel function of range 2
     
     Args:
-        distance (scalar): The distance between the marker and the lattice.
+        distance (scalar or ndarray): The distance between the marker and the lattice.
     
     Returns:
-        out (scalar): The kernel function value. 
+        out (scalar or ndarray): The kernel function value. 
     """
     
     return jnp.where(jnp.abs(distance) <= 1, 1 - jnp.abs(distance), 0)
 
 
-def stencil3(distance):
-    """1D stencil function of range 3 for interpolation.
+def kernel_func3(distance):
+    """kernel function of range 3
     
     Args:
-        distance (scalar): The distance between the marker and the lattice.
+        distance (scalar or ndarray): The distance between the marker and the lattice.
     
     Returns:
-        out (scalar): The kernel function value. 
+        out (scalar or ndarray): The kernel function value. 
     """
     
     distance = jnp.abs(distance)
@@ -57,62 +57,42 @@ def stencil3(distance):
     )
 
 
-def get_kernel2(x_marker, y_marker, x_lattice, y_lattice):
-    """2D Kernel function of range 2.
+def kernel_func4(distance):
+    """kernel function of range 4
     
     Args:
-        x_marker, y_marker (scalar): The coordinates of a marker.
-        x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
+        distance (scalar or ndarray): The distance between the marker and the lattice.
     
     Returns:
-        out (ndarray of shape (NX, NY)): The kernel function values.
+        out (scalar or ndarray): The kernel function value. 
     """
     
-    return stencil2(x_lattice - x_marker) * stencil2(y_lattice - y_marker)
+    distance = jnp.abs(distance)
+    return jnp.where(
+        distance > 2,
+        0,
+        jnp.where(
+            distance < 1,
+            (3 - 2 * distance + jnp.sqrt(1 + 4 * distance - 4 * distance ** 2)) / 8,
+            (5 - 2 * distance - jnp.sqrt(- 7 + 12 * distance - 4 * distance ** 2)) / 8,
+        ),
+    )
 
 
-def get_kernel3(x_marker, y_marker, x_lattice, y_lattice):
-    """2D Kernel function of range 3.
-    
-    Args:
-        x_marker, y_marker (scalar): The coordinates of a marker.
-        x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
-    
-    Returns:
-        out (ndarray of shape (NX, NY)): The kernel function values.
-    """
-    
-    return stencil3(x_lattice - x_marker) * stencil3(y_lattice - y_marker)
-
-
-def get_kernels2(x_markers, y_markers, x_lattice, y_lattice):
-    """2D Kernel function of range 2.
+def get_kernels(x_markers, y_markers, x_lattice, y_lattice, kernel_function):
+    """Generate the kernels for all the markers.
     
     Args:
         x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of markers.
         x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
+        kernel (callable): The kernel function. Available options: 
+            kernel_func2, kernel_func3, kernel_func4.
     
     Returns:
         out (ndarray of shape (N_MARKER, NX, NY))： The kernel function values.
     """
-    
-    return (stencil2(x_lattice[None, ...] - x_markers[:, None, None]) \
-          * stencil2(y_lattice[None, ...] - y_markers[:, None, None]))
-
-
-def get_kernels3(x_markers, y_markers, x_lattice, y_lattice):
-    """2D Kernel function of range 3.
-    
-    Args:
-        x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of markers.
-        x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
-    
-    Returns:
-        out (ndarray of shape (N_MARKER, NX, NY))： The kernel function values.
-    """
-    
-    return (stencil3(x_lattice[None, ...] - x_markers[:, None, None]) \
-          * stencil3(y_lattice[None, ...] - y_markers[:, None, None]))
+    return (kernel_function(x_lattice[None, ...] - x_markers[:, None, None]) \
+          * kernel_function(y_lattice[None, ...] - y_markers[:, None, None]))
 
 
 # ----------------- Fluid Velocity Interpolation -----------------
@@ -311,7 +291,7 @@ def multi_direct_forcing(
     
    
     # calculate the kernel functions for all markers
-    kernels = get_kernels3(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2])
+    kernels = get_kernels(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2], kernel_func4)
     
     for _ in range(N_ITER):
         
