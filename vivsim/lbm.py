@@ -51,7 +51,7 @@ def get_macroscopic(f, rho, u):
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
         rho (ndarray of shape (NX, NY)): The macroscopic density.
-        u (ndndarray of shape (2, NX, NY)): The macroscopic velocity.
+        u (ndarray of shape (2, NX, NY)): The macroscopic velocity.
 
     Returns:
         rho (ndarray of shape (NX, NY)): The macroscopic density.
@@ -283,12 +283,12 @@ def obj_solid(f, mask):
     return f_
 
 
-# Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme for open boundaries with given velocities
+# Non-Equilibrium Bounce-Back (or Zou/He) scheme for open boundaries with given velocities
 
 def left_velocity(f, ux_left, uy_left):
     """
     Enforce given velocity at the left of the domain 
-    using the Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme.
+    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme.
 
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
@@ -307,7 +307,7 @@ def left_velocity(f, ux_left, uy_left):
 def right_velocity(f, ux_right, uy_right):
     """
     Enforce given velocity at the right of the domain 
-    using the Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme.
+    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme.
     
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
@@ -326,7 +326,7 @@ def right_velocity(f, ux_right, uy_right):
 def top_velocity(f, ux_top, uy_top):
     """
     Enforce given velocity at the top of the domain 
-    using the Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme.
+    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme.
     
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
@@ -346,7 +346,7 @@ def top_velocity(f, ux_top, uy_top):
 def bottom_velocity(f, ux_bottom, uy_bottom):
     """
     Enforce given velocity at the bottom of the domain 
-    using the Non-Equilibrium Bounce-Back (NEBB, or Zhou/He) scheme.
+    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme.
     
     Args:
         f (ndarray of shape (9, NX, NY)): The distribution function.
@@ -359,7 +359,6 @@ def bottom_velocity(f, ux_bottom, uy_bottom):
     """
     
     rho_wall = (f[0, :,0] + f[1, :,0] + f[3, :,0] + 2 * (f[4, :,0] + f[7, :,0] + f[8, :,0])) / (- uy_bottom + 1)
-    # rho = rho.at[:, 0].set(rho_wall)
     f = f.at[2, :, 0].set(f[4, :, 0] + 2 / 3 * uy_bottom * rho_wall)
     f = f.at[5, :, 0].set(f[7, :, 0] - 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy_bottom + 0.5 * ux_bottom) * rho_wall)
     f = f.at[6, :, 0].set(f[8, :, 0] + 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy_bottom - 0.5 * ux_bottom) * rho_wall)
