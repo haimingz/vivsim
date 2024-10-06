@@ -86,6 +86,7 @@ h = jnp.zeros((2), dtype=jnp.float32)  # force
 # initialize
 u = u.at[0].set(U0)
 f = lbm.get_equilibrium(rho, u, f)
+v = d.at[1].set(1e-2) # optional: add a initial perturbation to the velocity
 
 # define main loop 
 @jax.jit
