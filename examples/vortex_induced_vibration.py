@@ -54,7 +54,8 @@ C = 2 * math.sqrt(K * M) * ZETA  # damping
 # parameters for IB-LBM
 TAU = 3 * NU + 0.5  # relaxation time
 OMEGA = 1 / TAU  # relaxation parameter
-MRT_OMEGA = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
+OMEGA_MRT = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
+OMEGA_SOURCE_MRT = lbm.get_omega_source_mrt(OMEGA)   # relaxation matrix for MRT
 L_ARC = D * math.pi / N_MARKER  # arc length between the markers
 RE_GRID = RE / D  # Reynolds number based on grid size
 X1 = int(X_OBJ - 0.7 * D)   # left boundary of the IBM region 
@@ -107,10 +108,10 @@ def update(f, feq, rho, u, d, v, a, h):
     feq = lbm.get_equilibrium(rho, u, feq)
 
     # Collision
-    f = lbm.collision_mrt(f, feq, MRT_OMEGA)
+    f = lbm.collision_mrt(f, feq, OMEGA_MRT)
     
     # Add source term
-    f = f.at[:, X1:X2, Y1:Y2].add(lbm.get_source(u[:, X1:X2, Y1:Y2], g, OMEGA))
+    f = f.at[:, X1:X2, Y1:Y2].add(lbm.get_source(u[:, X1:X2, Y1:Y2], g, OMEGA_SOURCE_MRT))
 
     # Streaming
     f = lbm.streaming(f)

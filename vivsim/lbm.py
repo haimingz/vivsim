@@ -108,7 +108,8 @@ def collision_bgk(f, feq, omega):
 
 def get_omega_mrt(omega):
     """
-    Generate the multiple relaxation time (MRT) omega matrix.
+    Generate the multiple relaxation time (MRT) omega matrix
+    which equals M^{-1}SM
 
     Args:
         omega (scalar): The relaxation parameter.
@@ -116,7 +117,6 @@ def get_omega_mrt(omega):
     Returns:
         omega_mrt (ndarray of shape (9,9)):  The MRT omega matrix.
     """
-    # transformation matrix
     M = np.array(
         [
             [1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -130,10 +130,8 @@ def get_omega_mrt(omega):
             [0, 0, 0, 0, 0, 1, -1, 1, -1],
         ]
     )
-    # relaxation matrix
     S = np.diag(np.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]))
 
-    # MRT omega matrix
     return jnp.array(np.linalg.inv(M) @ S @ M)
 
 def collision_mrt(f, feq, omega_mrt):
@@ -158,6 +156,34 @@ def get_u_correction(g, rho=1):
     """
     return g * 0.5 / rho
 
+def get_omega_source_mrt(omega):
+    """
+    Generate the multiple relaxation time (MRT) omega matrix for the source term
+    which equals M^{-1}(I-S/2)M
+
+    Args:
+        omega (scalar): The relaxation parameter.
+
+    Returns:
+        omega_mrt (ndarray of shape (9,9)):  The MRT omega matrix.
+    """
+    
+    M = np.array(
+        [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [-4, -1, -1, -1, -1, 2, 2, 2, 2],
+            [4, -2, -2, -2, -2, 1, 1, 1, 1],
+            [0, 1, 0, -1, 0, 1, -1, -1, 1],
+            [0, -2, 0, 2, 0, 1, -1, -1, 1],
+            [0, 0, 1, 0, -1, 1, 1, -1, -1],
+            [0, 0, -2, 0, 2, 1, 1, -1, -1],
+            [0, 1, -1, 1, -1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, -1, 1, -1],
+        ]
+    )
+    _ = np.diag(- 0.5 * np.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]) + 1)
+
+    return jnp.array(np.linalg.inv(M) @ _ @ M)
 
 def get_source(u, g, omega):
     """Compute the source term needed to be added to the distribution functions
@@ -166,7 +192,8 @@ def get_source(u, g, omega):
     Args:
         u: The velocity vector with shape (2, NX, NY).
         g: The force vector with shape (2, NX, NY).
-        omega: The relaxation parameter.
+        omega: The relaxation parameter (Can be either a scalar for SRT model
+            or a 9x9 matrix for MRT model)
     
     Returns:
         The source term with shape (9, NX, NY).
@@ -177,10 +204,7 @@ def get_source(u, g, omega):
     gxuy = g[0] * u[1]
     gyux = g[1] * u[0]
     
-    foo = (1 - 0.5 * omega)
-
     _ = jnp.zeros((9, u.shape[1], u.shape[2]))
-    
     _ = _.at[0].set(4 / 3 * (- gxux - gyuy))
     _ = _.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy))
     _ = _.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux))
@@ -191,7 +215,11 @@ def get_source(u, g, omega):
     _ = _.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1]))
     _ = _.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1]))
 
-    return _ * foo
+    if jnp.isscalar(omega):
+        return _ * (- 0.5 * omega + 1)
+    else:
+        return jnp.tensordot(omega, _, axes=([1], [0]))
+
 
 # --------------------------------- boundary conditions ---------------------------------
 # 6   2   5
