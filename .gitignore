@@ -167,3 +167,6 @@ cython_debug/
 # output files
 *.npy
 *.npz
+
+# container images
+*.sif
