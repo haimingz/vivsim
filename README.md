@@ -75,3 +75,19 @@ Alternatively, you can run the following command in a cell on Google Colab to in
 You can also create a Singularity image from the provided definition file `vivsim.def` and execute your code on High Performance Computing (HPC) clusters. 
 
 More detailed instructions can be found in our [Documentation](https://github.com/haimingz/vivsim/wiki/Installation).
+
+## Cite VIVSIM
+
+If you find this repo useful, please cite [our paper](https://asmedigitalcollection.asme.org/OMAE/proceedings-abstract/OMAE2024/87844/1202724):
+```
+@inproceedings{zhu2024computational,
+  title={Computational Performance of IB-LBM Based VIV Simulation Using Python With JAX},
+  author={Zhu, Haiming and Du, Zunfeng and Yang, Yuan and Han, Muxuan},
+  booktitle={International Conference on Offshore Mechanics and Arctic Engineering},
+  volume={87844},
+  pages={V006T08A020},
+  year={2024},
+  organization={American Society of Mechanical Engineers}
+}
+```
+
