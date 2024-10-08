@@ -72,4 +72,6 @@ Alternatively, you can run the following command in a cell on Google Colab to in
 ```python
 !pip install git+https://github.com/haimingz/vivsim
 ```
-You can also create a Singularity image from the provided definition file `vivsim.def` and execute your code on High Performance Computing (HPC) clusters. More detailed instructions can be found in our [Documentation](https://github.com/haimingz/vivsim/wiki/Getting-Started).
+You can also create a Singularity image from the provided definition file `vivsim.def` and execute your code on High Performance Computing (HPC) clusters. 
+
+More detailed instructions can be found in our [Documentation](https://github.com/haimingz/vivsim/wiki/Installation).
