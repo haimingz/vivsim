@@ -155,8 +155,10 @@ def top_noslip(f):
 
     return f.at[bottom_indices, :, -1].set(f[top_indices, :, -1])
 
-def obj_noslip(f, mask):
-    """Enforce a no-slip boundary at the object using the Bounce Back scheme."""
+def obstacle_noslip(f, mask):
+    """Enforce a no-slip boundary at the obstacle 
+    using the Bounce Back scheme. The obstacle is defined by a 2D mask
+    where True indicates the presence of an obstacle."""
     
     return f.at[:, mask].set(f[:, mask][opposite_indices])
 

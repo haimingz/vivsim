@@ -75,7 +75,7 @@ def update(f, feq, rho, u):
     f = lbm.bottom_velocity(f, 0, U0)
     
      # Obstacle
-    f = lbm.obj_noslip(f, mask)
+    f = lbm.obstacle_noslip(f, mask)
     
      # get new macroscopic properties
     rho, u = lbm.get_macroscopic(f, rho, u)
