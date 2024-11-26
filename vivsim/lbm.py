@@ -87,97 +87,10 @@ def collision(f, feq, omega):
 
     return (1 - omega) * f + omega * feq
 
-def get_omega_mrt(omega):
-    """
-    Generate the multiple relaxation time (MRT) omega matrix
-    which equals M^{-1}SM
-
-    Args:
-        omega (scalar): The relaxation parameter.
-
-    Returns:
-        omega_mrt (ndarray of shape (9,9)):  The MRT omega matrix.
-    """
-    M = np.array(
-        [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [-4, -1, -1, -1, -1, 2, 2, 2, 2],
-            [4, -2, -2, -2, -2, 1, 1, 1, 1],
-            [0, 1, 0, -1, 0, 1, -1, -1, 1],
-            [0, -2, 0, 2, 0, 1, -1, -1, 1],
-            [0, 0, 1, 0, -1, 1, 1, -1, -1],
-            [0, 0, -2, 0, 2, 1, 1, -1, -1],
-            [0, 1, -1, 1, -1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 1, -1, 1, -1],
-        ]
-    )
-    S = np.diag(np.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]))
-
-    return jnp.array(np.linalg.inv(M) @ S @ M)
-
-def collision_mrt(f, feq, omega_mrt):
-    """
-    Perform collision step using the Multiple Relaxation Time (MRT) model.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        feq (ndarray of shape (9, NX, NY)): The equilibrium distribution function.
-        omega_mrt (ndarray of shape (9, NX, NY)): The relaxation rates for the MRT model.
-
-    Returns:
-        feq (ndarray of shape (9, NX, NY)): The updated distribution function after the collision step.
-    """
-    return jnp.tensordot(omega_mrt, feq - f, axes=([1], [0])) + f
-
-# ----------------- forcing schemes -----------------
-
-def get_u_correction(g, rho=1):
-    """Compute the velocity correction according to Guo's scheme.
-        du = g * dt / (2 * rho)
-    """
-    return g * 0.5 / rho
-
-def get_omega_source_mrt(omega):
-    """
-    Generate the multiple relaxation time (MRT) omega matrix for the source term
-    which equals M^{-1}(I-S/2)M
-
-    Args:
-        omega (scalar): The relaxation parameter.
-
-    Returns:
-        omega_mrt (ndarray of shape (9,9)):  The MRT omega matrix.
-    """
+def get_discretized_force(g, u):
+    """Calculate the discretized force from the macroscopic velocity and external force.
     
-    M = np.array(
-        [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [-4, -1, -1, -1, -1, 2, 2, 2, 2],
-            [4, -2, -2, -2, -2, 1, 1, 1, 1],
-            [0, 1, 0, -1, 0, 1, -1, -1, 1],
-            [0, -2, 0, 2, 0, 1, -1, -1, 1],
-            [0, 0, 1, 0, -1, 1, 1, -1, -1],
-            [0, 0, -2, 0, 2, 1, 1, -1, -1],
-            [0, 1, -1, 1, -1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 1, -1, 1, -1],
-        ]
-    )
-    _ = np.diag(- 0.5 * np.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]) + 1)
-
-    return jnp.array(np.linalg.inv(M) @ _ @ M)
-
-def get_source(u, g, omega):
-    """Compute the source term needed to be added to the distribution functions
-    according to Guo's scheme.
-    
-    Args:
-        u: The velocity vector with shape (2, NX, NY).
-        g: The force vector with shape (2, NX, NY).
-        omega: The relaxation parameter (Can be either a scalar for SRT model
-            or a 9x9 matrix for MRT model)
-    
-    Returns:
-        The source term with shape (9, NX, NY).
+    The discretized force (gd) has the same shape as the distribution functions (f).
     """
     
     gxux = g[0] * u[0]
@@ -185,21 +98,29 @@ def get_source(u, g, omega):
     gxuy = g[0] * u[1]
     gyux = g[1] * u[0]
     
-    _ = jnp.zeros((9, u.shape[1], u.shape[2]))
-    _ = _.at[0].set(4 / 3 * (- gxux - gyuy))
-    _ = _.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy))
-    _ = _.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux))
-    _ = _.at[3].set(1 / 3 * (2 * gxux - g[0] - gyuy))
-    _ = _.at[4].set(1 / 3 * (2 * gyuy - g[1] - gxux))
-    _ = _.at[5].set(1 / 12 * (2 * gxux + 3 * gxuy + g[0] + 3 * gyux + 2 * gyuy + g[1]))
-    _ = _.at[6].set(1 / 12 * (2 * gxux - 3 * gxuy - g[0] - 3 * gyux + 2 * gyuy + g[1]))
-    _ = _.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1]))
-    _ = _.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1]))
+    gd = jnp.zeros((9, u.shape[1], u.shape[2]))
+    gd = gd.at[0].set(4 / 3 * (- gxux - gyuy))
+    gd = gd.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy))
+    gd = gd.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux))
+    gd = gd.at[3].set(1 / 3 * (2 * gxux - g[0] - gyuy))
+    gd = gd.at[4].set(1 / 3 * (2 * gyuy - g[1] - gxux))
+    gd = gd.at[5].set(1 / 12 * (2 * gxux + 3 * gxuy + g[0] + 3 * gyux + 2 * gyuy + g[1]))
+    gd = gd.at[6].set(1 / 12 * (2 * gxux - 3 * gxuy - g[0] - 3 * gyux + 2 * gyuy + g[1]))
+    gd = gd.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1]))
+    gd = gd.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1]))
+    
+    return gd
 
-    if jnp.isscalar(omega):
-        return _ * (- 0.5 * omega + 1)
-    else:
-        return jnp.tensordot(omega, _, axes=([1], [0]))
+def get_velocity_correction(g, rho=1):
+    """Compute the velocity correction due to the force term."""
+
+    return g * 0.5 / rho
+
+def get_source(gd, omega):
+    """Compute the source term needed to be added to the distribution functions
+    according to Guo's scheme."""
+   
+    return gd * (1 - 0.5 * omega)
 
 
 # --------------------------------- boundary conditions ---------------------------------

@@ -7,7 +7,7 @@ import jax.numpy as jnp
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from vivsim import lbm, post
+from vivsim import lbm, post, mrt
 
 import os
 os.environ['XLA_FLAGS'] = (
@@ -35,7 +35,11 @@ PLOT_AFTER = 00  # plot after n time steps
 NU = U0 / RE_GRID  # kinematic viscosity
 TAU = 3 * NU + 0.5  # relaxation time
 OMEGA = 1 / TAU  # relaxation parameter
-OMEGA_MRT = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
+
+MRT_TRANS = mrt.get_trans_matrix()
+MRT_RELAX = mrt.get_relax_matrix(OMEGA)
+MRT_COL_LEFT = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX)  
+
     
 # create empty arrays
 f = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # distribution function
@@ -51,7 +55,7 @@ def update(f, feq, rho, u):
     
     # Collision
     feq = lbm.get_equilibrium(rho, u, feq)
-    f = lbm.collision_mrt(f, feq, OMEGA_MRT)
+    f = mrt.collision(f, feq, MRT_COL_LEFT)
 
     # Streaming
     f = lbm.streaming(f)

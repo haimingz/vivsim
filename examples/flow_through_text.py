@@ -9,7 +9,7 @@ import matplotlib as mpl
 import matplotlib.colors as mcolors
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
-from vivsim import lbm, post
+from vivsim import lbm, post, mrt
 
 
 # define control parameters
@@ -44,7 +44,9 @@ mask = (mask > 0).astype(np.bool_)
 NU = U0 / RE_GRID   # kinematic viscosity
 TAU = 3 * NU + 0.5   # relaxation time
 OMEGA = 1 / TAU   # relaxation parameter
-OMEGA_MRT = lbm.get_omega_mrt(OMEGA)    # relaxation matrix for MRT
+MRT_TRANS = mrt.get_trans_matrix()
+MRT_RELAX = mrt.get_relax_matrix(OMEGA)
+MRT_COL_LEFT = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX)  
 
 # create empty arrays
 rho = jnp.ones((NX, NY), dtype=jnp.float32)   # density
@@ -63,7 +65,7 @@ def update(f, feq, rho, u):
     feq = lbm.get_equilibrium(rho, u, feq)
 
     # Collision
-    f = lbm.collision_mrt(f, feq, OMEGA_MRT)
+    f = mrt.collision(f, feq, MRT_COL_LEFT)
 
     # Streaming
     f = lbm.streaming(f)
