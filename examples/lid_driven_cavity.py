@@ -57,9 +57,9 @@ def update(f, feq, rho, u):
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.left_solid(f)
-    f = lbm.right_solid(f)
-    f = lbm.bottom_solid(f)
+    f = lbm.left_noslip(f)
+    f = lbm.right_noslip(f)
+    f = lbm.bottom_noslip(f)
     f = lbm.top_velocity(f, U0, 0)
         
     # get new macroscopic properties
