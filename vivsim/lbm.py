@@ -28,7 +28,8 @@ Key Variables:
     feq: Equilibrium distribution functions, shape (9, NX, NY) 
     rho: Macroscopic density, shape (NX, NY)
     u: Macroscopic velocity vector, shape (2, NX, NY)
-    g: External force vector, shape (2, NX, NY)
+    g: External force density vector, shape (2, NX, NY)
+    forcing: forcing term, shape (9, NX, NY)
 
 All equations are pre-evaluated for the D2Q9 model for maximum efficiency.
 """
@@ -36,7 +37,7 @@ All equations are pre-evaluated for the D2Q9 model for maximum efficiency.
 import jax.numpy as jnp
 
 def streaming(f):
-    """Perform the streaming step of the LBM by shifting the distribution functions 
+    """Perform the streaming step by shifting the distribution functions 
     along their respective lattice directions, which automatically enforces
     periodic boundary conditions at domain boundaries.
     """
@@ -82,45 +83,45 @@ def get_equilibrium(rho, u, feq):
     return feq
 
 def collision(f, feq, omega):
-    """Perform the collision step using the Bhatnagar-Gross-Krook (BGK) model
-    where omega is the relaxation parameter. """
+    """Perform the collision step using the single relaxation time (SRT) model
+    where omega (scalar) is the relaxation parameter. """
 
     return (1 - omega) * f + omega * feq
 
-def get_discretized_force(g, u):
-    """Calculate the discretized force from the macroscopic velocity and external force.
-    
-    The discretized force (gd) has the same shape as the distribution functions (f).
-    """
+
+# --------------------------------- force implementation ---------------------------------
+
+def get_forcing(g, u):
+    """Discretize external force density into lattice forcing term
+    according to Guo Forcing scheme."""
     
     gxux = g[0] * u[0]
     gyuy = g[1] * u[1]
     gxuy = g[0] * u[1]
     gyux = g[1] * u[0]
     
-    gd = jnp.zeros((9, u.shape[1], u.shape[2]))
-    gd = gd.at[0].set(4 / 3 * (- gxux - gyuy))
-    gd = gd.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy))
-    gd = gd.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux))
-    gd = gd.at[3].set(1 / 3 * (2 * gxux - g[0] - gyuy))
-    gd = gd.at[4].set(1 / 3 * (2 * gyuy - g[1] - gxux))
-    gd = gd.at[5].set(1 / 12 * (2 * gxux + 3 * gxuy + g[0] + 3 * gyux + 2 * gyuy + g[1]))
-    gd = gd.at[6].set(1 / 12 * (2 * gxux - 3 * gxuy - g[0] - 3 * gyux + 2 * gyuy + g[1]))
-    gd = gd.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1]))
-    gd = gd.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1]))
+    forcing = jnp.zeros((9, u.shape[1], u.shape[2]))
+    forcing = forcing.at[0].set(4 / 3 * (- gxux - gyuy))
+    forcing = forcing.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy))
+    forcing = forcing.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux))
+    forcing = forcing.at[3].set(1 / 3 * (2 * gxux - g[0] - gyuy))
+    forcing = forcing.at[4].set(1 / 3 * (2 * gyuy - g[1] - gxux))
+    forcing = forcing.at[5].set(1 / 12 * (2 * gxux + 3 * gxuy + g[0] + 3 * gyux + 2 * gyuy + g[1]))
+    forcing = forcing.at[6].set(1 / 12 * (2 * gxux - 3 * gxuy - g[0] - 3 * gyux + 2 * gyuy + g[1]))
+    forcing = forcing.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1]))
+    forcing = forcing.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1]))
     
-    return gd
+    return forcing
 
 def get_velocity_correction(g, rho=1):
     """Compute the velocity correction due to the force term."""
 
     return g * 0.5 / rho
 
-def get_source(gd, omega):
-    """Compute the source term needed to be added to the distribution functions
-    according to Guo's scheme."""
+def get_source(forcing, omega):
+    """Compute the source term."""
    
-    return gd * (1 - 0.5 * omega)
+    return forcing * (1 - 0.5 * omega)
 
 
 # --------------------------------- boundary conditions ---------------------------------
@@ -136,22 +137,26 @@ opposite_indices = jnp.array([0, 3,4,1,2,7,8,5,6])
 # Bounce-back scheme for no-slip boundaries
 
 def left_noslip(f):
-    """Enforce a no-slip boundary at the left of the domain using the Bounce Back scheme."""
+    """Enforce a no-slip boundary at the left of the domain 
+    using the Bounce Back scheme."""
 
     return f.at[right_indices, 0].set(f[left_indices, 0])
 
 def right_noslip(f):
-    """Enforce a no-slip boundary at the right of the domain using the Bounce Back scheme. """
+    """Enforce a no-slip boundary at the right of the domain 
+    using the Bounce Back scheme. """
 
     return f.at[left_indices, -1].set(f[right_indices, -1])
 
 def bottom_noslip(f):
-    """Enforce a no-slip boundary at the bottom of the domain using the Bounce Back scheme."""
+    """Enforce a no-slip boundary at the bottom of the domain 
+    using the Bounce Back scheme."""
 
     return f.at[top_indices, :, 0].set(f[bottom_indices, :, 0])
 
 def top_noslip(f):
-    """Enforce a no-slip boundary at the bottom of the domain using the Bounce Back scheme."""
+    """Enforce a no-slip boundary at the bottom of the domain 
+    using the Bounce Back scheme."""
 
     return f.at[bottom_indices, :, -1].set(f[top_indices, :, -1])
 

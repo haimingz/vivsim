@@ -32,7 +32,7 @@ def get_relax_matrix(omega):
     return jnp.diag(jnp.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]))
 
 def get_collision_left_matrix(M, S):
-    """precomputed the constant left matrix for the MRT collision model.
+    """Pre-compute the constant left matrix for the MRT collision model.
     
     Args:
         M: Transformation matrix, shape (9,9)
@@ -52,7 +52,7 @@ def collision(f, feq, left_matrix):
     
     return jnp.tensordot(left_matrix, feq - f, axes=([1], [0])) + f
 
-# ----------------- forcing term (Guo forcing) -----------------
+# ----------------- source term (Guo forcing) -----------------
 
 def get_source_left_matrix(M, S):
     """Pre-compute the constant left matrix for the MRT source term.
@@ -67,12 +67,11 @@ def get_source_left_matrix(M, S):
     return jnp.linalg.inv(M) @ (jnp.eye(9) - 0.5 * S) @ M
 
 
-
-def get_source(gd, left_matrix):
-    """Compute the source term according to Guo's scheme.
+def get_source(forcing, left_matrix):
+    """Compute the source term.
     
     The left matrix (M^-1 @ (I - 0.5 * S) @ M) can be pre-computed using `get_source_left_matrix`
     and passed as an argument to avoid recomputing it at each time step.
     """
     
-    return jnp.tensordot(left_matrix, gd, axes=([1], [0]))
+    return jnp.tensordot(left_matrix, forcing, axes=([1], [0]))

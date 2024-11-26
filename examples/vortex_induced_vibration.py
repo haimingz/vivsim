@@ -139,8 +139,8 @@ def update(f, feq, rho, u, d, v, a, h):
     f = mrt.collision(f, feq, MRT_COL_LEFT)
     
     # Add source term
-    gd = lbm.get_discretized_force(g, u[:, X1:X2, Y1:Y2])
-    f = f.at[:, X1:X2, Y1:Y2].add(mrt.get_source(gd, MRT_SRC_LEFT))
+    forcing = lbm.get_forcing(g, u[:, X1:X2, Y1:Y2])
+    f = f.at[:, X1:X2, Y1:Y2].add(mrt.get_source(forcing, MRT_SRC_LEFT))
 
     # Streaming
     f = lbm.streaming(f)
