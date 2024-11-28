@@ -22,7 +22,7 @@ os.environ['XLA_FLAGS'] = (
 )
 
 # physics parameters for viv
-RE = 100  # Reynolds number
+RE = 200  # Reynolds number
 UR = 5  # Reduced velocity
 MR = 10  # Mass ratio
 ZETA = 0   # Damping ratio
@@ -33,7 +33,7 @@ NX = 20 * D  # Number of grid points in x direction
 NY = 10 * D   # Number of grid points in y direction
 X_OBJ = 8 * D   # x-coordinate of the cylinder
 Y_OBJ = 5 * D   # y-coordinate of the cylinder
-N_MARKER = 5 * D  # Number of markers on the circle
+N_MARKER = 4 * D  # Number of markers on the circle
 
 # time parameters
 U0 = 0.1 # Inlet velocity
@@ -51,16 +51,15 @@ M = math.pi * (D / 2) ** 2 * MR  # mass of the cylinder
 K = (FN * 2 * math.pi) ** 2 * M * (1 + 1 / MR)  # stiffness
 C = 2 * math.sqrt(K * M) * ZETA  # damping
 
-# parameters for IB-LBM
+# parameters for LBM
 TAU = 3 * NU + 0.5  # relaxation time
 OMEGA = 1 / TAU  # relaxation parameter
-
 MRT_TRANS = mrt.get_trans_matrix()
 MRT_RELAX = mrt.get_relax_matrix(OMEGA)
 MRT_COL_LEFT = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX)  
 MRT_SRC_LEFT = mrt.get_source_left_matrix(MRT_TRANS, MRT_RELAX)
 
-
+# parameters for IB
 L_ARC = D * math.pi / N_MARKER  # arc length between the markers
 RE_GRID = RE / D  # Reynolds number based on grid size
 X1 = int(X_OBJ - 0.7 * D)   # left boundary of the IBM region 

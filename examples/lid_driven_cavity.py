@@ -39,7 +39,6 @@ OMEGA = 1 / TAU  # relaxation parameter
 MRT_TRANS = mrt.get_trans_matrix()
 MRT_RELAX = mrt.get_relax_matrix(OMEGA)
 MRT_COL_LEFT = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX)  
-
     
 # create empty arrays
 f = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # distribution function
