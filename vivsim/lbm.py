@@ -1,33 +1,45 @@
+"""This file implements the 2D lattice Boltzmann method (LBM) using the D2Q9 model.
+
+The implementation includes:
+
+Collision Model:
+* Bhatnagar-Gross-Krook (BGK) model, also known as Single Relaxation Time (SRT) model
+
+Boundary Conditions:
+* Periodic: Natural wrapping at domain boundaries
+* No-slip: Bounce-back scheme for walls and obstacles 
+* Velocity (Dirichlet): NEBB/Zou-He scheme for prescribed velocity at boundaries
+* Outflow (Neumann): Zero-gradient via first-order extrapolation
+
+Force Implementation:
+* Guo forcing scheme for external forces
+
+D2Q9 Lattice Structure:
+The velocity space is discretized into 9 directions, numbered as follows:
+
+    6   2   5
+      \ | /
+    3 - 0 - 1
+      / | \
+    7   4   8
+
+Key Variables:
+    f: Distribution functions, shape (9, NX, NY)
+    feq: Equilibrium distribution functions, shape (9, NX, NY) 
+    rho: Macroscopic density, shape (NX, NY)
+    u: Macroscopic velocity vector, shape (2, NX, NY)
+    g: External force density vector, shape (2, NX, NY)
+    forcing: forcing term, shape (9, NX, NY)
+
+All equations are pre-evaluated for the D2Q9 model for maximum efficiency.
 """
-This file provides the core functions for the lattice Boltzmann method (LBM) in 2D.
 
-Collision models:
-* Bhatnagar-Gross-Krook (BGK) model | Single Relaxation Time (SRT) model
-* Multiple Relaxation Time (MRT) model
-
-Forcing schemes
-* Guo's scheme
-
-Boundary conditions:
-* Solid (No-slip) boundary at domain boundaries and obstacles using the bounce-back scheme
-* Velocity (Dirichlet) boundary at domain boundaries using the NEBB | Zou/He scheme
-* Outflow (No-gradient) boundary at domain boundaries via copying the second last row/column 
-
-All equations have been partially evaluated for the D2Q9 model to maximize efficiency.
-"""
-
-import numpy as np
 import jax.numpy as jnp
 
 def streaming(f):
-    """
-    Transport fluid particles to neighboring lattice nodes along their velocity directions.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function before streaming.
-
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution functions after streaming.
+    """Perform the streaming step by shifting the distribution functions 
+    along their respective lattice directions, which automatically enforces
+    periodic boundary conditions at domain boundaries.
     """
 
     f = f.at[1].set(jnp.roll(f[1],  1, axis=0))
@@ -45,35 +57,15 @@ def streaming(f):
     return f
 
 def get_macroscopic(f, rho, u):
-    """
-    Compute the fluid density and velocity according to the distribution functions.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        rho (ndarray of shape (NX, NY)): The macroscopic density.
-        u (ndarray of shape (2, NX, NY)): The macroscopic velocity.
-
-    Returns:
-        rho (ndarray of shape (NX, NY)): The macroscopic density.
-        u (ndarray of shape (2, NX, NY)): The macroscopic velocity.
-    """
+    """Compute the macroscopic fluid density and velocity."""
+    
     rho = jnp.sum(f, axis=0)
     u = u.at[0].set((f[1] + f[5] + f[8] - f[3] - f[6] - f[7]) / rho)
     u = u.at[1].set((f[2] + f[5] + f[6] - f[4] - f[7] - f[8]) / rho)
     return rho, u
 
 def get_equilibrium(rho, u, feq):
-    """
-    Calculate the equilibrium distribution function.
-
-    Args:
-        rho (ndarray of shape (NX, NY)): The macroscopic density.
-        u (ndarray of shape (2, NX, NY)): The macroscopic velocity.
-        feq (ndarray of shape (9, NX, NY)): The equilibrium distribution function.
-
-    Returns:
-        feq (ndarray of shape (9, NX, NY)): The updated equilibrium distribution function.
-    """
+    """Calculate the equilibrium distribution function."""
 
     uxx = u[0] * u[0]
     uyy = u[1] * u[1]
@@ -90,240 +82,98 @@ def get_equilibrium(rho, u, feq):
     feq = feq.at[8].set(1 / 36 * rho * (1 + 3 * uu + 3 * (u[0] - u[1]) - 9 * uxy))
     return feq
 
-# --------------------------------- collision models ---------------------------------
+def collision(f, feq, omega):
+    """Perform the collision step using the single relaxation time (SRT) model
+    where omega (scalar) is the relaxation parameter. """
 
-def collision_bgk(f, feq, omega):
-    """
-    Perform the collision step using the Bhatnagar-Gross-Krook (BGK) model.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        feq (ndarray of shape (9, NX, NY)): The equilibrium distribution function.
-        omega (scalar): The relaxation parameter.
-
-    Returns:
-        feq(ndarray of shape (9, NX, NY)): The post-collision distribution function.
-    """
     return (1 - omega) * f + omega * feq
 
-def get_omega_mrt(omega):
-    """
-    Generate the multiple relaxation time (MRT) omega matrix
-    which equals M^{-1}SM
 
-    Args:
-        omega (scalar): The relaxation parameter.
+# --------------------------------- force implementation ---------------------------------
 
-    Returns:
-        omega_mrt (ndarray of shape (9,9)):  The MRT omega matrix.
-    """
-    M = np.array(
-        [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [-4, -1, -1, -1, -1, 2, 2, 2, 2],
-            [4, -2, -2, -2, -2, 1, 1, 1, 1],
-            [0, 1, 0, -1, 0, 1, -1, -1, 1],
-            [0, -2, 0, 2, 0, 1, -1, -1, 1],
-            [0, 0, 1, 0, -1, 1, 1, -1, -1],
-            [0, 0, -2, 0, 2, 1, 1, -1, -1],
-            [0, 1, -1, 1, -1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 1, -1, 1, -1],
-        ]
-    )
-    S = np.diag(np.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]))
-
-    return jnp.array(np.linalg.inv(M) @ S @ M)
-
-def collision_mrt(f, feq, omega_mrt):
-    """
-    Perform collision step using the Multiple Relaxation Time (MRT) model.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        feq (ndarray of shape (9, NX, NY)): The equilibrium distribution function.
-        omega_mrt (ndarray of shape (9, NX, NY)): The relaxation rates for the MRT model.
-
-    Returns:
-        feq (ndarray of shape (9, NX, NY)): The updated distribution function after the collision step.
-    """
-    return jnp.tensordot(omega_mrt, feq - f, axes=([1], [0])) + f
-
-# ----------------- forcing schemes -----------------
-
-def get_u_correction(g, rho=1):
-    """Compute the velocity correction according to Guo's scheme.
-        du = g * dt / (2 * rho)
-    """
-    return g * 0.5 / rho
-
-def get_omega_source_mrt(omega):
-    """
-    Generate the multiple relaxation time (MRT) omega matrix for the source term
-    which equals M^{-1}(I-S/2)M
-
-    Args:
-        omega (scalar): The relaxation parameter.
-
-    Returns:
-        omega_mrt (ndarray of shape (9,9)):  The MRT omega matrix.
-    """
+def get_forcing(g, u):
+    """Discretize external force density into lattice forcing term
+    according to Guo Forcing scheme."""
     
-    M = np.array(
-        [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [-4, -1, -1, -1, -1, 2, 2, 2, 2],
-            [4, -2, -2, -2, -2, 1, 1, 1, 1],
-            [0, 1, 0, -1, 0, 1, -1, -1, 1],
-            [0, -2, 0, 2, 0, 1, -1, -1, 1],
-            [0, 0, 1, 0, -1, 1, 1, -1, -1],
-            [0, 0, -2, 0, 2, 1, 1, -1, -1],
-            [0, 1, -1, 1, -1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 1, -1, 1, -1],
-        ]
-    )
-    _ = np.diag(- 0.5 * np.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]) + 1)
-
-    return jnp.array(np.linalg.inv(M) @ _ @ M)
-
-def get_source(u, g, omega):
-    """Compute the source term needed to be added to the distribution functions
-    according to Guo's scheme.
-    
-    Args:
-        u: The velocity vector with shape (2, NX, NY).
-        g: The force vector with shape (2, NX, NY).
-        omega: The relaxation parameter (Can be either a scalar for SRT model
-            or a 9x9 matrix for MRT model)
-    
-    Returns:
-        The source term with shape (9, NX, NY).
-    """
-
     gxux = g[0] * u[0]
     gyuy = g[1] * u[1]
     gxuy = g[0] * u[1]
     gyux = g[1] * u[0]
     
-    _ = jnp.zeros((9, u.shape[1], u.shape[2]))
-    _ = _.at[0].set(4 / 3 * (- gxux - gyuy))
-    _ = _.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy))
-    _ = _.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux))
-    _ = _.at[3].set(1 / 3 * (2 * gxux - g[0] - gyuy))
-    _ = _.at[4].set(1 / 3 * (2 * gyuy - g[1] - gxux))
-    _ = _.at[5].set(1 / 12 * (2 * gxux + 3 * gxuy + g[0] + 3 * gyux + 2 * gyuy + g[1]))
-    _ = _.at[6].set(1 / 12 * (2 * gxux - 3 * gxuy - g[0] - 3 * gyux + 2 * gyuy + g[1]))
-    _ = _.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1]))
-    _ = _.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1]))
+    forcing = jnp.zeros((9, u.shape[1], u.shape[2]))
+    forcing = forcing.at[0].set(4 / 3 * (- gxux - gyuy))
+    forcing = forcing.at[1].set(1 / 3 * (2 * gxux + g[0] - gyuy))
+    forcing = forcing.at[2].set(1 / 3 * (2 * gyuy + g[1] - gxux))
+    forcing = forcing.at[3].set(1 / 3 * (2 * gxux - g[0] - gyuy))
+    forcing = forcing.at[4].set(1 / 3 * (2 * gyuy - g[1] - gxux))
+    forcing = forcing.at[5].set(1 / 12 * (2 * gxux + 3 * gxuy + g[0] + 3 * gyux + 2 * gyuy + g[1]))
+    forcing = forcing.at[6].set(1 / 12 * (2 * gxux - 3 * gxuy - g[0] - 3 * gyux + 2 * gyuy + g[1]))
+    forcing = forcing.at[7].set(1 / 12 * (2 * gxux + 3 * gxuy - g[0] + 3 * gyux + 2 * gyuy - g[1]))
+    forcing = forcing.at[8].set(1 / 12 * (2 * gxux - 3 * gxuy + g[0] - 3 * gyux + 2 * gyuy - g[1]))
+    
+    return forcing
 
-    if jnp.isscalar(omega):
-        return _ * (- 0.5 * omega + 1)
-    else:
-        return jnp.tensordot(omega, _, axes=([1], [0]))
+def get_velocity_correction(g, rho=1):
+    """Compute the velocity correction due to the force term."""
+
+    return g * 0.5 / rho
+
+def get_source(forcing, omega):
+    """Compute the source term."""
+   
+    return forcing * (1 - 0.5 * omega)
 
 
 # --------------------------------- boundary conditions ---------------------------------
-# 6   2   5
-#   \ | /
-# 3 - 0 - 1
-#   / | \
-# 7   4   8 
 
 right_indices = jnp.array([1, 5, 8])
 left_indices = jnp.array([3, 7, 6])
 top_indices = jnp.array([2, 5, 6])
 bottom_indices = jnp.array([4, 7, 8])
+all_indices = jnp.array([0,1,2,3,4,5,6,7,8])
+opposite_indices = jnp.array([0, 3,4,1,2,7,8,5,6])
 
 
 # Bounce-back scheme for no-slip boundaries
 
-def left_solid(f):
-    """Enforce a solid boundary at the left of the domain using the Bounce Back (BB) scheme.
+def left_noslip(f):
+    """Enforce a no-slip boundary at the left of the domain 
+    using the Bounce Back scheme."""
 
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
+    return f.at[right_indices, 0].set(f[left_indices, 0])
 
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
+def right_noslip(f):
+    """Enforce a no-slip boundary at the right of the domain 
+    using the Bounce Back scheme. """
 
-    f = f.at[right_indices, 0].set(f[left_indices, 0])
-    return f
+    return f.at[left_indices, -1].set(f[right_indices, -1])
 
-def right_solid(f):
-    """Enforce a solid boundary at the right of the domain using the Bounce Back (BB) scheme.
+def bottom_noslip(f):
+    """Enforce a no-slip boundary at the bottom of the domain 
+    using the Bounce Back scheme."""
 
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
+    return f.at[top_indices, :, 0].set(f[bottom_indices, :, 0])
 
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
+def top_noslip(f):
+    """Enforce a no-slip boundary at the bottom of the domain 
+    using the Bounce Back scheme."""
 
-    f = f.at[left_indices, -1].set(f[right_indices, -1])
-    return f
+    return f.at[bottom_indices, :, -1].set(f[top_indices, :, -1])
 
-def bottom_solid(f):
-    """Enforce a solid boundary at the bottom of the domain using the Bounce Back (BB) scheme.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
-
-    f = f.at[top_indices, :, 0].set(f[bottom_indices, :, 0])
-    return f
-
-def top_solid(f):
-    """Enforce a solid boundary at the bottom of the domain using the Bounce Back (BB) scheme.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
-
-    f = f.at[bottom_indices, :, -1].set(f[top_indices, :, -1])
-    return f
-
-def obj_solid(f, mask):
-    """Enforce a solid boundary at the object using the Bounce Back (BB) scheme.
+def obstacle_noslip(f, mask):
+    """Enforce a no-slip boundary at the obstacle 
+    using the Bounce Back scheme. The obstacle is defined by a 2D mask
+    where True indicates the presence of an obstacle."""
     
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        mask (ndarray of shape (NX, NY)): filled with 0 and 1 indicating fluid/solid
-    
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
-    
-    f_ = f
-    f_ = f_.at[1, mask].set(f[3, mask])
-    f_ = f_.at[2, mask].set(f[4, mask])
-    f_ = f_.at[3, mask].set(f[1, mask])
-    f_ = f_.at[4, mask].set(f[2, mask])
-    f_ = f_.at[5, mask].set(f[7, mask])
-    f_ = f_.at[6, mask].set(f[8, mask])
-    f_ = f_.at[7, mask].set(f[5, mask])
-    f_ = f_.at[8, mask].set(f[6, mask])
-    return f_
+    return f.at[:, mask].set(f[:, mask][opposite_indices])
 
 
 # Non-Equilibrium Bounce-Back (or Zou/He) scheme for open boundaries with given velocities
 
 def left_velocity(f, ux, uy):
-    """
-    Enforce given velocity at the left of the domain 
-    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        ux, uy (scalar or ndarray of shape NY): The macroscopic velocity at left boundary.
-
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
+    """Enforce given velocity ux, uy at the left of the domain
+    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme
+    where ux, uy can be either scalar or ndarray of shape NY
     """
 
     rho_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / (- ux + 1)
@@ -333,16 +183,9 @@ def left_velocity(f, ux, uy):
     return f
 
 def right_velocity(f, ux, uy):
-    """
-    Enforce given velocity at the right of the domain 
-    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme.
-    
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        ux, uy (scalar or ndarray of shape NY): The macroscopic velocity at right boundary.
-    
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
+    """Enforce given velocity ux, uy at the right of the domain
+    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme 
+    where ux, uy can be either scalar or ndarray of shape NY
     """
     
     rho_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / (ux + 1)
@@ -352,17 +195,9 @@ def right_velocity(f, ux, uy):
     return f
 
 def top_velocity(f, ux, uy):
-    """
-    Enforce given velocity at the top of the domain 
-    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme.
-    
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        ux, uy (scalar or ndarray of shape NX): The macroscopic velocity at top boundary.
-    
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-        rho (ndarray of shape (NX, NY)): The updated macroscopic density.
+    """Enforce given velocity ux, uy at the top of the domain
+    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme 
+    where ux, uy can be either scalar or ndarray of shape NX
     """
     
     rho_wall = (f[0, :,-1] + f[1, :,-1] + f[3, :,-1] + 2 * (f[2, :,-1] + f[5, :,-1] + f[6, :,-1])) / (uy + 1)
@@ -372,18 +207,9 @@ def top_velocity(f, ux, uy):
     return f
 
 def bottom_velocity(f, ux, uy):
-    """
-    Enforce given velocity at the bottom of the domain 
-    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme.
-    
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-        rho (ndarray of shape (NX, NY)): The macroscopic density.
-        ux, uy (scalar or ndarray of shape NX): The macroscopic velocity at bottom boundary.
-    
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-        rho (ndarray of shape (NX, NY)): The updated macroscopic density.
+    """Enforce given velocity ux, uy at the bottom of the domain 
+    using the Non-Equilibrium Bounce-Back (or Zou/He) scheme 
+    where ux, uy can be either scalar or ndarray of shape NX
     """
     
     rho_wall = (f[0, :,0] + f[1, :,0] + f[3, :,0] + 2 * (f[4, :,0] + f[7, :,0] + f[8, :,0])) / (- uy + 1)
@@ -396,60 +222,25 @@ def bottom_velocity(f, ux, uy):
 # Enforce an outflow boundary by simply copying the second last row/column (1st order accuracy)
 
 def right_outflow(f):
-    """
-    Enforce an outflow boundary at the right of the domain
-    by just copying the second last row/column.
-
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
-    f = f.at[left_indices, -1].set(f[left_indices, -2])
-    return f
+    """Enforce an outflow boundary at the right of the domain
+    by just copying the second last row/column."""
+    
+    return f.at[left_indices, -1].set(f[left_indices, -2])
 
 def left_outflow(f):
-    """
-    Enforce an outflow boundary at the left of the domain
-    by just copying the second last row/column.
+    """Enforce an outflow boundary at the left of the domain
+    by just copying the second last row/column."""
 
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
-
-    f = f.at[right_indices, 0].set(f[right_indices, 1])
-    return f
+    return f.at[right_indices, 0].set(f[right_indices, 1])
 
 def top_outflow(f):
-    """
-    Enforce an outflow boundary at the top of the domain
-    by just copying the second last row/column.
+    """Enforce an outflow boundary at the top of the domain
+    by just copying the second last row/column."""
 
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
-
-    f = f.at[top_indices, :, -1].set(f[top_indices, :, -2])
-    return f
+    return f.at[top_indices, :, -1].set(f[top_indices, :, -2])
 
 def bottom_outflow(f):
-    """
-    Enforce an outflow boundary at the bottom of the domain
-    by just copying the second last row/column.
+    """Enforce an outflow boundary at the bottom of the domain
+    by just copying the second last row/column."""
 
-    Args:
-        f (ndarray of shape (9, NX, NY)): The distribution function.
-
-    Returns:
-        f (ndarray of shape (9, NX, NY)): The updated distribution function.
-    """
-
-    f = f.at[bottom_indices, :, 0].set(f[bottom_indices, :, 1])
-    return f
+    return f.at[bottom_indices, :, 0].set(f[bottom_indices, :, 1])

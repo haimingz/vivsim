@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from vivsim import dyn, ib, lbm, post
+from vivsim import dyn, ib, lbm, post, mrt
 
 import os
 os.environ['XLA_FLAGS'] = (
@@ -22,7 +22,7 @@ os.environ['XLA_FLAGS'] = (
 )
 
 # physics parameters for viv
-RE = 100  # Reynolds number
+RE = 200  # Reynolds number
 UR = 5  # Reduced velocity
 MR = 10  # Mass ratio
 ZETA = 0   # Damping ratio
@@ -33,7 +33,7 @@ NX = 20 * D  # Number of grid points in x direction
 NY = 10 * D   # Number of grid points in y direction
 X_OBJ = 8 * D   # x-coordinate of the cylinder
 Y_OBJ = 5 * D   # y-coordinate of the cylinder
-N_MARKER = 5 * D  # Number of markers on the circle
+N_MARKER = 4 * D  # Number of markers on the circle
 
 # time parameters
 U0 = 0.1 # Inlet velocity
@@ -51,11 +51,15 @@ M = math.pi * (D / 2) ** 2 * MR  # mass of the cylinder
 K = (FN * 2 * math.pi) ** 2 * M * (1 + 1 / MR)  # stiffness
 C = 2 * math.sqrt(K * M) * ZETA  # damping
 
-# parameters for IB-LBM
+# parameters for LBM
 TAU = 3 * NU + 0.5  # relaxation time
 OMEGA = 1 / TAU  # relaxation parameter
-OMEGA_MRT = lbm.get_omega_mrt(OMEGA)   # relaxation matrix for MRT
-OMEGA_SOURCE_MRT = lbm.get_omega_source_mrt(OMEGA)   # relaxation matrix for MRT
+MRT_TRANS = mrt.get_trans_matrix()
+MRT_RELAX = mrt.get_relax_matrix(OMEGA)
+MRT_COL_LEFT = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX)  
+MRT_SRC_LEFT = mrt.get_source_left_matrix(MRT_TRANS, MRT_RELAX)
+
+# parameters for IB
 L_ARC = D * math.pi / N_MARKER  # arc length between the markers
 RE_GRID = RE / D  # Reynolds number based on grid size
 X1 = int(X_OBJ - 0.7 * D)   # left boundary of the IBM region 
@@ -112,7 +116,7 @@ def update(f, feq, rho, u, d, v, a, h):
         delta_g = ib.spread_g_needed(delta_g_markers, kernels)
         
         # velocity correction
-        u = u.at[:, X1:X2, Y1:Y2].add(lbm.get_u_correction(delta_g))
+        u = u.at[:, X1:X2, Y1:Y2].add(lbm.get_velocity_correction(delta_g))
         
         # accumulate the corresponding correction force to the markers and the fluid
         h_markers += - delta_g_markers
@@ -125,16 +129,17 @@ def update(f, feq, rho, u, d, v, a, h):
     h -= a * math.pi * D ** 2 / 4  # found unstable for high Re
     
     # Compute solid dynamics
-    a, v, d = dyn.newmark2dof(a, v, d, h, M, K, C)
+    a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
 
     # Compute equilibrium
     feq = lbm.get_equilibrium(rho, u, feq)
 
     # Collision
-    f = lbm.collision_mrt(f, feq, OMEGA_MRT)
+    f = mrt.collision(f, feq, MRT_COL_LEFT)
     
     # Add source term
-    f = f.at[:, X1:X2, Y1:Y2].add(lbm.get_source(u[:, X1:X2, Y1:Y2], g, OMEGA_SOURCE_MRT))
+    forcing = lbm.get_forcing(g, u[:, X1:X2, Y1:Y2])
+    f = f.at[:, X1:X2, Y1:Y2].add(mrt.get_source(forcing, MRT_SRC_LEFT))
 
     # Streaming
     f = lbm.streaming(f)
