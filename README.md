@@ -9,37 +9,16 @@
 
 VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) simulations based on the immersed boundary -lattice Boltzmann method (IB-LBM). It was originated from a research project requiring efficient simulation codes for studying vortex-induced vibration (VIV) of underwater structures. 
 
-Similar to projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators (mainly GPUs).
+Similar to projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators, achieving massive parallelism on GPU/GPUs. 
 
 ## Examples
 
-### Fluid flow without interaction with objects
-
-<p align="center">
-    <img src ="assets/cavity.gif" width=500/>
-</p>
-
-> Simulation of lid-driven cavity at Re = 20000 on a 1000x1000 lattice grid.
-
-<p align="center">
-    <img src ="assets/text.gif" width=500/>
-</p>
-
-> Simulation of flow pass through objects (texts) on a 1000x1000 lattice grid.
-
-### Fluid-Structure Interaction (FSI)
-
-<p align="center">
-    <img src ="assets/viv_1000.gif" width=800/>
-</p>
-
-> Vorticity contour showing the VIV of a cylinder with Vr = 5 and Re = 1000. The simulation was conducted on a 800x400 lattice grid with 100 immersed boundary markers, taking about 1 min on Nvidia Geforce GTX 1080.
-
-<p align="center">
-    <img src ="assets/viv_10000.gif" width=800/>
-</p>
-
-> Velocity and vorticity contours showing the VIV of a cylinder with Vr = 5 and Re = 10000. The simulation was conducted on a 8000x4000 lattice grid with 1200 immersed boundary markers, taking about 30 min on 8 Nvidia A800.
+|  |  |
+|---------|-------------|
+| ![Cavity](assets/cavity.gif) | ![Text](assets/text.gif) |
+| Lid-driven cavity at $Re = 2\times 10^4$ on a 1000x1000 lattice grid. | Flow passes through some texts on a 1000x1000 lattice grid. |
+| <img src="assets/viv_100.gif" width=700/> | <img src="assets/viv_10000.gif" width=420/> |
+| VIV of a cylinder with $U_r = 5$ and $Re = 100$. The simulation was conducted on a 2000x3000 lattice grid with 400 immersed boundary markers, taking about 8 min on a Nvidia A100.| VIV of a cylinder with $U_r = 5$ and $Re = 1\times 10^4$. The simulation was conducted on a 8000x4000 lattice grid with 1200 immersed boundary markers, taking about 30 min on 8 Nvidia A800. |
 
 ## Capabilities
 
@@ -58,7 +37,7 @@ Boundary Conditions:
 
 Fluid-Structure Interaction
 - Multi Direct-Forcing Immersed Boundary method.
-- Confined Immersed Boundary technique to speed up VIV simulation
+
 
 ## Getting Started
 
