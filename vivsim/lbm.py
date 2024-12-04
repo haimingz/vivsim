@@ -34,6 +34,7 @@ Key Variables:
 All equations are pre-evaluated for the D2Q9 model for maximum efficiency.
 """
 
+import jax
 import jax.numpy as jnp
 
 def streaming(f):
@@ -246,3 +247,31 @@ def bottom_outflow(f):
     return f.at[btm_dirs, :, 0].set(f[btm_dirs, :, 1])
 
 
+# ------------------- cross-device streaming -------------------
+
+def cross_device_stream_y(f, N_DEVICES):
+    """Stream fluid particles f from the top/bottom boundary of one device 
+    to the bottom/top boundary of the neighbouring devices, assuming the 
+    domain is evenly divided among N_DEVICES devices in the y direction."""
+
+    f = f.at[top_dirs, :, 0].set(
+        jax.lax.ppermute(f[top_dirs, :, 0], 'y', 
+                         [(i, (i + 1) % N_DEVICES) for i in range(N_DEVICES)]))
+    f =  f.at[btm_dirs, :, -1].set(
+        jax.lax.ppermute(f[btm_dirs, :, -1], 'y', 
+                         [((i + 1) % N_DEVICES, i) for i in range(N_DEVICES)]))
+    return f 
+
+def cross_device_stream_x(f, N_DEVICES):
+    """Stream fluid particles f from the left/right boundary of one device
+    to the right/left boundary of the neighbouring devices, assuming the
+    domain is evenly divided among N_DEVICES devices in the x direction.
+    """
+
+    f = f.at[right_dirs, -1].set(
+        jax.lax.ppermute(f[right_dirs, -1], 'y', 
+                         [((i + 1) % N_DEVICES, i) for i in range(N_DEVICES)]))
+    f = f.at[left_dirs, 0].set(
+        jax.lax.ppermute(f[left_dirs, 0], 'y', 
+                         [(i, (i + 1) % N_DEVICES) for i in range(N_DEVICES)]))
+    return f 
