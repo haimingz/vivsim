@@ -34,6 +34,7 @@ Key Variables:
 All equations are pre-evaluated for the D2Q9 model for maximum efficiency.
 """
 
+import jax
 import jax.numpy as jnp
 
 def streaming(f):
@@ -126,12 +127,12 @@ def get_source(forcing, omega):
 
 # --------------------------------- boundary conditions ---------------------------------
 
-right_indices = jnp.array([1, 5, 8])
-left_indices = jnp.array([3, 7, 6])
-top_indices = jnp.array([2, 5, 6])
-bottom_indices = jnp.array([4, 7, 8])
-all_indices = jnp.array([0,1,2,3,4,5,6,7,8])
-opposite_indices = jnp.array([0, 3,4,1,2,7,8,5,6])
+right_dirs = jnp.array([1, 5, 8])
+left_dirs = jnp.array([3, 7, 6])
+top_dirs = jnp.array([2, 5, 6])
+btm_dirs = jnp.array([4, 7, 8])
+all_dirs = jnp.array([0,1,2,3,4,5,6,7,8])
+opp_dirs = jnp.array([0, 3,4,1,2,7,8,5,6])
 
 
 # Bounce-back scheme for no-slip boundaries
@@ -140,32 +141,32 @@ def left_noslip(f):
     """Enforce a no-slip boundary at the left of the domain 
     using the Bounce Back scheme."""
 
-    return f.at[right_indices, 0].set(f[left_indices, 0])
+    return f.at[right_dirs, 0].set(f[left_dirs, 0])
 
 def right_noslip(f):
     """Enforce a no-slip boundary at the right of the domain 
     using the Bounce Back scheme. """
 
-    return f.at[left_indices, -1].set(f[right_indices, -1])
+    return f.at[left_dirs, -1].set(f[right_dirs, -1])
 
 def bottom_noslip(f):
     """Enforce a no-slip boundary at the bottom of the domain 
     using the Bounce Back scheme."""
 
-    return f.at[top_indices, :, 0].set(f[bottom_indices, :, 0])
+    return f.at[top_dirs, :, 0].set(f[btm_dirs, :, 0])
 
 def top_noslip(f):
     """Enforce a no-slip boundary at the bottom of the domain 
     using the Bounce Back scheme."""
 
-    return f.at[bottom_indices, :, -1].set(f[top_indices, :, -1])
+    return f.at[btm_dirs, :, -1].set(f[top_dirs, :, -1])
 
 def obstacle_noslip(f, mask):
     """Enforce a no-slip boundary at the obstacle 
     using the Bounce Back scheme. The obstacle is defined by a 2D mask
     where True indicates the presence of an obstacle."""
     
-    return f.at[:, mask].set(f[:, mask][opposite_indices])
+    return f.at[:, mask].set(f[:, mask][opp_dirs])
 
 
 # Non-Equilibrium Bounce-Back (or Zou/He) scheme for open boundaries with given velocities
@@ -225,22 +226,52 @@ def right_outflow(f):
     """Enforce an outflow boundary at the right of the domain
     by just copying the second last row/column."""
     
-    return f.at[left_indices, -1].set(f[left_indices, -2])
+    return f.at[left_dirs, -1].set(f[left_dirs, -2])
 
 def left_outflow(f):
     """Enforce an outflow boundary at the left of the domain
     by just copying the second last row/column."""
 
-    return f.at[right_indices, 0].set(f[right_indices, 1])
+    return f.at[right_dirs, 0].set(f[right_dirs, 1])
 
 def top_outflow(f):
     """Enforce an outflow boundary at the top of the domain
     by just copying the second last row/column."""
 
-    return f.at[top_indices, :, -1].set(f[top_indices, :, -2])
+    return f.at[top_dirs, :, -1].set(f[top_dirs, :, -2])
 
 def bottom_outflow(f):
     """Enforce an outflow boundary at the bottom of the domain
     by just copying the second last row/column."""
 
-    return f.at[bottom_indices, :, 0].set(f[bottom_indices, :, 1])
+    return f.at[btm_dirs, :, 0].set(f[btm_dirs, :, 1])
+
+
+# ------------------- cross-device streaming -------------------
+
+def cross_device_stream_y(f, N_DEVICES):
+    """Stream fluid particles f from the top/bottom boundary of one device 
+    to the bottom/top boundary of the neighbouring devices, assuming the 
+    domain is evenly divided among N_DEVICES devices in the y direction."""
+
+    f = f.at[top_dirs, :, 0].set(
+        jax.lax.ppermute(f[top_dirs, :, 0], 'y', 
+                         [(i, (i + 1) % N_DEVICES) for i in range(N_DEVICES)]))
+    f =  f.at[btm_dirs, :, -1].set(
+        jax.lax.ppermute(f[btm_dirs, :, -1], 'y', 
+                         [((i + 1) % N_DEVICES, i) for i in range(N_DEVICES)]))
+    return f 
+
+def cross_device_stream_x(f, N_DEVICES):
+    """Stream fluid particles f from the left/right boundary of one device
+    to the right/left boundary of the neighbouring devices, assuming the
+    domain is evenly divided among N_DEVICES devices in the x direction.
+    """
+
+    f = f.at[right_dirs, -1].set(
+        jax.lax.ppermute(f[right_dirs, -1], 'y', 
+                         [((i + 1) % N_DEVICES, i) for i in range(N_DEVICES)]))
+    f = f.at[left_dirs, 0].set(
+        jax.lax.ppermute(f[left_dirs, 0], 'y', 
+                         [(i, (i + 1) % N_DEVICES) for i in range(N_DEVICES)]))
+    return f 

@@ -3,6 +3,11 @@
 # Lattice Boltzmann Method (LBM). The cylinder is placed at the center of the
 # domain and is free to move in the flow. The flow is driven by a constant
 # velocity U0 in the x direction. 
+# 
+# To test this script in a single-device environment, we fake 10 devices by 
+# setting the environment variable `xla_force_host_platform_device_count=10`. 
+# You can remove this line if you have multiple devices (e.g., GPUs). 
+# But remember to make sure that NY can be evenly divided by N_DEVICES.
 
 import os
 os.environ['XLA_FLAGS'] = (
@@ -11,6 +16,7 @@ os.environ['XLA_FLAGS'] = (
     # '--xla_gpu_enable_async_collectives=true '
     '--xla_gpu_enable_latency_hiding_scheduler=true '
     '--xla_gpu_enable_highest_priority_async_stream=true '
+    '--xla_force_host_platform_device_count=10'  # fake 10 devices, comment if you do have multiple devices   
 )
 
 import math
@@ -20,6 +26,15 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from vivsim import dyn, ib, lbm, post, mrt
+
+from functools import partial
+from jax.sharding import Mesh, PartitionSpec as P
+from jax.experimental.shard_map import shard_map
+
+# multi-gpu parallelization
+N_DEVICES = len(jax.devices())  # number of gpu devices
+mesh = Mesh(jax.devices(), axis_names=('y')) # divide the domain along the y-axis
+
 
 # physics parameters for viv
 RE = 200  # Reynolds number
@@ -82,41 +97,45 @@ rho = jnp.ones((NX, NY), dtype=jnp.float32)  # density of fluid
 u = jnp.zeros((2, NX, NY), dtype=jnp.float32)  # velocity of fluid
 f = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # distribution functions
 feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # equilibrium distribution functions
-d = jnp.zeros((2), dtype=jnp.float32)  # displacement of cylinder
-v = jnp.zeros((2), dtype=jnp.float32)  # velocity of cylinder
-a = jnp.zeros((2), dtype=jnp.float32)  # acceleration of cylinder
-h = jnp.zeros((2), dtype=jnp.float32)  # hydrodynamic force
+d = jnp.zeros((2), dtype=jnp.float32)  # displacement
+v = jnp.zeros((2), dtype=jnp.float32)  # velocity
+a = jnp.zeros((2), dtype=jnp.float32)  # acceleration
+h = jnp.zeros((2), dtype=jnp.float32)  # force
 
 # initialize
 u = u.at[0].set(U0)
 f = lbm.get_equilibrium(rho, u, f)
-v = d.at[1].set(1e-2) # optional: add an initial velocity to the cylinder
+v = d.at[1].set(1e-2) # optional: add a initial perturbation to the velocity
 
 # define main loop 
 @jax.jit
-def update(f, feq, rho, u, d, v, a, h):
+@partial(shard_map, mesh=mesh,
+         in_specs=(P(None, None, 'y'), P(None, None, 'y'), P(None, 'y'), P(None, None, 'y'), P(None), P(None), P(None), P(None),  P(None, 'y'), P(None, 'y')),
+         out_specs=(P(None, None, 'y'), P(None, None, 'y'), P(None, 'y'), P(None, None, 'y'), P(None), P(None), P(None), P(None))
+         )
+def update(f, feq, rho, u, d, v, a, h, X, Y):
 
     # Immersed Boundary Method
     x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
     
     h_markers = jnp.zeros((x_markers.shape[0], 2))  # hydrodynamic force to the markers
-    g = jnp.zeros((2, X2 - X1, Y2 - Y1))  # distributed IB force to the fluid
+    g = jnp.zeros((2, X2 - X1, NY // N_DEVICES))  # ! important !
     
-   
     # calculate the kernel functions for all markers
-    kernels = ib.get_kernels(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2], ib.kernel_func4)
+    kernels = ib.get_kernels(x_markers, y_markers, X[X1:X2], Y[X1:X2], ib.kernel_func4)
     
     for _ in range(N_ITER_MDF):
         
         # velocity interpolation
-        u_markers = ib.interpolate_u_markers(u[:, X1:X2, Y1:Y2], kernels)
+        u_markers = ib.interpolate_u_markers(u[:, X1:X2], kernels)
+        u_markers = jax.lax.psum(u_markers, 'y')  # ! important !
         
         # compute correction force
         g_markers_needed = ib.get_g_markers_needed(v, u_markers, L_ARC)
         g_needed = ib.spread_g_needed(g_markers_needed, kernels)
         
         # velocity correction
-        u = u.at[:, X1:X2, Y1:Y2].add(lbm.get_velocity_correction(g_needed))
+        u = u.at[:, X1:X2].add(lbm.get_velocity_correction(g_needed))
         
         # accumulate the corresponding correction force to the markers and the fluid
         h_markers -= g_markers_needed
@@ -138,11 +157,12 @@ def update(f, feq, rho, u, d, v, a, h):
     f = mrt.collision(f, feq, MRT_COL_LEFT)
     
     # Add source term
-    forcing = lbm.get_forcing(g, u[:, X1:X2, Y1:Y2])
-    f = f.at[:, X1:X2, Y1:Y2].add(mrt.get_source(forcing, MRT_SRC_LEFT))
+    forcing = lbm.get_forcing(g, u[:, X1:X2])
+    f = f.at[:, X1:X2].add(mrt.get_source(forcing, MRT_SRC_LEFT))  
 
     # Streaming
     f = lbm.streaming(f)
+    f = lbm.cross_device_stream_y(f, N_DEVICES) # ! important !
 
     # Set Outlet BC at right wall (No gradient BC)
     f = lbm.right_outflow(f)
@@ -197,9 +217,10 @@ if PLOT:
     
     plt.tight_layout()
 
+
 # start simulation 
 for t in tqdm(range(TM)):
-    f, feq, rho, u, d, v, a, h = update(f, feq, rho, u, d, v, a, h)
+    f, feq, rho, u, d, v, a, h = update(f, feq, rho, u, d, v, a, h, X, Y)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
 
