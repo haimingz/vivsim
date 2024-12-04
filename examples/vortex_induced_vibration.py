@@ -4,6 +4,15 @@
 # domain and is free to move in the flow. The flow is driven by a constant
 # velocity U0 in the x direction. 
 
+import os
+os.environ['XLA_FLAGS'] = (
+    '--xla_gpu_enable_triton_softmax_fusion=true '
+    '--xla_gpu_triton_gemm_any=True '
+    # '--xla_gpu_enable_async_collectives=true '
+    '--xla_gpu_enable_latency_hiding_scheduler=true '
+    '--xla_gpu_enable_highest_priority_async_stream=true '
+)
+
 import math
 import jax
 import jax.numpy as jnp
