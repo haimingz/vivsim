@@ -25,7 +25,7 @@ from vivsim import dyn, ib, lbm, post, mrt
 RE = 200  # Reynolds number
 UR = 5  # Reduced velocity
 MR = 10  # Mass ratio
-ZETA = 0   # Damping ratio
+DR = 0   # Damping ratio
 
 # geometric parameters
 D = 50   # Cylinder diameter
@@ -40,7 +40,7 @@ U0 = 0.1 # Inlet velocity
 TM = 60000   # Maximum number of time steps
 
 # plot options
-PLOT = False  # whether to plot the results
+PLOT = True  # whether to plot the results
 PLOT_EVERY = 100  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
@@ -49,7 +49,7 @@ NU = U0 * D / RE  # kinematic viscosity
 FN = U0 / (UR * D)  # natural frequency
 M = math.pi * (D / 2) ** 2 * MR  # mass of the cylinder
 K = (FN * 2 * math.pi) ** 2 * M * (1 + 1 / MR)  # stiffness
-C = 2 * math.sqrt(K * M) * ZETA  # damping
+C = 2 * math.sqrt(K * M) * DR  # damping
 
 # parameters for LBM
 TAU = 3 * NU + 0.5  # relaxation time
@@ -66,7 +66,7 @@ X1 = int(X_OBJ - 0.7 * D)   # left boundary of the IBM region
 X2 = int(X_OBJ + 1.0 * D)   # right boundary of the IBM region
 Y1 = int(Y_OBJ - 1.5 * D)   # bottom boundary of the IBM region
 Y2 = int(Y_OBJ + 1.5 * D)   # top boundary of the IBM region
-NITER_MDF = 3  # number of iterations for multi-direct forcing
+N_ITER_MDF = 3  # number of iterations for multi-direct forcing
 
 # generate mesh grid
 X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.uint16), 
@@ -82,19 +82,19 @@ rho = jnp.ones((NX, NY), dtype=jnp.float32)  # density of fluid
 u = jnp.zeros((2, NX, NY), dtype=jnp.float32)  # velocity of fluid
 f = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # distribution functions
 feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # equilibrium distribution functions
-d = jnp.zeros((2), dtype=jnp.float32)  # displacement
-v = jnp.zeros((2), dtype=jnp.float32)  # velocity
-a = jnp.zeros((2), dtype=jnp.float32)  # acceleration
-h = jnp.zeros((2), dtype=jnp.float32)  # force
+d = jnp.zeros((2), dtype=jnp.float32)  # displacement of cylinder
+v = jnp.zeros((2), dtype=jnp.float32)  # velocity of cylinder
+a = jnp.zeros((2), dtype=jnp.float32)  # acceleration of cylinder
+h = jnp.zeros((2), dtype=jnp.float32)  # hydrodynamic force
 
 # initialize
 u = u.at[0].set(U0)
 f = lbm.get_equilibrium(rho, u, f)
-v = d.at[1].set(1e-2) # optional: add a initial perturbation to the velocity
+v = d.at[1].set(1e-2) # optional: add an initial velocity to the cylinder
 
 # define main loop 
 @jax.jit
-def calculate(f, feq, rho, u, d, v, a, h):
+def update(f, feq, rho, u, d, v, a, h):
 
     # Immersed Boundary Method
     x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
@@ -106,21 +106,21 @@ def calculate(f, feq, rho, u, d, v, a, h):
     # calculate the kernel functions for all markers
     kernels = ib.get_kernels(x_markers, y_markers, X[X1:X2, Y1:Y2], Y[X1:X2, Y1:Y2], ib.kernel_func4)
     
-    for _ in range(NITER_MDF):
+    for _ in range(N_ITER_MDF):
         
         # velocity interpolation
         u_markers = ib.interpolate_u_markers(u[:, X1:X2, Y1:Y2], kernels)
         
         # compute correction force
-        delta_g_markers = ib.get_g_markers_needed(v, u_markers, L_ARC)
-        delta_g = ib.spread_g_needed(delta_g_markers, kernels)
+        g_markers_needed = ib.get_g_markers_needed(v, u_markers, L_ARC)
+        g_needed = ib.spread_g_needed(g_markers_needed, kernels)
         
         # velocity correction
-        u = u.at[:, X1:X2, Y1:Y2].add(lbm.get_velocity_correction(delta_g))
+        u = u.at[:, X1:X2, Y1:Y2].add(lbm.get_velocity_correction(g_needed))
         
         # accumulate the corresponding correction force to the markers and the fluid
-        h_markers += - delta_g_markers
-        g += delta_g 
+        h_markers -= g_markers_needed
+        g += g_needed 
 
     # Compute force to the obj (including internal fluid force)
     h = ib.calculate_force_obj(h_markers)
@@ -199,7 +199,7 @@ if PLOT:
 
 # start simulation 
 for t in tqdm(range(TM)):
-    f, feq, rho, u, d, v, a, h = calculate(f, feq, rho, u, d, v, a, h)
+    f, feq, rho, u, d, v, a, h = update(f, feq, rho, u, d, v, a, h)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
 
