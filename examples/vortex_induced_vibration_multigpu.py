@@ -4,10 +4,10 @@
 # domain and is free to move in the flow. The flow is driven by a constant
 # velocity U0 in the x direction. 
 # 
-# To test this script, we fake 10 devices by setting the environment variable
-# `XLA_FORCE_HOST_PLATFORM_DEVICE_COUNT=10`. You can remove this line if you
-# have multiple devices (e.g., GPUs). But remember to make sure that NY can be 
-# divided by N_DEVICES.
+# To test this script in a single-device environment, we fake 10 devices by 
+# setting the environment variable `xla_force_host_platform_device_count=10`. 
+# You can remove this line if you have multiple devices (e.g., GPUs). 
+# But remember to make sure that NY can be evenly divided by N_DEVICES.
 
 import os
 os.environ['XLA_FLAGS'] = (
@@ -16,7 +16,7 @@ os.environ['XLA_FLAGS'] = (
     # '--xla_gpu_enable_async_collectives=true '
     '--xla_gpu_enable_latency_hiding_scheduler=true '
     '--xla_gpu_enable_highest_priority_async_stream=true '
-    '--xla_force_host_platform_device_count=10'  # fake 10 devices, uncomment if you do have multiple devices   
+    '--xla_force_host_platform_device_count=10'  # fake 10 devices, comment if you do have multiple devices   
 )
 
 import math
