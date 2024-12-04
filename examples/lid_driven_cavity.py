@@ -9,16 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from vivsim import lbm, post, mrt
 
-import os
-os.environ['XLA_FLAGS'] = (
-    '--xla_gpu_enable_triton_softmax_fusion=true '
-    '--xla_gpu_triton_gemm_any=True '
-    # '--xla_gpu_enable_async_collectives=true '
-    '--xla_gpu_enable_latency_hiding_scheduler=true '
-    '--xla_gpu_enable_highest_priority_async_stream=true '
-)
-# jax.config.update('jax_platform_name', 'cpu')
-
 # define control parameters
 U0 = 0.5  # velocity (must < 0.5 for stability)
 RE_GRID = 20 # Reynolds number based on grid size (must < 22 for stability)
