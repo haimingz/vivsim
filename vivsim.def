@@ -1,0 +1,6 @@
+Bootstrap: docker
+From: python
+
+%post
+    pip install -U "jax[cuda12]" tqdm matplotlib numpy
+
