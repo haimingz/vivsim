@@ -25,7 +25,7 @@ import jax.numpy as jnp
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from vivsim import dyn, ib, lbm, post, mrt
+from vivsim import dyn, ib, lbm, multidevice as md, post, mrt
 
 from functools import partial
 from jax.sharding import Mesh, PartitionSpec as P
@@ -163,7 +163,7 @@ def update(f, feq, rho, u, d, v, a, h, X, Y):
 
     # Streaming
     f = lbm.streaming(f)
-    f = md.cross_device_stream_y(f, N_DEVICES) # ! important !
+    f = md.stream_cross_devices(f, 'y', 'y', N_DEVICES) # ! important !
 
     # Set Outlet BC at right wall (No gradient BC)
     f = lbm.outlet_boundary(f, loc='right')
