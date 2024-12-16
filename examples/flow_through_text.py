@@ -74,11 +74,11 @@ def update(f, feq, rho, u):
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.top_outflow(f)
-    f = lbm.bottom_velocity(f, 0, U0)
+    f = lbm.outlet_boundary(f, loc='top')
+    f = lbm.velocity_boundary(f, 0, U0, loc='bottom')
     
     # Obstacle
-    f = lbm.obstacle_noslip(f, mask)
+    f = lbm.noslip_obstacle(f, mask)
     
     # get new macroscopic properties
     rho, u = lbm.get_macroscopic(f, rho, u)

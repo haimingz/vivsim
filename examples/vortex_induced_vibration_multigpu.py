@@ -122,7 +122,7 @@ def update(f, feq, rho, u, d, v, a, h, X, Y):
     g = jnp.zeros((2, X2 - X1, NY // N_DEVICES))  # ! important !
     
     # calculate the kernel functions for all markers
-    kernels = ib.get_kernels(x_markers, y_markers, X[X1:X2], Y[X1:X2], ib.kernel_func4)
+    kernels = ib.get_kernels(x_markers, y_markers, X[X1:X2], Y[X1:X2], ib.kernel_range4)
     
     for _ in range(N_ITER_MDF):
         
@@ -157,18 +157,19 @@ def update(f, feq, rho, u, d, v, a, h, X, Y):
     f = mrt.collision(f, feq, MRT_COL_LEFT)
     
     # Add source term
-    forcing = lbm.get_forcing(g, u[:, X1:X2])
-    f = f.at[:, X1:X2].add(mrt.get_source(forcing, MRT_SRC_LEFT))  
+    g_lattice = jnp.zeros((9, X2 - X1, NY // N_DEVICES))
+    g_lattice = lbm.get_discretized_force(g, u[:, X1:X2],g_lattice)
+    f = f.at[:, X1:X2].add(mrt.get_source(g_lattice, MRT_SRC_LEFT))  
 
     # Streaming
     f = lbm.streaming(f)
-    f = lbm.cross_device_stream_y(f, N_DEVICES) # ! important !
+    f = md.cross_device_stream_y(f, N_DEVICES) # ! important !
 
     # Set Outlet BC at right wall (No gradient BC)
-    f = lbm.right_outflow(f)
+    f = lbm.outlet_boundary(f, loc='right')
 
     # Set Inlet BC at left wall (Zou/He scheme)
-    f = lbm.left_velocity(f, U0, 0)
+    f = lbm.velocity_boundary(f, U0, 0, loc='left')
 
     # update new macroscopic
     rho, u = lbm.get_macroscopic(f, rho, u)
