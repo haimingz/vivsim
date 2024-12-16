@@ -1,21 +1,9 @@
-"""This file implements the 2D lattice Boltzmann method (LBM) using the D2Q9 model.
+""" 
+This file implements the basic functions for 2-dimensional fluid simulations using
+the lattice Boltzmann method (LBM). The implementation includes:
 
-The implementation includes:
-
-Collision Model:
-* Bhatnagar-Gross-Krook (BGK) model, also known as Single Relaxation Time (SRT) model
-
-Boundary Conditions:
-* Periodic: Natural wrapping at domain boundaries
-* No-slip: Bounce-back scheme for walls and obstacles 
-* Velocity (Dirichlet): NEBB/Zou-He scheme for prescribed velocity at boundaries
-* Outflow (Neumann): Zero-gradient via first-order extrapolation
-
-Force Implementation:
-* Guo forcing scheme for external forces
-
-D2Q9 Lattice Structure:
-The velocity space is discretized into 9 directions, numbered as follows:
+Lattice model:
+    * D2Q9 model, with its 9 velocity directions numbered as follows:
 
     6   2   5
       \ | /
@@ -23,15 +11,31 @@ The velocity space is discretized into 9 directions, numbered as follows:
       / | \
     7   4   8
 
-Key Variables:
-    f: Distribution functions, shape (9, NX, NY)
-    feq: Equilibrium distribution functions, shape (9, NX, NY) 
-    rho: Macroscopic density, shape (NX, NY)
-    u: Macroscopic velocity vector, shape (2, NX, NY)
-    g: External force density vector, shape (2, NX, NY)
-    forcing: forcing term, shape (9, NX, NY)
+Collision Model:
+    * Bhatnagar-Gross-Krook (BGK) model, also known as the Single-Relaxation-Time (SRT) model.
 
-All equations are pre-evaluated for the D2Q9 model for maximum efficiency.
+Forcing model:
+    * Guo forcing scheme for inclusion of external forces.
+    
+Boundary Conditions (BC):
+    * Periodic BC at domain boundaries (automatically enforced by the streaming step).
+    * No-slip BC at domain boundaries and obstacles using the Bounce-Back scheme.
+    * BC with prescribed velocity at domain boundaries using the Zou/He scheme.
+    * No-gradient outlet BC at domain boundaries using the Zou/He scheme.
+    * Simple outlet BC at domain boundaries by copying the second last row/column.
+
+Key Variables in this file:
+    * rho: Macroscopic density, shape (NX, NY)
+    * u: Macroscopic velocity vector, shape (2, NX, NY)
+    * g: External force density vector, shape (2, NX, NY)
+    * f: Distribution functions, shape (9, NX, NY)
+    * feq: Equilibrium distribution functions, shape (9, NX, NY) 
+    * g_lattice: forcing term (g discretized into lattice dirs), shape (9, NX, NY)
+    where NX and NY are the number of lattice nodes in the x and y directions, respectively.
+
+Note:
+    * Some output arrays are created outside the functions and passed in as arguments, 
+      so that they can be modified in-place to avoid unnecessary memory allocation/deallocation. 
 """
 
 import jax
@@ -58,7 +62,18 @@ def streaming(f):
     return f
 
 def get_macroscopic(f, rho, u):
-    """Compute the macroscopic fluid density and velocity."""
+    """Calculate the macroscopic properties (fluid density and velocity)
+    based on the distribution functions.
+    
+    Args:
+        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        rho (jax.Array of shape (NX, NY)): The macroscopic density.
+        u (jax.Array of shape (2, NX, NY)): The macroscopic velocity.
+    
+    Returns:
+        rho (jax.Array of shape (NX, NY)): The macroscopic density.
+        u (jax.Array of shape (2, NX, NY)): The macroscopic velocity.
+    """
     
     rho = jnp.sum(f, axis=0)
     u = u.at[0].set((f[1] + f[5] + f[8] - f[3] - f[6] - f[7]) / rho)
@@ -66,7 +81,16 @@ def get_macroscopic(f, rho, u):
     return rho, u
 
 def get_equilibrium(rho, u, feq):
-    """Calculate the equilibrium distribution function."""
+    """Update the equilibrium distribution function based on the macroscopic properties.
+    
+    Args:
+        rho (jax.Array of shape (NX, NY)): The macroscopic density.
+        u (jax.Array of shape (2, NX, NY)): The macroscopic velocity.
+        feq (jax.Array of shape (9, NX, NY)): The equilibrium distribution functions.
+        
+    Returns:
+        feq (jax.Array of shape (9, NX, NY)): The equilibrium distribution functions.    
+    """
 
     uxx = u[0] * u[0]
     uyy = u[1] * u[1]
@@ -84,8 +108,16 @@ def get_equilibrium(rho, u, feq):
     return feq
 
 def collision(f, feq, omega):
-    """Perform the collision step using the single relaxation time (SRT) model
-    where omega (scalar) is the relaxation parameter. """
+    """Perform the collision step using the single relaxation time (SRT) model. 
+    
+    Args:
+        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        feq (jax.Array of shape (9, NX, NY)): The equilibrium distribution functions.
+        omega (scalar): The relaxation parameter (= 1 / relaxation time).
+    
+    Returns:
+        f (jax.Array of shape (9, NX, NY)): The distribution functions after collision.
+    """
 
     return (1 - omega) * f + omega * feq
 
@@ -115,7 +147,18 @@ def get_forcing(g, u):
     return forcing
 
 def get_velocity_correction(g, rho=1):
-    """Compute the velocity correction due to the force term."""
+    """Compute the velocity correction in the presence of external force. 
+    The result should be added to the fluid velocity obtained from `get_macroscopic`
+    to preserve second-order accuracy. (Note: The density obtained from `get_macroscopic` 
+    does not need to be corrected.)
+    
+    Args:
+        g (jax.Array of shape (2, NX, NY)): The external force density.
+        rho (scalar or jax.Array of shape (NX, NY)): The macroscopic density.
+        
+    Returns:
+        out (jax.Array of shape (2, NX, NY)): The velocity correction.
+    """
 
     return g * 0.5 / rho
 
