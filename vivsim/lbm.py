@@ -8,7 +8,7 @@ Lattice model:
     6   2   5
       \ | /
     3 - 0 - 1
-      / | \
+      / | \  
     7   4   8
 
 Collision Model:
