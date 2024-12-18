@@ -9,37 +9,48 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from vivsim import lbm, post, mrt
 
-# define control parameters
+# ====================== plot options ======================
+
+PLOT = True   # whether to plot the results during simulation
+PLOT_EVERY = 200   # plot every n time steps
+PLOT_AFTER = 100   # plot after n time steps
+
+
+# =================== define fluid parameters ===================
+
+# fluid parameters
 U0 = 0.5  # velocity (must < 0.5 for stability)
 RE_GRID = 20 # Reynolds number based on grid size (must < 22 for stability)
-NX = 500  # number of grid points in x direction
-NY = 500  # number of grid points in y direction
-TM = 50000  # number of time steps
-
-# plot options
-PLOT = True  # whether to plot the results
-PLOT_EVERY = 200  # plot every n time steps
-PLOT_AFTER = 00  # plot after n time steps
-
-# derived parameters for LBM
 NU = U0 / RE_GRID  # kinematic viscosity
+
+# LBM parameters
 TAU = 3 * NU + 0.5  # relaxation time
 OMEGA = 1 / TAU  # relaxation parameter
 
+# MRT parameters
 MRT_TRANS = mrt.get_trans_matrix()
 MRT_RELAX = mrt.get_relax_matrix(OMEGA)
 MRT_COL_LEFT = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX)  
-    
-# create empty arrays
-f = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # distribution function
-feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # equilibrium distribution function
-rho = jnp.ones((NX, NY), dtype=jnp.float32)  # density
-u = jnp.zeros((2, NX, NY), dtype=jnp.float32)  # velocity
 
-# initialize
+# =================== setup computation domain ===================
+
+NX = 1000  # number of grid points in x direction
+NY = 1000  # number of grid points in y direction
+TM = 50000  # number of time steps
+
+rho = jnp.ones((NX, NY), dtype=jnp.float32)      # density
+u = jnp.zeros((2, NX, NY), dtype=jnp.float32)    # velocity
+f = jnp.zeros((9, NX, NY), dtype=jnp.float32)    # distribution function
+feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # equilibrium distribution function
+
+
+# =================== initialize ===================
+
 f = lbm.get_equilibrium(rho, u, f)
 
-# define the update function for each time step
+# =================== define the update function ===================
+
+@jax.jit
 def update(f, feq, rho, u):
     
     # Collision
@@ -50,17 +61,19 @@ def update(f, feq, rho, u):
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.left_noslip(f)
-    f = lbm.right_noslip(f)
-    f = lbm.bottom_noslip(f)
-    f = lbm.top_velocity(f, U0, 0)
+    f = lbm.noslip_boundary(f, loc='left')
+    f = lbm.noslip_boundary(f, loc='right')
+    f = lbm.noslip_boundary(f, loc='bottom')
+    f = lbm.velocity_boundary(f, U0, 0, loc='top')
         
-    # get new macroscopic properties
+    # update macroscopic properties
     rho, u = lbm.get_macroscopic(f, rho, u)
     
     return f, feq, rho, u
 
-# create the plot template
+
+# =================== create the plot template ===================
+
 if PLOT:
     mpl.rcParams['figure.raise_window'] = False
     plt.subplots(figsize=(5, 4))
@@ -72,11 +85,11 @@ if PLOT:
         )
     plt.colorbar()
 
-# start simulation 
-update_jitted = jax.jit(update)
+
+# =================== start simulation ===================
 
 for t in tqdm(range(TM)):   
-    f, feq, rho, u  = update_jitted(f, feq, rho, u)
+    f, feq, rho, u  = update(f, feq, rho, u)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
         im.set_data(post.calculate_velocity(u).T)

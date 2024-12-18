@@ -82,7 +82,7 @@ def update_markers_velocity_3dof(x_markers, y_markers, X_CENTER, Y_CENTER, d, v)
 # ----------------- Kernel functions -----------------
 
 
-def kernel_func2(distance):
+def kernel_range2(distance):
     """kernel function of range 2
     
     Args:
@@ -95,7 +95,7 @@ def kernel_func2(distance):
     return jnp.where(jnp.abs(distance) <= 1, 1 - jnp.abs(distance), 0)
 
 
-def kernel_func3(distance):
+def kernel_range3(distance):
     """kernel function of range 3
     
     Args:
@@ -117,7 +117,7 @@ def kernel_func3(distance):
     )
 
 
-def kernel_func4(distance):
+def kernel_range4(distance):
     """kernel function of range 4
     
     Args:
@@ -139,20 +139,20 @@ def kernel_func4(distance):
     )
 
 
-def get_kernels(x_markers, y_markers, x_lattice, y_lattice, kernel_function):
+def get_kernels(x_markers, y_markers, x_lattice, y_lattice, kernel_func):
     """Generate the kernels for all the markers.
     
     Args:
         x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of markers.
         x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
-        kernel (callable): The kernel function. Available options: 
-            kernel_func2, kernel_func3, kernel_func4.
+        kernel_func (callable): The kernel function. Available options: 
+            kernel_range2, kernel_range3, kernel_range4.
     
     Returns:
         out (ndarray of shape (N_MARKER, NX, NY))： The kernel function values.
     """
-    return (kernel_function(x_lattice[None, ...] - x_markers[:, None, None]) \
-          * kernel_function(y_lattice[None, ...] - y_markers[:, None, None]))
+    return (kernel_func(x_lattice[None, ...] - x_markers[:, None, None]) \
+          * kernel_func(y_lattice[None, ...] - y_markers[:, None, None]))
 
 
 # ----------------- Core IB calculation -----------------
