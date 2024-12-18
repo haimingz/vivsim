@@ -32,16 +32,16 @@ def stream_cross_devices(f: jax.Array, dir: str, device_axis: str , n_devices: i
         jax.Array: Distribution functions after streaming
     """
 
-    device_ids_positive = [(i, (i + 1) % n_devices) for i in range(n_devices)]
-    device_ids_negative = [((i + 1) % n_devices, i) for i in range(n_devices)]
+    device_pairs = [(i, (i + 1) % n_devices) for i in range(n_devices)]
+    device_pairs_reverse = [((i + 1) % n_devices, i) for i in range(n_devices)]
     
     if dir == 'y':
-        f = f.at[UP_DIRS, :, 0].set(jax.lax.ppermute(f[UP_DIRS, :, 0], device_axis, device_ids_positive))
-        f = f.at[DOWN_DIRS, :, -1].set(jax.lax.ppermute(f[DOWN_DIRS, :, -1], device_axis, device_ids_negative))
+        f = f.at[UP_DIRS, :, 0].set(jax.lax.ppermute(f[UP_DIRS, :, 0], device_axis, device_pairs))
+        f = f.at[DOWN_DIRS, :, -1].set(jax.lax.ppermute(f[DOWN_DIRS, :, -1], device_axis, device_pairs_reverse))
     
-    if dir == 'x':
-        f = f.at[RIGHT_DIRS, 0].set(jax.lax.ppermute(f[RIGHT_DIRS, 0], device_axis, device_ids_negative))
-        f = f.at[LEFT_DIRS, -1].set(jax.lax.ppermute(f[LEFT_DIRS, -1], device_axis, device_ids_positive))
+    elif dir == 'x':
+        f = f.at[RIGHT_DIRS, 0].set(jax.lax.ppermute(f[RIGHT_DIRS, 0], device_axis, device_pairs_reverse))
+        f = f.at[LEFT_DIRS, -1].set(jax.lax.ppermute(f[LEFT_DIRS, -1], device_axis, device_pairs))
     
     return f
 
