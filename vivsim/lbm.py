@@ -217,13 +217,14 @@ def noslip_boundary(f, loc:str):
     
     if loc == 'left':
         return f.at[RIGHT_DIRS, 0].set(f[LEFT_DIRS, 0])
-    if loc == 'right':
+    elif loc == 'right':
         return f.at[LEFT_DIRS, -1].set(f[RIGHT_DIRS, -1])
-    if loc == 'top':
+    elif loc == 'top':
         return f.at[UP_DIRS, :, 0].set(f[DOWN_DIRS, :, 0])
-    if loc == 'bottom':
+    elif loc == 'bottom':
         return f.at[UP_DIRS, :, 0].set(f[DOWN_DIRS, :, 0])
-
+    else:
+        raise ValueError("Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'.")
 
 def noslip_obstacle(f, mask):
     """Enforce a no-slip boundary at the obstacle 
@@ -263,28 +264,29 @@ def velocity_boundary(f, ux, uy, loc:str):
         f = f.at[1, 0].set(f[3, 0] + 2 / 3 * ux * rho_wall)
         f = f.at[5, 0].set(f[7, 0] - 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux + 0.5 * uy) * rho_wall)
         f = f.at[8, 0].set(f[6, 0] + 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux - 0.5 * uy) * rho_wall)
-        return f
     
-    if loc == 'right':        
+    elif loc == 'right':        
         rho_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / (1 + ux)
         f = f.at[3, -1].set(f[1, -1] - 2 / 3 * ux * rho_wall)
         f = f.at[7, -1].set(f[5, -1] + 0.5 * (f[2, -1] - f[4, -1]) + (- 1 / 6 * ux - 0.5 * uy) * rho_wall)
         f = f.at[6, -1].set(f[8, -1] - 0.5 * (f[2, -1] - f[4, -1]) + (- 1 / 6 * ux + 0.5 * uy) * rho_wall)
-        return f
     
-    if loc == 'top':        
+    elif loc == 'top':        
         rho_wall = (f[0, :, -1] + f[1, :, -1] + f[3, :, -1] + 2 * (f[2, :, -1] + f[5, :, -1] + f[6, :, -1])) / (1 + uy)
         f = f.at[4, :, -1].set(f[2, :, -1] - 2 / 3 * uy * rho_wall)
         f = f.at[7, :, -1].set(f[5, :, -1] + 0.5 * (f[1, :, -1] - f[3, :, -1]) + (- 1 / 6 * uy - 0.5 * ux) * rho_wall)
         f = f.at[8, :, -1].set(f[6, :, -1] - 0.5 * (f[1, :, -1] - f[3, :, -1]) + (- 1 / 6 * uy + 0.5 * ux) * rho_wall)
-        return f
     
-    if loc == 'bottom':        
+    elif loc == 'bottom':        
         rho_wall = (f[0, :,0] + f[1, :,0] + f[3, :,0] + 2 * (f[4, :,0] + f[7, :,0] + f[8, :,0])) / (1 - uy)
         f = f.at[2, :, 0].set(f[4, :, 0] + 2 / 3 * uy * rho_wall)
         f = f.at[5, :, 0].set(f[7, :, 0] - 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy + 0.5 * ux) * rho_wall)
         f = f.at[6, :, 0].set(f[8, :, 0] + 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy - 0.5 * ux) * rho_wall)
-        return f
+    
+    else:
+        raise ValueError("Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'.")
+    
+    return f
 
 
 def outlet_boundary(f, loc:str):
@@ -302,28 +304,21 @@ def outlet_boundary(f, loc:str):
     """
 
     if loc == 'left':
-        rho = jnp.sum(f[:, 0], axis=0)
-        ux = (jnp.sum(f[RIGHT_DIRS,0], axis=0) - jnp.sum(f[LEFT_DIRS,0], axis=0)) / rho
-        uy = (jnp.sum(f[UP_DIRS,0], axis=0) - jnp.sum(f[DOWN_DIRS,0], axis=0)) / rho
-        return velocity_boundary(f, ux, uy, loc)
+        f_ = f[:, 0]    
+    elif loc == 'right':
+        f_ = f[:, -1]    
+    elif loc == 'top':
+        f_ = f[:, :, -1]
+    elif loc == 'bottom':
+        f_ = f[:, :, 0]
+    else:
+        raise ValueError("Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'.")
+       
+    rho_out = jnp.sum(f_, axis=0)
+    ux_out = (jnp.sum(f_[RIGHT_DIRS], axis=0) - jnp.sum(f_[LEFT_DIRS], axis=0)) / rho_out
+    uy_out = (jnp.sum(f_[UP_DIRS], axis=0) - jnp.sum(f_[DOWN_DIRS], axis=0)) / rho_out
     
-    if loc == 'right':
-        rho = jnp.sum(f[:, -1], axis=0)
-        ux = (jnp.sum(f[RIGHT_DIRS,-1], axis=0) - jnp.sum(f[LEFT_DIRS,-1], axis=0)) / rho
-        uy = (jnp.sum(f[UP_DIRS,-1], axis=0) - jnp.sum(f[DOWN_DIRS,-1], axis=0)) / rho
-        return velocity_boundary(f, ux, uy, loc)
-    
-    if loc == 'top':
-        rho = jnp.sum(f[:, :, -1], axis=0)
-        ux = (jnp.sum(f[RIGHT_DIRS,:, -1], axis=0) - jnp.sum(f[LEFT_DIRS,:, -1], axis=0)) / rho
-        uy = (jnp.sum(f[UP_DIRS,:, -1], axis=0) - jnp.sum(f[DOWN_DIRS,:, -1], axis=0)) / rho
-        return velocity_boundary(f, ux, uy, loc)
-    
-    if loc == 'bottom':
-        rho = jnp.sum(f[:, :, 0], axis=0)
-        ux = (jnp.sum(f[RIGHT_DIRS,:, 0], axis=0) - jnp.sum(f[LEFT_DIRS,:, 0], axis=0)) / rho
-        uy = (jnp.sum(f[UP_DIRS,:, 0], axis=0) - jnp.sum(f[DOWN_DIRS,:, 0], axis=0)) / rho
-        return velocity_boundary(f, ux, uy, loc)
+    return velocity_boundary(f, ux_out, uy_out, loc)
 
 
 def outlet_boundary_simple(f, loc:str):
@@ -341,13 +336,12 @@ def outlet_boundary_simple(f, loc:str):
     """
 
     if loc == 'left':
-        return f.at[LEFT_DIRS, -1].set(f[LEFT_DIRS, -2])
-    
-    if loc == 'right':
+        return f.at[LEFT_DIRS, -1].set(f[LEFT_DIRS, -2])    
+    elif loc == 'right':
         return f.at[RIGHT_DIRS, 0].set(f[RIGHT_DIRS, 1])
-
-    if loc == 'top':
+    elif loc == 'top':
         return f.at[UP_DIRS, :, -1].set(f[UP_DIRS, :, -2])
-    
-    if loc == 'bottom':
+    elif loc == 'bottom':
         return f.at[DOWN_DIRS, :, 0].set(f[DOWN_DIRS, :, 1])
+    else:
+        raise ValueError("Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'.")
