@@ -27,10 +27,10 @@ Boundary Conditions (BC):
 Key Variables in this file:
     * rho: Macroscopic density, shape (NX, NY)
     * u: Macroscopic velocity vector, shape (2, NX, NY)
-    * g: External force density vector, shape (2, NX, NY)
     * f: Distribution functions, shape (9, NX, NY)
     * feq: Equilibrium distribution functions, shape (9, NX, NY) 
-    * g_lattice: forcing term (g discretized into lattice dirs), shape (9, NX, NY)
+    * g: External force vector, shape (2, NX, NY)
+    * g_lattice: External force discretized into lattice dirs, shape (9, NX, NY)
     where NX and NY are the number of lattice nodes in the x and y directions, respectively.
 
 Note:
@@ -189,7 +189,7 @@ def get_source(g_lattice, omega):
     This term should be added to the distribution functions.
     
     Args:
-        g_lattice (jax.Array of shape (9, NX, NY)): The forcing term.
+        g_lattice (jax.Array of shape (9, NX, NY)): The discretize external force term.
         omega (scalar): The relaxation parameter (= 1 / relaxation time).
         
     Returns:
