@@ -24,7 +24,7 @@ from vivsim import dyn, ib, lbm, multigrid as mg, post, mrt
 
 # ============================= plot options =======================
 
-PLOT = False  # whether to plot the results
+PLOT = True  # whether to plot the results
 PLOT_EVERY = 100  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
@@ -36,7 +36,7 @@ UR = 5                                          # Reduced velocity
 MR = 10                                         # Mass ratio
 DR = 0                                          # Damping ratio
 U0 = 0.1                                        # Inlet velocity
-D = 100                                          # Cylinder diameter
+D = 50                                         # Cylinder diameter
 NU = U0 * D / RE                                # Kinematic viscosity
 FN = U0 / (UR * D)                              # Natural frequency
 TM = 30000                                      # Maximum time steps
@@ -49,18 +49,24 @@ C = 2 * math.sqrt(K * M) * DR                   # Damping
 
 # ----------------- mesh #1 (coarse level = 1) -----------------
 
-NX1 = 5 * D // 2
-NY1 = 10 * D // 2
+WIDTH1 = 5 * D 
+HEIGHT1 = 12 * D
 
-rho1 = jnp.ones((NX1 + 1, NY1), dtype=jnp.float32) 
-u1 = jnp.zeros((2, NX1 + 1, NY1), dtype=jnp.float32)
-f1 = jnp.zeros((9, NX1 + 1, NY1), dtype=jnp.float32)
-feq1 = jnp.zeros((9, NX1 + 1, NY1), dtype=jnp.float32) 
+NX1 = WIDTH1 // 2 + 1
+NY1 = HEIGHT1 // 2
+
+rho1 = jnp.ones((NX1, NY1), dtype=jnp.float32) 
+u1 = jnp.zeros((2, NX1, NY1), dtype=jnp.float32)
+f1 = jnp.zeros((9, NX1, NY1), dtype=jnp.float32)
+feq1 = jnp.zeros((9, NX1, NY1), dtype=jnp.float32) 
 
 # ----------------- mesh #2 (coarse level = 0) -----------------
 
-NX2 = 8 * D 
-NY2 = 10 * D
+WIDTH2 = 8 * D
+HEIGHT2 = 12 * D
+
+NX2 = WIDTH2
+NY2 = HEIGHT2
 
 X2, Y2 = jnp.meshgrid(jnp.arange(NX2, dtype=jnp.uint16), jnp.arange(NY2, dtype=jnp.uint16), indexing="ij")
 
@@ -71,23 +77,29 @@ feq2 = jnp.zeros((9, NX2, NY2), dtype=jnp.float32)
 
 # ----------------- mesh #3 (coarse level = 1) ----------------
 
-NX3 = 3 * D // 2
-NY3 = 10 * D // 2
+WIDTH3 = 5 * D 
+HEIGHT3 = 12 * D
 
-rho3 = jnp.ones((NX3 + 1, NY3), dtype=jnp.float32)
-u3 = jnp.zeros((2, NX3 + 1, NY3), dtype=jnp.float32)
-f3 = jnp.zeros((9, NX3 + 1, NY3), dtype=jnp.float32)
-feq3 = jnp.zeros((9, NX3 + 1, NY3), dtype=jnp.float32)
+NX3 = WIDTH3 // 2 + 1
+NY3 = HEIGHT3 // 2
+
+rho3 = jnp.ones((NX3, NY3), dtype=jnp.float32)
+u3 = jnp.zeros((2, NX3 , NY3), dtype=jnp.float32)
+f3 = jnp.zeros((9, NX3, NY3), dtype=jnp.float32)
+feq3 = jnp.zeros((9, NX3, NY3), dtype=jnp.float32)
 
 # ----------------- mesh #4 (coarse level = 2) ----------------
 
-NX4 = 4 * D // 4
-NY4 = 10 * D // 4
+WIDTH4 = 5 * D 
+HEIGHT4 = 12 * D
 
-rho4 = jnp.ones((NX4 + 1, NY4), dtype=jnp.float32)
-u4 = jnp.zeros((2, NX4 + 1, NY4), dtype=jnp.float32)
-f4 = jnp.zeros((9, NX4 + 1, NY4), dtype=jnp.float32)
-feq4 = jnp.zeros((9, NX4 + 1, NY4), dtype=jnp.float32)
+NX4 = WIDTH4 // 4 + 1
+NY4 = HEIGHT4 // 4
+
+rho4 = jnp.ones((NX4, NY4), dtype=jnp.float32)
+u4 = jnp.zeros((2, NX4, NY4), dtype=jnp.float32)
+f4 = jnp.zeros((9, NX4, NY4), dtype=jnp.float32)
+feq4 = jnp.zeros((9, NX4, NY4), dtype=jnp.float32)
 
 
 # ===================== LBM parameters =====================
@@ -118,7 +130,7 @@ MRT_COL_LEFT4 = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX4)
 
 # location of the cylinder
 X_OBJ = 2 * D   # x-coordinate of the cylinder
-Y_OBJ = 5 * D   # y-coordinate of the cylinder
+Y_OBJ = HEIGHT2 // 2   # y-coordinate of the cylinder
 
 # Lagrangian markers
 N_MARKER = 4 * D  # Number of markers on the circle
@@ -343,7 +355,7 @@ if PLOT:
 
     im1 = plt.imshow(
         post.calculate_curl(u1[:,:-1]).T, 
-        extent=[0, NX1 * 2 / D, 0, NY1 * 2 / D],
+        extent=[0, WIDTH1 / D, 0, HEIGHT1 / D],
         cmap="seismic", aspect="equal", origin="lower",
         # norm=mpl.colors.CenteredNorm(),
         vmax=vmax,
@@ -352,7 +364,7 @@ if PLOT:
     
     im2 = plt.imshow(
         post.calculate_curl(u2).T * 2, 
-        extent=[NX1 * 2 / D, (NX1 * 2 + NX2) / D, 0, NY2 / D],
+        extent=[WIDTH1 / D, (WIDTH1 + WIDTH2) / D, 0, HEIGHT2 / D],
         cmap="seismic", aspect="equal", origin="lower",
         # norm=mpl.colors.CenteredNorm(),
         vmax=vmax,
@@ -361,7 +373,7 @@ if PLOT:
     
     im3 = plt.imshow(
         post.calculate_curl(u3[:,1:]).T, 
-        extent=[(NX1 * 2 + NX2) / D,(NX1 * 2 + NX2 + NX3 * 2) / D, 0, NY2 / D],
+        extent=[(WIDTH1 + WIDTH2) / D, (WIDTH1 + WIDTH2 + WIDTH3) / D, 0, HEIGHT3 / D],
         cmap="seismic", aspect="equal", origin="lower",
         # norm=mpl.colors.CenteredNorm(),
         vmax=vmax,
@@ -370,7 +382,7 @@ if PLOT:
     
     im4 = plt.imshow(
         post.calculate_curl(u4[:,1:]).T,
-        extent=[(NX1 * 2 + NX2 + NX3 * 2) / D, (NX1 * 2 + NX2 + NX3 * 2 + NX4 * 4) / D, 0, NY2 / D],
+        extent=[ (WIDTH1 + WIDTH2 + WIDTH3) / D,  (WIDTH1 + WIDTH2 + WIDTH3 + WIDTH4) / D, 0, HEIGHT4 / D],
         cmap="seismic", aspect="equal", origin="lower",
         # norm=mpl.colors.CenteredNorm(),
         vmax=vmax,
@@ -382,15 +394,15 @@ if PLOT:
     plt.ylabel("y/D")
 
     # draw a circle representing the cylinder
-    # circle = plt.Circle(((NX1 + X_OBJ + d[0]) / D , (Y_OBJ + d[1]) / D / 2), 0.25, 
-                        # edgecolor='black', linewidth=0.5,
-                        # facecolor='white', fill=True)
+    circle = plt.Circle(((WIDTH1 + X_OBJ + d[0]) / D , (Y_OBJ + d[1]) / D / 2), 0.5, 
+                        edgecolor='black', linewidth=0.5,
+                        facecolor='white', fill=True)
     
-    # plt.gca().add_artist(circle)
+    plt.gca().add_artist(circle)
     
-    plt.axvline(NX1 * 2/ D, color="k", linestyle="--", linewidth=0.5)
-    plt.axvline((NX1 * 2 + NX2) / D, color="k", linestyle="--", linewidth=0.5)
-    plt.axvline((NX1 * 2 + NX2 + NX3 * 2) / D, color="k", linestyle="--", linewidth=0.5)
+    plt.axvline(WIDTH1 / D, color="k", linestyle="--", linewidth=0.5)
+    plt.axvline((WIDTH1 + WIDTH2) / D, color="k", linestyle="--", linewidth=0.5)
+    plt.axvline((WIDTH1 + WIDTH2 + WIDTH3) / D, color="k", linestyle="--", linewidth=0.5)
     
     plt.tight_layout()
 
@@ -408,12 +420,6 @@ for t in tqdm(range(TM)):
         im2.set_data(post.calculate_curl(u2).T * 4)
         im3.set_data(post.calculate_curl(u3[:,1:]).T * 2)
         im4.set_data(post.calculate_curl(u4[:,1:]).T)
-        
-        # plt.gca().autoscale()
-        
-        # im1.autoscale()
-        # im2.autoscale()
-        # im3.autoscale()
-
-        # circle.center = ((X_OBJ + d[0]) / D / 2, (Y_OBJ + d[1]) / D / 2)
+            
+        circle.center = ((WIDTH1 + X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
         plt.pause(0.01)
