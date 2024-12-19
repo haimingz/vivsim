@@ -345,3 +345,30 @@ def outlet_boundary_simple(f, loc:str):
         return f.at[UP_DIRS, :, 0].set(f[UP_DIRS, :, 1])
     else:
         raise ValueError("Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'.")
+
+
+def outlet_boundary_equilibrium(f, feq, loc:str):
+    """enforce a outlet boundary at the specified boundary
+    by setting the missing distributions to the equilibrium value.
+    
+    Args:
+        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        feq (jax.Array of shape (9, NX, NY)): The equilibrium distribution functions.
+        loc (str): The boundary where the outlet condition is enforced, 
+            can be 'left', 'right', 'top', or 'bottom'.
+    
+    Returns:
+        f (jax.Array of shape (9, NX, NY)): The distribution functions 
+            after enforcing the boundary condition.    
+    """
+    
+    if loc == 'left':
+        return f.at[RIGHT_DIRS, 0].set(feq[RIGHT_DIRS, 0])    
+    elif loc == 'right':        
+        return f.at[LEFT_DIRS, -1].set(feq[LEFT_DIRS, -1])
+    elif loc == 'top':
+        return f.at[DOWN_DIRS, :, -1].set(feq[DOWN_DIRS, :, -1])
+    elif loc == 'bottom':
+        return f.at[UP_DIRS, :, 0].set(feq[UP_DIRS, :, 0])
+    else:
+        raise ValueError("Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'.")
