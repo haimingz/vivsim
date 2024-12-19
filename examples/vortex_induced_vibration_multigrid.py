@@ -24,7 +24,7 @@ from vivsim import dyn, ib, lbm, multigrid as mg, post, mrt
 
 # ============================= plot options =======================
 
-PLOT = True  # whether to plot the results
+PLOT = False  # whether to plot the results
 PLOT_EVERY = 100  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
