@@ -151,7 +151,7 @@ d = jnp.zeros((2), dtype=jnp.float32)  # displacement of cylinder
 v = jnp.zeros((2), dtype=jnp.float32)  # velocity of cylinder
 a = jnp.zeros((2), dtype=jnp.float32)  # acceleration of cylinder
 h = jnp.zeros((2), dtype=jnp.float32)  # hydrodynamic force
-forcing = jnp.zeros((9, IBX2 - IBX1, IBY2 - IBY1), dtype=jnp.float32)  # forcing term
+
 
 # ======================= initialize =====================
 
@@ -169,10 +169,18 @@ f4 = lbm.get_equilibrium(rho4, u4, f4)
 v = v.at[1].set(1e-2) # add an initial velocity to the cylinder
 
 
-# ======================= compute scheme =====================
+# ======================= compute routine =====================
 
-def update_mesh2_locally(f, feq, rho, u, d, v, a, h):
+def collision_mesh1(f, feq, rho, u):    
+    rho, u = lbm.get_macroscopic(f, rho, u)
+    feq = lbm.get_equilibrium(rho, u, feq)
+    f = mrt.collision(f, feq, MRT_COL_LEFT1)    
+    return f, feq, rho, u
 
+def collision_mesh2(f, feq, rho, u, d, v, a, h):
+
+    rho, u = lbm.get_macroscopic(f, rho, u)
+    
     # Immersed Boundary Method
     x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
     
@@ -214,131 +222,94 @@ def update_mesh2_locally(f, feq, rho, u, d, v, a, h):
     f = mrt.collision(f, feq, MRT_COL_LEFT2)
     
     # Add source term
-    forcing = jnp.zeros((9, IBX2 - IBX1, IBY2 - IBY1), dtype=jnp.float32)
-    forcing = lbm.get_discretized_force(g, u[:, IBX1:IBX2, IBY1:IBY2],forcing)
-    f = f.at[:, IBX1:IBX2, IBY1:IBY2].add(mrt.get_source(forcing, MRT_SRC_LEFT2))
+    g_lattice = jnp.zeros((9, IBX2 - IBX1, IBY2 - IBY1), dtype=jnp.float32)  # forcing term
+    g_lattice = lbm.get_discretized_force(g, u[:, IBX1:IBX2, IBY1:IBY2], g_lattice)
+    f = f.at[:, IBX1:IBX2, IBY1:IBY2].add(mrt.get_source(g_lattice, MRT_SRC_LEFT2))
+    
     
     return f, feq, rho, u, d, v, a, h
 
-def update_mesh3_locally(f, feq, rho, u):    
+def collision_mesh3(f, feq, rho, u):    
+    rho, u = lbm.get_macroscopic(f, rho, u)
     feq = lbm.get_equilibrium(rho, u, feq)
     f = mrt.collision(f, feq, MRT_COL_LEFT3)    
     return f, feq, rho, u
 
-def update_mesh1_locally(f, feq, rho, u):    
-    feq = lbm.get_equilibrium(rho, u, feq)
-    f = mrt.collision(f, feq, MRT_COL_LEFT1)    
-    return f, feq, rho, u
-
-def update_mesh4_locally(f, feq, rho, u):    
+def collision_mesh4(f, feq, rho, u):    
+    rho, u = lbm.get_macroscopic(f, rho, u)
     feq = lbm.get_equilibrium(rho, u, feq)
     f = mrt.collision(f, feq, MRT_COL_LEFT4)    
     return f, feq, rho, u
+
+
+def stream_mesh1(f1):
+    f1 = f1.at[:,:-1].set(lbm.streaming(f1[:,:-1]))
+    f1 = mg.coalescence(f1, dir='left')
+    f1 = lbm.velocity_boundary(f1, U0, 0, loc='left')
+    return f1
+
+def stream_mesh2(f1, f2, f3):
+    f1 = mg.accumulate(f2, f1, dir='left')
+    f3 = mg.accumulate(f2, f3, dir='right')
+    f2 = lbm.streaming(f2)
+    f2, f3 = mg.explosion(f2, f3, dir='left')
+    f2, f1 = mg.explosion(f2, f1, dir='right')  
+    return f1, f2, f3
+
+def stream_mesh3(f3, f4):
+    f4 = mg.accumulate(f3, f4, dir='right')
+    f3 = f3.at[:, 1:].set(lbm.streaming(f3[:,1:]))
+    f3 = mg.coalescence(f3, dir='right')
+    f3, f4 = mg.explosion(f3, f4, dir='left')
+    return f3, f4
+
+def stream_mesh4(f4):
+    f4 = f4.at[:,1:].set(lbm.streaming(f4[:,1:]))
+    f4 = mg.coalescence(f4, dir='right')   
+    f4 = lbm.outlet_boundary_simple(f4, loc='right') 
+    return f4
+
+
+def update_mesh2(f1, f2, f3, feq2, rho2, u2, d, v, a, h):
+    f2, feq2, rho2, u2, d, v, a, h = collision_mesh2(f2, feq2, rho2, u2, d, v, a, h)
+    f1, f2, f3 = stream_mesh2(f1, f2, f3)
+    return f1, f2, f3, feq2, rho2, u2, d, v, a, h
+
+def update_mesh123(f1, f2, f3, f4, feq1, feq2, feq3, rho1, rho2, rho3, u1, u2, u3, d, v, a, h):
+    
+    # collision (mesh1 & mesh3)    
+    f1, feq1, rho1, u1 = collision_mesh1(f1, feq1, rho1, u1)
+    f3, feq3, rho3, u3 = collision_mesh3(f3, feq3, rho3, u3)
+    
+    # reset ghost cells (mesh1 & mesh3)
+    f1 = mg.clear_ghost(f1, location='right')
+    f3 = mg.clear_ghost(f3, location='left')
+    
+    # update fine mesh twice (mesh2)
+    f1, f2, f3, feq2, rho2, u2, d, v, a, h = update_mesh2(f1, f2, f3, feq2, rho2, u2, d, v, a, h)
+    f1, f2, f3, feq2, rho2, u2, d, v, a, h = update_mesh2(f1, f2, f3, feq2, rho2, u2, d, v, a, h)
+    
+    # streaming (mesh1 & mesh3)
+    f1 = stream_mesh1(f1)    
+    f3, f4 = stream_mesh3(f3, f4)
+        
+    return f1, f2, f3, f4, feq1, feq2, feq3, rho1, rho2, rho3, u1, u2, u3, d, v, a, h
 
 @jax.jit
 def update(f1, f2, f3, f4, feq1, feq2, feq3, feq4, rho1, rho2, rho3, rho4, u1, u2, u3, u4, d, v, a, h):
     
     # collision (mesh4)
-    rho4, u4 = lbm.get_macroscopic(f4, rho4, u4)
-    f4, feq4, rho4, u4 = update_mesh1_locally(f4, feq4, rho4, u4)
+    f4, feq4, rho4, u4 = collision_mesh1(f4, feq4, rho4, u4)
     
     # reset ghost cells of mesh4
     f4 = mg.clear_ghost(f4, location='left')
     
-    # collision (mesh1)
-    rho1, u1 = lbm.get_macroscopic(f1, rho1, u1)
-    f1, feq1, rho1, u1 = update_mesh1_locally(f1, feq1, rho1, u1)
-    
-    # collision (mesh3)
-    rho3, u3 = lbm.get_macroscopic(f3, rho3, u3)
-    f3, feq3, rho3, u3 = update_mesh3_locally(f3, feq3, rho3, u3)
-    
-    # reset ghost cells of mesh1 and mesh3
-    f1 = mg.clear_ghost(f1, location='right')
-    f3 = mg.clear_ghost(f3, location='left')
-    
-    # collision (mesh2)
-    rho2, u2 = lbm.get_macroscopic(f2, rho2, u2)
-    f2, feq2, rho2, u2, d, v, a, h = update_mesh2_locally(f2, feq2, rho2, u2, d, v, a, h)
-
-    # streaming (mesh2)
-    f1 = mg.accumulate(f2, f1, dir='left')
-    f3 = mg.accumulate(f2, f3, dir='right')
-    f2 = lbm.streaming(f2)
-    f2, f3 = mg.explosion(f2, f3, dir='left')
-    f2, f1 = mg.explosion(f2, f1, dir='right')  
-    
-    # collision (mesh2)
-    rho2, u2 = lbm.get_macroscopic(f2, rho2, u2)
-    f2, feq2, rho2, u2, d, v, a, h = update_mesh2_locally(f2, feq2, rho2, u2, d, v, a, h)
-    
-    # streaming (mesh2)
-    f1 = mg.accumulate(f2, f1, dir='left')
-    f3 = mg.accumulate(f2, f3, dir='right')
-    f2 = lbm.streaming(f2)
-    f2, f3 = mg.explosion(f2, f3, dir='left')
-    f2, f1 = mg.explosion(f2, f1, dir='right')  
-    
-    # streaming (mesh1)
-    f1 = f1.at[:,:-1].set(lbm.streaming(f1[:,:-1]))
-    f1 = mg.coalescence(f1, dir='left')
-    f1 = lbm.velocity_boundary(f1, U0, 0, loc='left')
-    
-    # streaming (mesh3)
-    f4 = mg.accumulate(f3, f4, dir='right')
-    f3 = f3.at[:, 1:].set(lbm.streaming(f3[:,1:]))
-    f3 = mg.coalescence(f3, dir='right')
-    f3, f4 = mg.explosion(f3, f4, dir='left')
-    
-    # collision (mesh1)
-    rho1, u1 = lbm.get_macroscopic(f1, rho1, u1)
-    f1, feq1, rho1, u1 = update_mesh1_locally(f1, feq1, rho1, u1)
-    
-    # collision (mesh3)
-    rho3, u3 = lbm.get_macroscopic(f3, rho3, u3)
-    f3, feq3, rho3, u3 = update_mesh3_locally(f3, feq3, rho3, u3)
-    
-    # reset ghost cells of mesh1 and mesh3
-    f1 = mg.clear_ghost(f1, location='right')
-    f3 = mg.clear_ghost(f3, location='left')
-    
-    # collision (mesh2)
-    rho2, u2 = lbm.get_macroscopic(f2, rho2, u2)
-    f2, feq2, rho2, u2, d, v, a, h = update_mesh2_locally(f2, feq2, rho2, u2, d, v, a, h)
-
-    # streaming (mesh2)
-    f1 = mg.accumulate(f2, f1, dir='left')
-    f3 = mg.accumulate(f2, f3, dir='right')
-    f2 = lbm.streaming(f2)
-    f2, f3 = mg.explosion(f2, f3, dir='left')
-    f2, f1 = mg.explosion(f2, f1, dir='right')  
-    
-    # collision (mesh2)
-    rho2, u2 = lbm.get_macroscopic(f2, rho2, u2)
-    f2, feq2, rho2, u2, d, v, a, h = update_mesh2_locally(f2, feq2, rho2, u2, d, v, a, h)
-    
-    # streaming (mesh2)
-    f1 = mg.accumulate(f2, f1, dir='left')
-    f3 = mg.accumulate(f2, f3, dir='right')
-    f2 = lbm.streaming(f2)
-    f2, f3 = mg.explosion(f2, f3, dir='left')
-    f2, f1 = mg.explosion(f2, f1, dir='right')  
-    
-    # streaming (mesh1)
-    f1 = f1.at[:,:-1].set(lbm.streaming(f1[:,:-1]))
-    f1 = mg.coalescence(f1, dir='left')
-    f1 = lbm.velocity_boundary(f1, U0, 0, loc='left')
-    
-    # streaming (mesh3)
-    f4 = mg.accumulate(f3, f4, dir='right')
-    f3 = f3.at[:, 1:].set(lbm.streaming(f3[:,1:]))
-    f3 = mg.coalescence(f3, dir='right')
-    f3, f4 = mg.explosion(f3, f4, dir='left')
+    # update fine mesh twice (mesh1 & mesh2 & mesh3)
+    f1, f2, f3, f4, feq1, feq2, feq3, rho1, rho2, rho3, u1, u2, u3, d, v, a, h = update_mesh123(f1, f2, f3, f4, feq1, feq2, feq3, rho1, rho2, rho3, u1, u2, u3, d, v, a, h)    
+    f1, f2, f3, f4, feq1, feq2, feq3, rho1, rho2, rho3, u1, u2, u3, d, v, a, h = update_mesh123(f1, f2, f3, f4, feq1, feq2, feq3, rho1, rho2, rho3, u1, u2, u3, d, v, a, h)
     
     # streaming (mesh4)
-    f4 = f4.at[:,1:].set(lbm.streaming(f4[:,1:]))
-    f4 = mg.coalescence(f4, dir='right')   
-    f4 = lbm.outlet_boundary(f4,loc='right') 
+    f4 = stream_mesh4(f4)
     
     return f1, f2, f3, f4, feq1, feq2, feq3, feq4, rho1, rho2, rho3, rho4, u1, u2, u3, u4, d, v, a, h
 
