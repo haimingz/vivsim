@@ -336,12 +336,12 @@ def outlet_boundary_simple(f, loc:str):
     """
 
     if loc == 'left':
-        return f.at[LEFT_DIRS, -1].set(f[LEFT_DIRS, -2])    
+        return f.at[RIGHT_DIRS, 0].set(f[RIGHT_DIRS, 1])    
     elif loc == 'right':
-        return f.at[RIGHT_DIRS, 0].set(f[RIGHT_DIRS, 1])
+        return f.at[LEFT_DIRS, -1].set(f[LEFT_DIRS, -2])
     elif loc == 'top':
-        return f.at[UP_DIRS, :, -1].set(f[UP_DIRS, :, -2])
+        return f.at[DOWN_DIRS, :, -1].set(f[DOWN_DIRS, :, -2])
     elif loc == 'bottom':
-        return f.at[DOWN_DIRS, :, 0].set(f[DOWN_DIRS, :, 1])
+        return f.at[UP_DIRS, :, 0].set(f[UP_DIRS, :, 1])
     else:
         raise ValueError("Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'.")
