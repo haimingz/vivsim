@@ -16,8 +16,9 @@ os.environ['XLA_FLAGS'] = (
     # '--xla_gpu_enable_async_collectives=true '
     '--xla_gpu_enable_latency_hiding_scheduler=true '
     '--xla_gpu_enable_highest_priority_async_stream=true '
-    '--xla_force_host_platform_device_count=10'  # fake 10 devices, comment if you do have multiple devices   
+    '--xla_force_host_platform_device_count=8'  # fake 8 devices, comment this if you do have multiple devices   
 )
+os.environ['JAX_PLATFORM_NAME'] = 'cpu' # use CPU cores to fake multiple devices, comment this if you do have multiple devices   
 
 import math
 import jax
