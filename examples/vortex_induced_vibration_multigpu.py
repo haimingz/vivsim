@@ -47,11 +47,11 @@ mesh = Mesh(jax.devices(), axis_names=('y')) # divide the domain along the y-axi
 
 # ======================== physical parameters =====================
 
-RE = 200                                            # Reynolds number
+RE = 100                                            # Reynolds number
 UR = 5                                              # Reduced velocity
 MR = 10                                             # Mass ratio
 DR = 0                                              # Damping ratio
-D = 50                                              # Cylinder diameter
+D = 30                                              # Cylinder diameter
 U0 = 0.1                                            # Inlet velocity
 TM = 60000                                          # Maximum number of time steps
 NU = U0 * D / RE                                    # kinematic viscosity
@@ -74,8 +74,8 @@ MRT_SRC_LEFT = mrt.get_source_left_matrix(MRT_TRANS, MRT_RELAX)
 
 # ================= fluid dynamics ==================
 
-NX = 20 * D  # Number of grid points in x direction
-NY = 10 * D   # Number of grid points in y direction
+NX = 16 * D  # Number of grid points in x direction
+NY = 8 * D   # Number of grid points in y direction
 
 X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.uint16), 
                     jnp.arange(NY, dtype=jnp.uint16), 
@@ -100,8 +100,8 @@ N_MARKER = 4 * D                        # Number of markers on the circle
 L_ARC = D * math.pi / N_MARKER          # arc length between the markers
 N_ITER_MDF = 3                          # number of iterations for multi-direct forcing
 
-X_OBJ = 8 * D                           # x-coordinate of the cylinder
-Y_OBJ = 5 * D                           # y-coordinate of the cylinder
+X_OBJ = 6 * D                           # x-coordinate of the cylinder
+Y_OBJ = NY / 2                          # y-coordinate of the cylinder
 
 THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, dtype=jnp.float32, endpoint=False)
 X_MARKERS = X_OBJ + 0.5 * D * jnp.cos(THETA_MAKERS)
@@ -109,8 +109,8 @@ Y_MARKERS = Y_OBJ + 0.5 * D * jnp.sin(THETA_MAKERS)
 
 IBX1 = int(X_OBJ - 0.7 * D)             # left boundary of the IBM region 
 IBX2 = int(X_OBJ + 1.0 * D)             # right boundary of the IBM region
-IBY1 = int(Y_OBJ - 1.5 * D)             # bottom boundary of the IBM region
-IBY2 = int(Y_OBJ + 1.5 * D)             # top boundary of the IBM region
+# IBY1 = int(Y_OBJ - 1.5 * D)             # bottom boundary of the IBM region
+# IBY2 = int(Y_OBJ + 1.5 * D)             # top boundary of the IBM region
 
 
 # =================== initialize ===================
@@ -206,15 +206,13 @@ if PLOT:
         cmap="seismic",
         aspect="equal",
         origin="lower",
-        norm=mpl.colors.CenteredNorm(),
-        # vmax=0.03,
-        # vmin=-0.03,
+        # norm=mpl.colors.CenteredNorm(),
+        vmax=0.05,
+        vmin=-0.05,
     )
 
     plt.colorbar()
     
-    # plt.xticks([])
-    # plt.yticks([])
     plt.xlabel("x/D")
     plt.ylabel("y/D")
 
@@ -224,14 +222,20 @@ if PLOT:
                         facecolor='white', fill=True)
     plt.gca().add_artist(circle)
                 
-    # draw the central lines
-    plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
-    plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
+    # mark the initial position of the cylinder
+    plt.plot((X_OBJ + d[0]) / D, Y_OBJ / D, marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
     
-    # draw outline of the IBM region as a rectangle
-    plt.plot(jnp.array([IBX1, IBX1, IBX2, IBX2, IBX1]) / D, 
-             jnp.array([IBY1, IBY2, IBY2, IBY1, IBY1]) / D, 
-             "b", linestyle="--", linewidth=0.5)
+    # draw outline of the IBM region
+    plt.axvline(IBX1 / D, color="b", linestyle="--", linewidth=0.5)
+    plt.axvline(IBX2 / D, color="b", linestyle="--", linewidth=0.5)
+    plt.text((IBX1 + IBX2) / D / 2, NY / D - 0.2, 'IB region', color="b", fontsize=6, ha='center', va='top')
+    
+    # draw the boundary of subdomains corresponding to each device
+    for i in range(N_DEVICES):
+        plt.axhline(i * NY / N_DEVICES / D, color="r", linestyle="--", linewidth=0.5)
+        plt.text(0.1, i * NY / N_DEVICES / D + 0.1, f'Device {i}', 
+                 va='bottom', ha='left', fontsize=6, color='r', 
+                 bbox=dict(facecolor='none', edgecolor='none', pad=1))
     
     plt.tight_layout()
 
@@ -244,7 +248,7 @@ for t in tqdm(range(TM)):
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
 
         im.set_data(post.calculate_curl(u).T)
-        im.autoscale()
+        # im.autoscale()
         circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
         
         plt.pause(0.001)

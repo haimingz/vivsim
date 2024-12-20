@@ -186,8 +186,6 @@ if PLOT:
 
     plt.colorbar()
     
-    # plt.xticks([])
-    # plt.yticks([])
     plt.xlabel("x/D")
     plt.ylabel("y/D")
 
@@ -196,15 +194,17 @@ if PLOT:
                         edgecolor='black', linewidth=0.5,
                         facecolor='white', fill=True)
     plt.gca().add_artist(circle)
-                
-    # draw the central lines
-    plt.axvline(X_OBJ / D, color="k", linestyle="--", linewidth=0.5)
-    plt.axhline(Y_OBJ / D, color="k", linestyle="--", linewidth=0.5)
+    
+    # mark the initial position of the cylinder
+    plt.plot((X_OBJ + d[0]) / D, Y_OBJ / D, marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
     
     # draw outline of the IBM region as a rectangle
     plt.plot(jnp.array([IBX1, IBX1, IBX2, IBX2, IBX1]) / D, 
              jnp.array([IBY1, IBY2, IBY2, IBY1, IBY1]) / D, 
              "b", linestyle="--", linewidth=0.5)
+    plt.text((IBX1 + IBX2) / (2 * D), IBY2 / D + 0.2, 
+             'IB Region', color='blue', fontsize=8, ha='center', va='bottom', 
+             bbox=dict(facecolor='none', edgecolor='none'))
     
     plt.tight_layout()
 

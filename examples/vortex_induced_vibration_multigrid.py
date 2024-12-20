@@ -320,7 +320,7 @@ def update(f1, f2, f3, f4, feq1, feq2, feq3, feq4, rho1, rho2, rho3, rho4, u1, u
 if PLOT:
     mpl.rcParams['figure.raise_window'] = False
     
-    plt.figure(figsize=(8, 4))
+    plt.figure(figsize=(10, 4))
 
     # curl = update_curl(curl, u1, u2, u3)
     vmax = 0.1
@@ -372,9 +372,24 @@ if PLOT:
     
     plt.gca().add_artist(circle)
     
-    plt.axvline(WIDTH1 / D, color="k", linestyle="--", linewidth=0.5)
-    plt.axvline((WIDTH1 + WIDTH2) / D, color="k", linestyle="--", linewidth=0.5)
-    plt.axvline((WIDTH1 + WIDTH2 + WIDTH3) / D, color="k", linestyle="--", linewidth=0.5)
+    # draw the boundaries of mesh blocks
+    plt.axvline(WIDTH1 / D, color="g", linestyle="--", linewidth=0.5)
+    plt.text(WIDTH1 / D / 2, HEIGHT1 / D + 0.5, 
+             'Mesh 1', color="g", fontsize=8, ha='center')
+    
+    plt.axvline((WIDTH1 + WIDTH2) / D, color="g", linestyle="--", linewidth=0.5)
+    plt.text((WIDTH1 + WIDTH2 / 2) / D, HEIGHT2 / D + 0.5, 
+             'Mesh 2', color="g", fontsize=8, ha='center')
+    
+    plt.axvline((WIDTH1 + WIDTH2 + WIDTH3) / D, color="g", linestyle="--", linewidth=0.5)
+    plt.text((WIDTH1 + WIDTH2 + WIDTH3 / 2) / D, HEIGHT3 / D + 0.5, 
+             'Mesh 3', color="g", fontsize=8, ha='center')
+    
+    plt.text((WIDTH1 + WIDTH2 + WIDTH3 + WIDTH4 / 2) / D, HEIGHT4 / D + 0.5, 
+             'Mesh 4', color="g", fontsize=8, ha='center')
+    
+    # mark the initial position of the cylinder
+    plt.plot((WIDTH1 + X_OBJ + d[0]) / D, Y_OBJ / D, marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
     
     plt.tight_layout()
 
