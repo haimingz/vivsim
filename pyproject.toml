@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vivsim"
-version = "0.3.0"
+version = "0.4.0"
 requires-python = ">=3.8"
 authors = [{ name = "Haiming Zhu", email = "zhuhaiming@tju.edu.cn" }]
 dependencies = ['matplotlib', 'numpy', 'tqdm', 'jax[cuda12]']
