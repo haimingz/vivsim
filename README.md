@@ -1,7 +1,8 @@
 <a href='https://github.com/MShawon/github-clone-count-badge'><img alt='GitHub Traffic' src='https://img.shields.io/badge/dynamic/json?color=success&label=Views&query=count&url=https://gist.githubusercontent.com/haimingz/b2e30dd706e57413c1c1f688de82ef6e/raw/traffic.json&logo=github'></a>
 <a href='https://github.com/MShawon/github-clone-count-badge'><img alt='GitHub Clones' src='https://img.shields.io/badge/dynamic/json?color=success&label=Clone&query=count&url=https://gist.githubusercontent.com/haimingz/8981033dc17c32a7c2f409e631b57309/raw/clone.json&logo=github'></a>
+<img align="right" src ="assets/TJU_logo.png" width=80px/>
 
-<p align="center">
+<p align="center" style="margin-top: 80px;">
 <img src ="assets/vivsim.svg"/>
 </p>
 
@@ -10,6 +11,8 @@
 VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) simulations based on the immersed boundary -lattice Boltzmann method (IB-LBM). It was originated from a research project requiring efficient simulation codes for studying vortex-induced vibration (VIV) of underwater structures. 
 
 Similar to projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators, achieving massive parallelism on GPU/GPUs. 
+
+**What's New**: Now we can run multi-GPU and multi-gird simulations (check out the example scripts) 🎉
 
 ## Examples
 
@@ -33,6 +36,7 @@ Boundary Conditions:
 - Velocity boundary using Non-Equilibrium Bounce Back (NEBB) method
 - No-slip boundary using Halfway Bounce-Back method
 - Outflow boundary simply by copying the second last column/row
+- Outflow boundary by assigning equilibrium distribution values
 - Periodic boundary
 
 Fluid-Structure Interaction
