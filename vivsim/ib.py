@@ -20,66 +20,6 @@ import jax.numpy as jnp
 from . import lbm
 
 
-# ----------------- Kinetics from Object to Markers -----------------
-
-
-def update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d):
-    """update the real-time position of the markers (ignoring rotation)
-    
-    Args:
-        X_MARKERS, Y_MARKERS (ndarray of shape (N_MARKER)): The original coordinates of the markers.
-        d (ndarray of shape (1) or (3)): The displacement of the object.
-    
-    Returns:
-        x_markers, y_markers (ndarray of shape (N_MARKER)): The updated coordinates.
-    """
-    
-    x_markers = X_MARKERS + d[0]
-    y_markers = Y_MARKERS + d[1]
-    return x_markers, y_markers
-
-
-def update_markers_coords_3dof(X_MARKERS, Y_MARKERS, X_CENTER, Y_CENTER, d):
-    """update the real-time position of the markers (consider rotation)
-    
-    Args:
-        X_MARKERS, Y_MARKERS (ndarray of shape (N_MARKER)): The original coordinates of the markers.
-        X_CENTER, Y_CENTER (scaler): The original coordinates of the object center.
-        d (ndarray of shape (2)): The displacement of the object.
-    
-    Returns:
-        x_markers, y_markers (ndarray of shape (N_MARKER)): The updated coordinates.
-    """
-    x_rel = X_MARKERS - X_CENTER
-    y_rel = Y_MARKERS - Y_CENTER
-    x_markers = X_CENTER + d[0] + x_rel * jnp.cos(d[2]) - y_rel * jnp.sin(d[2]) 
-    y_markers = Y_CENTER + d[1] + x_rel * jnp.sin(d[2]) + y_rel * jnp.cos(d[2]) 
-    
-    return x_markers, y_markers
-
-
-def update_markers_velocity_3dof(x_markers, y_markers, X_CENTER, Y_CENTER, d, v):
-    """Compute the velocity of the markers considering rotation.
-    
-    Args:
-        x_markers, y_marker (ndarray of shape (N_MARKER)): instantaneous coordinates of the markers.
-        X_CENTER, Y_CENTER (scaler): The original coordinates of the object center.
-        v: The velocity of the object with shape (2).
-        d: The displacement of the object with shape (dim).
-    
-    Returns:
-        The velocity of the markers with shape (N_MARKER, 1).
-    """
-    x_rel = x_markers - X_CENTER - d[0]
-    y_rel = y_markers - Y_CENTER - d[1]
-    
-    v_markers = jnp.zeros((x_markers.shape[0], 2))
-    v_markers = v_markers.at[:, 0].set(v[0] - v[2] * y_rel)
-    v_markers = v_markers.at[:, 1].set(v[1] + v[2] * x_rel)
-    return v_markers
-
-
-
 # ----------------- Kernel functions -----------------
 
 
@@ -252,7 +192,66 @@ def multi_direct_forcing(rho, u, x_lattice, y_lattice,
     return g, h_markers
 
 
-# ----------------- Markers -> Object -----------------
+# ----------------- Kinetics from Rigid Object to Markers -----------------
+
+
+def update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d):
+    """update the real-time position of the markers (ignoring rotation)
+    
+    Args:
+        X_MARKERS, Y_MARKERS (ndarray of shape (N_MARKER)): The original coordinates of the markers.
+        d (ndarray of shape (1) or (3)): The displacement of the object.
+    
+    Returns:
+        x_markers, y_markers (ndarray of shape (N_MARKER)): The updated coordinates.
+    """
+    
+    x_markers = X_MARKERS + d[0]
+    y_markers = Y_MARKERS + d[1]
+    return x_markers, y_markers
+
+
+def update_markers_coords_3dof(X_MARKERS, Y_MARKERS, X_CENTER, Y_CENTER, d):
+    """update the real-time position of the markers (consider rotation)
+    
+    Args:
+        X_MARKERS, Y_MARKERS (ndarray of shape (N_MARKER)): The original coordinates of the markers.
+        X_CENTER, Y_CENTER (scaler): The original coordinates of the object center.
+        d (ndarray of shape (2)): The displacement of the object.
+    
+    Returns:
+        x_markers, y_markers (ndarray of shape (N_MARKER)): The updated coordinates.
+    """
+    x_rel = X_MARKERS - X_CENTER
+    y_rel = Y_MARKERS - Y_CENTER
+    x_markers = X_CENTER + d[0] + x_rel * jnp.cos(d[2]) - y_rel * jnp.sin(d[2]) 
+    y_markers = Y_CENTER + d[1] + x_rel * jnp.sin(d[2]) + y_rel * jnp.cos(d[2]) 
+    
+    return x_markers, y_markers
+
+
+def update_markers_velocity_3dof(x_markers, y_markers, X_CENTER, Y_CENTER, d, v):
+    """Compute the velocity of the markers considering rotation.
+    
+    Args:
+        x_markers, y_marker (ndarray of shape (N_MARKER)): instantaneous coordinates of the markers.
+        X_CENTER, Y_CENTER (scaler): The original coordinates of the object center.
+        v: The velocity of the object with shape (2).
+        d: The displacement of the object with shape (dim).
+    
+    Returns:
+        The velocity of the markers with shape (N_MARKER, 1).
+    """
+    x_rel = x_markers - X_CENTER - d[0]
+    y_rel = y_markers - Y_CENTER - d[1]
+    
+    v_markers = jnp.zeros((x_markers.shape[0], 2))
+    v_markers = v_markers.at[:, 0].set(v[0] - v[2] * y_rel)
+    v_markers = v_markers.at[:, 1].set(v[1] + v[2] * x_rel)
+    return v_markers
+
+
+# ----------------- Markers -> Rigid Object -----------------
 
 
 def calculate_force_obj(h_markers):
