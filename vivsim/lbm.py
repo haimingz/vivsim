@@ -158,7 +158,7 @@ def get_velocity_correction(g, rho=1):
     return g * 0.5 / rho
 
 
-def get_discretized_force(g, u, g_lattice):
+def get_discretized_force(g, u):
     """Discretize external force density into lattice forcing term using Guo Forcing scheme.
     
     Args:
