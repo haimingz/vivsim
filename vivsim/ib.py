@@ -17,6 +17,7 @@ Key variables:
 """
 
 import jax.numpy as jnp
+from . import lbm
 
 
 # ----------------- Kinetics from Object to Markers -----------------
@@ -202,6 +203,53 @@ def spread_g_needed(g_markers, kernels):
     """
     
     return jnp.einsum("nd,nxy->dxy", g_markers, kernels)
+
+
+def multi_direct_forcing(rho, u, x_lattice, y_lattice, 
+    v_markers, x_markers, y_markers, n_marker, marker_distance,
+    n_iter, kernel_func):
+    """Multi-direct forcing method to enforce no-slip boundary at markers.
+    
+    Args:
+        rho (scalar or ndarray): The density of the fluid.
+        u (ndarray of shape (2, NX, NY)): The velocity field of fluid.
+        x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
+        v_markers (ndarray of shape (2)): The velocity of the markers.
+        x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of markers.
+        n_marker (int): The number of markers.
+        marker_distance (scalar): The distance between two adjacent markers.
+        n_iter (int): The number of iterations.
+        kernel_func (callable): The kernel function. Available options: 
+            kernel_range2, kernel_range3, kernel_range4.
+    
+    Returns:
+        g (ndarray of shape (2, NX, NY)): The force field applied to the fluid.
+        h_markers (ndarray of shape (N_MARKER, 2)): The forces applied to the markers.    
+    """
+        
+    g = jnp.zeros_like(u)  # IB force to the fluid
+    h_markers = jnp.zeros((n_marker, 2))  # IB force to the markers
+
+    # calculate the kernel functions for all markers
+    kernels = get_kernels(x_markers, y_markers, x_lattice, y_lattice, kernel_func)
+    
+    for _ in range(n_iter):
+        
+        # velocity interpolation
+        u_markers = interpolate_u_markers(u, kernels)
+        
+        # compute correction force
+        g_markers_needed = get_g_markers_needed(v_markers, u_markers, marker_distance, rho)
+        g_needed = spread_g_needed(g_markers_needed, kernels)
+        
+        # velocity correction
+        u += lbm.get_velocity_correction(g_needed, rho)
+        
+        # accumulate the corresponding correction force to the markers and the fluid
+        h_markers -= g_markers_needed
+        g += g_needed
+    
+    return g, h_markers
 
 
 # ----------------- Markers -> Object -----------------
