@@ -101,66 +101,40 @@ IBY2 = int(Y_OBJ + 1.5 * D)             # top boundary of the IBM region
 u = u.at[0].set(U0)
 f = lbm.get_equilibrium(rho, u, f)
 v = d.at[1].set(1e-2)  # add an initial velocity to the cylinder
-
+F_INIT = f
 
 # =================== define calculation routine ===================
 
 @jax.jit
 def update(f, feq, rho, u, d, v, a, h):
-
-    # Immersed Boundary Method
-    x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
-    
-    h_markers = jnp.zeros((x_markers.shape[0], 2))  # hydrodynamic force to the markers
-    g = jnp.zeros((2, IBX2 - IBX1, IBY2 - IBY1))  # distributed IB force to the fluid
-    
    
-    # calculate the kernel functions for all markers
-    kernels = ib.get_kernels(x_markers, y_markers, X[IBX1:IBX2, IBY1:IBY2], Y[IBX1:IBX2, IBY1:IBY2], ib.kernel_range4)
-    
-    for _ in range(N_ITER_MDF):
-        
-        # velocity interpolation
-        u_markers = ib.interpolate_u_markers(u[:, IBX1:IBX2, IBY1:IBY2], kernels)
-        
-        # compute correction force
-        g_markers_needed = ib.get_g_markers_needed(v, u_markers, L_ARC)
-        g_needed = ib.spread_g_needed(g_markers_needed, kernels)
-        
-        # velocity correction
-        u = u.at[:, IBX1:IBX2, IBY1:IBY2].add(lbm.get_velocity_correction(g_needed))
-        
-        # accumulate the corresponding correction force to the markers and the fluid
-        h_markers -= g_markers_needed
-        g += g_needed 
-
-    # Compute force to the obj (including internal fluid force)
-    h = ib.calculate_force_obj(h_markers)
-
-    # eliminate internal fluid force (Feng's rigid body approximation)
-    h -= a * math.pi * D ** 2 / 4  # found unstable for high Re
-    
-    # Compute solid dynamics
-    a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
-
-    # Collision
+    # LBM collision
+    rho, u = lbm.get_macroscopic(f, rho, u)
     feq = lbm.get_equilibrium(rho, u, feq)
     f = mrt.collision(f, feq, MRT_COL_LEFT)
+      
+    # Immersed Boundary Method
+    ib_region = (slice(IBX1, IBX2), slice(IBY1, IBY2))
+    x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
+    g, h_markers = ib.multi_direct_forcing(rho[ib_region], u[:, *ib_region], X[ib_region], Y[ib_region],
+                                           v, x_markers, y_markers, 
+                                           N_MARKER, L_ARC, N_ITER_MDF, ib.kernel_range4)
+    
+    # Dynamics of the cylinder
+    h = ib.get_force_to_obj(h_markers)
+    h -= a * math.pi * D ** 2 / 4   
+    a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
     
     # Add source term
-    g_lattice = jnp.zeros((9, IBX2 - IBX1, IBY2 - IBY1))
-    g_lattice = lbm.get_discretized_force(g, u[:, IBX1:IBX2, IBY1:IBY2],g_lattice)
-    f = f.at[:, IBX1:IBX2, IBY1:IBY2].add(mrt.get_source(g_lattice, MRT_SRC_LEFT))
+    g_lattice = lbm.get_discretized_force(g, u[:, *ib_region])
+    f = f.at[:, *ib_region].add(mrt.get_source(g_lattice, MRT_SRC_LEFT))
 
     # Streaming
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.outlet_boundary(f, loc='right')
+    f = lbm.outlet_boundary_equilibrium(f, F_INIT, loc='right')
     f = lbm.velocity_boundary(f, U0, 0, loc='left')
-
-    # update new macroscopic
-    rho, u = lbm.get_macroscopic(f, rho, u)
      
     return f, feq, rho, u, d, v, a, h
 
@@ -190,10 +164,10 @@ if PLOT:
     plt.ylabel("y/D")
 
     # draw a circle representing the cylinder
-    circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D), 0.5, 
-                        edgecolor='black', linewidth=0.5,
-                        facecolor='white', fill=True)
-    plt.gca().add_artist(circle)
+    # circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D), 0.5, 
+    #                     edgecolor='black', linewidth=0.5,
+    #                     facecolor='white', fill=True)
+    # plt.gca().add_artist(circle)
     
     # mark the initial position of the cylinder
     plt.plot((X_OBJ + d[0]) / D, Y_OBJ / D, marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
@@ -218,7 +192,7 @@ for t in tqdm(range(TM)):
 
         im.set_data(post.calculate_curl(u).T)
         im.autoscale()
-        circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
+        # circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
         
         plt.pause(0.001)
 

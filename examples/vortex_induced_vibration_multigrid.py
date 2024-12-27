@@ -165,9 +165,9 @@ f1 = lbm.get_equilibrium(rho1, u1, f1)
 f2 = lbm.get_equilibrium(rho2, u2, f2)
 f3 = lbm.get_equilibrium(rho3, u3, f3)
 f4 = lbm.get_equilibrium(rho4, u4, f4)
-FEQ4_INIT = f4
+F4_INIT = f4
 
-v = v.at[1].set(1e-2) # add an initial velocity to the cylinder
+v = v.at[1].set(1e-3) # add an initial velocity to the cylinder
 
 
 # ======================= compute routine =====================
@@ -179,54 +179,27 @@ def collision_mesh1(f, feq, rho, u):
     return f, feq, rho, u
 
 def collision_mesh2(f, feq, rho, u, d, v, a, h):
-
+    
+    # LBM collision
     rho, u = lbm.get_macroscopic(f, rho, u)
-    
-    # Immersed Boundary Method
-    x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
-    
-    h_markers = jnp.zeros((x_markers.shape[0], 2))  # hydrodynamic force to the markers
-    g = jnp.zeros((2, IBX2 - IBX1, IBY2 - IBY1))  # distributed IB force to the fluid
-       
-    # calculate the kernel functions for all markers
-    kernels = ib.get_kernels(x_markers, y_markers, X2[IBX1:IBX2, IBY1:IBY2], Y2[IBX1:IBX2, IBY1:IBY2], ib.kernel_range4)
-    
-    for _ in range(N_ITER_MDF):
-        
-        # velocity interpolation
-        u_markers = ib.interpolate_u_markers(u[:, IBX1:IBX2, IBY1:IBY2], kernels)
-        
-        # compute correction force
-        g_markers_needed = ib.get_g_markers_needed(v, u_markers, L_ARC)
-        g_needed = ib.spread_g_needed(g_markers_needed, kernels)
-        
-        # velocity correction
-        u = u.at[:, IBX1:IBX2, IBY1:IBY2].add(lbm.get_velocity_correction(g_needed))
-        
-        # accumulate the corresponding correction force to the markers and the fluid
-        h_markers -= g_markers_needed
-        g += g_needed 
-
-    # Compute force to the obj (including internal fluid force)
-    h = ib.calculate_force_obj(h_markers)
-    
-    # eliminate internal fluid force (Feng's rigid body approximation)
-    h -= a * math.pi * D ** 2 / 4  # found unstable for high Re
-    
-    # Compute solid dynamics
-    a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
-
-    # Compute equilibrium
     feq = lbm.get_equilibrium(rho, u, feq)
-
-    # Collision
     f = mrt.collision(f, feq, MRT_COL_LEFT2)
+      
+    # Immersed Boundary Method
+    ib_region = (slice(IBX1, IBX2), slice(IBY1, IBY2))
+    x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
+    g, h_markers = ib.multi_direct_forcing(rho[ib_region], u[:, *ib_region], X2[ib_region], Y2[ib_region],
+                                           v, x_markers, y_markers, 
+                                           N_MARKER, L_ARC, N_ITER_MDF, ib.kernel_range4)
+    
+    # Dynamics of the cylinder
+    h = ib.get_force_to_obj(h_markers)
+    h -= a * math.pi * D ** 2 / 4   
+    a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
     
     # Add source term
-    g_lattice = jnp.zeros((9, IBX2 - IBX1, IBY2 - IBY1), dtype=jnp.float32)  # forcing term
-    g_lattice = lbm.get_discretized_force(g, u[:, IBX1:IBX2, IBY1:IBY2], g_lattice)
-    f = f.at[:, IBX1:IBX2, IBY1:IBY2].add(mrt.get_source(g_lattice, MRT_SRC_LEFT2))
-    
+    g_lattice = lbm.get_discretized_force(g, u[:, *ib_region])
+    f = f.at[:, *ib_region].add(mrt.get_source(g_lattice, MRT_SRC_LEFT2))
     
     return f, feq, rho, u, d, v, a, h
 
@@ -267,7 +240,7 @@ def stream_mesh3(f3, f4):
 def stream_mesh4(f4):
     f4 = f4.at[:,1:].set(lbm.streaming(f4[:,1:]))
     f4 = mg.coalescence(f4, dir='right')   
-    f4 = lbm.outlet_boundary_equilibrium(f4, FEQ4_INIT, loc='right') 
+    f4 = lbm.outlet_boundary_equilibrium(f4, F4_INIT, loc='right') 
     return f4
 
 

@@ -133,9 +133,16 @@ p2 = PartitionSpec(None, None, 'y')
     out_specs=(p2, p2, p1, p2, p_none, p_none, p_none, p_none)
 )
 def update(f, feq, rho, u, d, v, a, h, X, Y):
-
+    
+    # update new macroscopic
+    rho, u = lbm.get_macroscopic(f, rho, u)
+    
+    # Collision
+    feq = lbm.get_equilibrium(rho, u, feq)
+    f = mrt.collision(f, feq, MRT_COL_LEFT)
+    
     # Immersed Boundary Method
-    x_markers, y_markers = ib.update_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
+    x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
     
     h_markers = jnp.zeros((x_markers.shape[0], 2))  # hydrodynamic force to the markers
     g = jnp.zeros((2, IBX2 - IBX1, NY // N_DEVICES))  # ! important for multi-device simulation
@@ -146,36 +153,31 @@ def update(f, feq, rho, u, d, v, a, h, X, Y):
     for _ in range(N_ITER_MDF):
         
         # velocity interpolation
-        u_markers = ib.interpolate_u_markers(u[:, IBX1:IBX2], kernels)
+        u_markers = ib.interpolate_velocity_at_markers(u[:, IBX1:IBX2], kernels)
         u_markers = jax.lax.psum(u_markers, 'y')  # ! important for multi-device simulation
         
         # compute correction force
-        g_markers_needed = ib.get_g_markers_needed(v, u_markers, L_ARC)
-        g_needed = ib.spread_g_needed(g_markers_needed, kernels)
+        g_markers_correction = ib.get_noslip_forces_at_markers(v, u_markers, L_ARC)
+        g_correction = ib.spread_force_to_fluid(g_markers_correction, kernels)
         
         # velocity correction
-        u = u.at[:, IBX1:IBX2].add(lbm.get_velocity_correction(g_needed))
+        u = u.at[:, IBX1:IBX2].add(lbm.get_velocity_correction(g_correction))
         
         # accumulate the corresponding correction force to the markers and the fluid
-        h_markers -= g_markers_needed
-        g += g_needed 
+        h_markers -= g_markers_correction
+        g += g_correction
 
     # Compute force to the obj (including internal fluid force)
-    h = ib.calculate_force_obj(h_markers)
+    h = ib.get_force_to_obj(h_markers)
     
     # eliminate internal fluid force (Feng's rigid body approximation)
     h -= a * math.pi * D ** 2 / 4 
     
     # Compute solid dynamics
     a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
-
-    # Collision
-    feq = lbm.get_equilibrium(rho, u, feq)
-    f = mrt.collision(f, feq, MRT_COL_LEFT)
     
     # Add source term
-    g_lattice = jnp.zeros((9, IBX2 - IBX1, NY // N_DEVICES))
-    g_lattice = lbm.get_discretized_force(g, u[:, IBX1:IBX2],g_lattice)
+    g_lattice = lbm.get_discretized_force(g, u[:, IBX1:IBX2])
     f = f.at[:, IBX1:IBX2].add(mrt.get_source(g_lattice, MRT_SRC_LEFT))  
 
     # Streaming
@@ -186,8 +188,6 @@ def update(f, feq, rho, u, d, v, a, h, X, Y):
     f = lbm.outlet_boundary(f, loc='right')
     f = lbm.velocity_boundary(f, U0, 0, loc='left')
 
-    # update new macroscopic
-    rho, u = lbm.get_macroscopic(f, rho, u)
      
     return f, feq, rho, u, d, v, a, h
 
