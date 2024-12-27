@@ -182,15 +182,15 @@ def multi_direct_forcing(rho, u, x_lattice, y_lattice,
         u_markers = interpolate_velocity_at_markers(u, kernels)
         
         # compute correction force
-        g_markers_needed = get_noslip_forces_at_markers(v_markers, u_markers, marker_distance, rho)
-        g_needed = spread_force_to_fluid(g_markers_needed, kernels)
+        g_markers_correction = get_noslip_forces_at_markers(v_markers, u_markers, marker_distance, rho)
+        g_correction = spread_force_to_fluid(g_markers_correction, kernels)
         
         # velocity correction
-        u += lbm.get_velocity_correction(g_needed, rho)
+        u += lbm.get_velocity_correction(g_correction, rho)
         
         # accumulate the corresponding correction force to the markers and the fluid
-        h_markers -= g_markers_needed
-        g += g_needed
+        h_markers -= g_markers_correction
+        g += g_correction
     
     return g, h_markers
 

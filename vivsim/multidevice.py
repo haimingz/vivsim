@@ -17,16 +17,15 @@ UP_DIRS = jnp.array([2, 5, 6])
 DOWN_DIRS = jnp.array([4, 7, 8])
 
 
-def stream_cross_devices(f: jax.Array, dir: str, device_axis: str , n_devices: int)  -> jax.Array:
+def stream_cross_devices(f: jax.Array, dir: str, device_axis: str, n_devices: int)  -> jax.Array:
     """Stream particles across device boundaries. The computational domain is divided evenly
     into a series of subdomains along the x or y axis, each corresponding to a single device.
     
     Args:
         f (jax.Array): Distribution functions
         dir (str): Direction of streaming ('x' or 'y')
+        device_axis (str): the axis name of the devices, assigned when creating the Mesh of devices
         n_devices (int): Number of devices in the direction
-        device_axis (int): the axis name of the devices, assigned when creating the Mesh
-            of devices
     
     Returns:
         jax.Array: Distribution functions after streaming
