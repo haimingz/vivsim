@@ -273,7 +273,7 @@ def update_mesh123(f1, f2, f3, f4, feq1, feq2, feq3, rho1, rho2, rho3, u1, u2, u
 def update(f1, f2, f3, f4, feq1, feq2, feq3, feq4, rho1, rho2, rho3, rho4, u1, u2, u3, u4, d, v, a, h):
     
     # collision (mesh4)
-    f4, feq4, rho4, u4 = collision_mesh1(f4, feq4, rho4, u4)
+    f4, feq4, rho4, u4 = collision_mesh4(f4, feq4, rho4, u4)
     
     # reset ghost cells of mesh4
     f4 = mg.clear_ghost(f4, location='left')
