@@ -171,7 +171,7 @@ def update(f, feq, rho, u, d, v, a, h, X, Y):
     h = ib.get_force_to_obj(h_markers)
     
     # eliminate internal fluid force (Feng's rigid body approximation)
-    h -= a * math.pi * D ** 2 / 4 
+    h += a * math.pi * D ** 2 / 4 
     
     # Compute solid dynamics
     a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)

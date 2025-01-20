@@ -122,7 +122,7 @@ def update(f, feq, rho, u, d, v, a, h):
     
     # Dynamics of the cylinder
     h = ib.get_force_to_obj(h_markers)
-    h -= a * math.pi * D ** 2 / 4   
+    h += a * math.pi * D ** 2 / 4   
     a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
     
     # Add source term
