@@ -165,7 +165,7 @@ f1 = lbm.get_equilibrium(rho1, u1, f1)
 f2 = lbm.get_equilibrium(rho2, u2, f2)
 f3 = lbm.get_equilibrium(rho3, u3, f3)
 f4 = lbm.get_equilibrium(rho4, u4, f4)
-F4_INIT = f4
+feq_init = f4[:,0,0]
 
 v = v.at[1].set(1e-3) # add an initial velocity to the cylinder
 
@@ -240,7 +240,7 @@ def stream_mesh3(f3, f4):
 def stream_mesh4(f4):
     f4 = f4.at[:,1:].set(lbm.streaming(f4[:,1:]))
     f4 = mg.coalescence(f4, dir='right')   
-    f4 = lbm.outlet_boundary_equilibrium(f4, F4_INIT, loc='right') 
+    f4 = lbm.boundary_equilibrium(f4, feq_init[:,jnp.newaxis], loc='right') 
     return f4
 
 
