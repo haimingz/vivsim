@@ -220,7 +220,7 @@ def noslip_boundary(f, loc:str):
     elif loc == 'right':
         return f.at[LEFT_DIRS, -1].set(f[RIGHT_DIRS, -1])
     elif loc == 'top':
-        return f.at[UP_DIRS, :, 0].set(f[DOWN_DIRS, :, 0])
+        return f.at[DOWN_DIRS, :, -1].set(f[UP_DIRS, :, -1])
     elif loc == 'bottom':
         return f.at[UP_DIRS, :, 0].set(f[DOWN_DIRS, :, 0])
     else:
