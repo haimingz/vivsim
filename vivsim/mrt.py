@@ -75,3 +75,20 @@ def get_source(forcing, left_matrix):
     """
     
     return jnp.tensordot(left_matrix, forcing, axes=([1], [0]))
+
+
+def precompute_left_matrices(omega):
+    """Pre-compute the left matrices for the MRT model.
+    
+    Args:
+        omega: Relaxation parameter
+    Returns:
+        Collision left matrix, shape (9,9)
+        Sourcing left matrix, shape (9,9)
+    """
+    relax = get_relax_matrix(omega)
+    trans = get_trans_matrix()
+    collision_left = get_collision_left_matrix(trans, relax) 
+    sourcing_left = get_source_left_matrix(trans, relax)
+    
+    return collision_left, sourcing_left

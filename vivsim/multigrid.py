@@ -120,3 +120,45 @@ def clear_ghost(f_coarse: jax.Array, location:str)-> jax.Array:
         return f_coarse.at[:, :, 0].set(0)
     elif location == 'bottom':
         return f_coarse.at[:, :, -1].set(0)
+    
+    
+def get_omega(nu, level=0):
+    """
+    Compute the relaxation parameter omega for different levels of refinement.
+    
+    Args:
+        nu (float): The kinematic viscosity (in lattice unit).
+        level (int): The level of refinement. 
+            Default is 0. 
+            Greater level means finer grid.
+            Negative level means coarser grid.
+    """ 
+    omega_l0 = 1 / (3 * nu + 0.5)
+    omega = 2 * omega_l0 / ( 2 ** (level + 1) + (1 - 2 ** level) * omega_l0)
+    
+    return omega
+
+
+def generate_block_data(width, height, level=0):
+    """
+    Generate the fluid variables for a block of fluid on a grid with a given level of refinement.
+    
+    Args:
+        width (int): The width of the block (in lattice unit).
+        height (int): The height of the block (in lattice unit).
+        level (int): The level of refinement. 
+            Default is 0. 
+            Greater level means finer grid.
+            Negative level means coarser grid.
+    """
+  
+    nx = int(width * 2 ** level)
+    ny = int(height * 2 ** level)
+    
+    # fluid variables
+    f = jnp.zeros((9, nx, ny), dtype=jnp.float32)
+    feq = jnp.zeros((9, nx, ny), dtype=jnp.float32) 
+    rho = jnp.ones((nx, ny), dtype=jnp.float32) 
+    u = jnp.zeros((2, nx, ny), dtype=jnp.float32)
+    
+    return f, feq, rho, u

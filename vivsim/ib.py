@@ -151,7 +151,8 @@ def spread_force_to_fluid(force_at_markers, kernels):
 def multi_direct_forcing(rho, u, x_lattice, y_lattice, 
     v_markers, x_markers, y_markers, n_marker, marker_distance,
     n_iter, kernel_func):
-    """Multi-direct forcing method to enforce no-slip boundary at markers.
+    """
+    Multi-direct forcing method to enforce no-slip boundary at markers.
     
     Args:
         rho (scalar or ndarray): The density of the fluid.
@@ -163,7 +164,7 @@ def multi_direct_forcing(rho, u, x_lattice, y_lattice,
         marker_distance (scalar): The distance between two adjacent markers.
         n_iter (int): The number of iterations.
         kernel_func (callable): The kernel function. Available options: 
-            kernel_range2, kernel_range3, kernel_range4.
+            ib.kernel_range2, ib.kernel_range3, ib.kernel_range4.
     
     Returns:
         g (ndarray of shape (2, NX, NY)): The force field applied to the fluid.
