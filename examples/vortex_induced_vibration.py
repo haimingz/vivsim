@@ -20,10 +20,16 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from vivsim import dyn, ib, lbm, post, mrt
 
+# ============================= plot options =======================
+
+PLOT = True
+PLOT_EVERY = 100
+PLOT_AFTER = 0
+
 # ====================== Configuration ======================
 
 # Simulation parameters
-D = 50                 # Cylinder diameter
+D = 24                 # Cylinder diameter
 U0 = 0.1               # Inlet velocity
 TM = 60000             # Total time steps
 
@@ -31,12 +37,12 @@ TM = 60000             # Total time steps
 NX = 20 * D            # Grid points in x direction
 NY = 10 * D            # Grid points in y direction
 
-# Object parameters
-N_MARKER = 4 * D       # Number of markers on cylinder
+# Cylinder position
 X_OBJ = 8 * D          # Cylinder x position
 Y_OBJ = 5 * D          # Cylinder y position
 
 # IB method parameters
+N_MARKER = 4 * D       # Number of markers on cylinder
 N_ITER_MDF = 3         # Multi-direct forcing iterations
 IB_MARGIN = 2          # Margin of the IB region to the cylinder
 
@@ -45,11 +51,6 @@ RE = 200               # Reynolds number
 UR = 5                 # Reduced velocity
 MR = 10                # Mass ratio
 DR = 0                 # Damping ratio
-
-# Visualization
-PLOT = True
-PLOT_EVERY = 100
-PLOT_AFTER = 0
 
 # =================== Pre-calculations ==================
 
@@ -63,10 +64,7 @@ DAMPING = 2 * math.sqrt(STIFFNESS * MASS) * DR              # Damping of the spr
 NU = U0 * D / RE                                            # Kinematic viscosity
 TAU = 3 * NU + 0.5                                          # Relaxation time
 OMEGA = 1 / TAU                                             # Relaxation parameter
-MRT_TRANS = mrt.get_trans_matrix()
-MRT_RELAX = mrt.get_relax_matrix(OMEGA)
-MRT_COL_LEFT = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX)
-MRT_SRC_LEFT = mrt.get_source_left_matrix(MRT_TRANS, MRT_RELAX)
+MRT_COL_LEFT, MRT_SRC_LEFT = mrt.precompute_left_matrices(OMEGA)
 
 # eulerian meshgrid
 X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.int32), 
@@ -110,8 +108,10 @@ feq_init = f[:,0,0]
 @jax.jit
 def update(f, feq, rho, u, d, v, a, h):
    
-    # collision
+    # update new macroscopic
     rho, u = lbm.get_macroscopic(f, rho, u)
+    
+    # Collision
     feq = lbm.get_equilibrium(rho, u, feq)
     f = mrt.collision(f, feq, MRT_COL_LEFT)
       
