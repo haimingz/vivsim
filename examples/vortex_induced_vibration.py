@@ -60,8 +60,8 @@ MRT_SRC_LEFT = mrt.get_source_left_matrix(MRT_TRANS, MRT_RELAX)
 NX = 20 * D  # Number of grid points in x direction
 NY = 10 * D   # Number of grid points in y direction
 
-X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.uint16), 
-                    jnp.arange(NY, dtype=jnp.uint16), 
+X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.int32), 
+                    jnp.arange(NY, dtype=jnp.int32), 
                     indexing="ij")
 
 rho = jnp.ones((NX, NY), dtype=jnp.float32)      # density of fluid
@@ -90,10 +90,10 @@ THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, dtype=jnp.float32, endpoint
 X_MARKERS = X_OBJ + 0.5 * D * jnp.cos(THETA_MAKERS)
 Y_MARKERS = Y_OBJ + 0.5 * D * jnp.sin(THETA_MAKERS)
 
-IBX1 = int(X_OBJ - 0.7 * D)             # left boundary of the IBM region 
-IBX2 = int(X_OBJ + 1.0 * D)             # right boundary of the IBM region
-IBY1 = int(Y_OBJ - 1.5 * D)             # bottom boundary of the IBM region
-IBY2 = int(Y_OBJ + 1.5 * D)             # top boundary of the IBM region
+IB_MARGIN = 2
+IB_START_X = int(X_OBJ - 0.5 * D - IB_MARGIN)
+IB_START_Y = int(Y_OBJ - 0.5 * D - IB_MARGIN)
+IB_SIZE = D + IB_MARGIN * 2
 
 
 # =================== initialize ===================
@@ -114,20 +114,31 @@ def update(f, feq, rho, u, d, v, a, h):
     f = mrt.collision(f, feq, MRT_COL_LEFT)
       
     # Immersed Boundary Method
-    ib_region = (slice(IBX1, IBX2), slice(IBY1, IBY2))
     x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
-    g, h_markers = ib.multi_direct_forcing(rho[ib_region], u[:, *ib_region], X[ib_region], Y[ib_region],
-                                           v, x_markers, y_markers, 
-                                           N_MARKER, L_ARC, N_ITER_MDF, ib.kernel_range4)
     
+    # range of the dynamic region
+    ib_start_x = (IB_START_X + d[0]).astype(jnp.int32)
+    ib_start_y = (IB_START_Y + d[1]).astype(jnp.int32)
+    
+    # extract data of the dynamic region
+    u_slice = jax.lax.dynamic_slice(u, (0, ib_start_x, ib_start_y), (2, IB_SIZE, IB_SIZE))
+    X_slice = jax.lax.dynamic_slice(X, (ib_start_x, ib_start_y), (IB_SIZE, IB_SIZE))
+    Y_slice = jax.lax.dynamic_slice(Y, (ib_start_x, ib_start_y), (IB_SIZE, IB_SIZE))
+    f_slice = jax.lax.dynamic_slice(f, (0, ib_start_x, ib_start_y), (9, IB_SIZE, IB_SIZE))
+    
+    # calculate the force on the dynamic region
+    g_lattice, h_markers = ib.multi_direct_forcing(u_slice, X_slice, Y_slice, 
+                                                   v, x_markers, y_markers, N_MARKER, L_ARC, 
+                                                   N_ITER_MDF, ib.kernel_range4)
+    
+    # apply the force to the lattice
+    source = mrt.get_source(g_lattice, MRT_SRC_LEFT)    
+    f = jax.lax.dynamic_update_slice(f, f_slice + source, (0, ib_start_x, ib_start_y))
+
     # Dynamics of the cylinder
     h = ib.get_force_to_obj(h_markers)
     h += a * math.pi * D ** 2 / 4   
     a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
-    
-    # Add source term
-    g_lattice = lbm.get_discretized_force(g, u[:, *ib_region])
-    f = f.at[:, *ib_region].add(mrt.get_source(g_lattice, MRT_SRC_LEFT))
 
     # Streaming
     f = lbm.streaming(f)
@@ -171,14 +182,6 @@ if PLOT:
     
     # mark the initial position of the cylinder
     plt.plot((X_OBJ + d[0]) / D, Y_OBJ / D, marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
-    
-    # draw outline of the IBM region as a rectangle
-    plt.plot(jnp.array([IBX1, IBX1, IBX2, IBX2, IBX1]) / D, 
-             jnp.array([IBY1, IBY2, IBY2, IBY1, IBY1]) / D, 
-             "b", linestyle="--", linewidth=0.5)
-    plt.text((IBX1 + IBX2) / (2 * D), IBY2 / D + 0.2, 
-             'IB Region', color='blue', fontsize=8, ha='center', va='bottom', 
-             bbox=dict(facecolor='none', edgecolor='none'))
     
     plt.tight_layout()
 
