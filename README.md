@@ -12,7 +12,9 @@ VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) sim
 
 Similar to projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators, achieving massive parallelism on GPU/GPUs. 
 
-**What's New**: Now we can run multi-GPU and multi-gird simulations (check out the example scripts) 🎉
+**What's New**: 
+- Now we can run multi-GPU and multi-gird simulations (check out the example scripts). 🎉
+- Dynamic IB region is supported for both single-device and multi-device simulations. 🎉
 
 ## Examples
 
