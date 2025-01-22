@@ -1,8 +1,7 @@
 """This file implements the immersed boundary method (IBM) in the lattice Boltzmann method framework.
 
-The IB method is used to transfer the force between the fluid (discretized into a regular Eulerian lattice) 
-and the object (represented by a set of Lagrangian markers). 
-The markers can move freely in the lattice, meaning the markers and lattice are not aligned. 
+The IB method is used to transfer the force between the fluid and the object. 
+The interface is represented by a set of Lagrangian markers that can move freely. 
 
 Key variables:
 - u: The velocity field of the fluid (distributed).
