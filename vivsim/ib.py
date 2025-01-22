@@ -1,8 +1,7 @@
 """This file implements the immersed boundary method (IBM) in the lattice Boltzmann method framework.
 
-The IB method is used to transfer the force between the fluid (discretized into a regular Eulerian lattice) 
-and the object (represented by a set of Lagrangian markers). 
-The markers can move freely in the lattice, meaning the markers and lattice are not aligned. 
+The IB method is used to transfer the force between the fluid and the object. 
+The interface is represented by a set of Lagrangian markers that can move freely. 
 
 Key variables:
 - u: The velocity field of the fluid (distributed).
@@ -91,7 +90,7 @@ def get_kernels(x_markers, y_markers, x_lattice, y_lattice, kernel_func):
             kernel_range2, kernel_range3, kernel_range4.
     
     Returns:
-        out (ndarray of shape (N_MARKER, NX, NY))： The kernel function values.
+        out (ndarray of shape (N_MARKER, NX, NY))： The stacked kernel functions.
     """
     return (kernel_func(x_lattice[None, ...] - x_markers[:, None, None]) \
           * kernel_func(y_lattice[None, ...] - y_markers[:, None, None]))
@@ -112,12 +111,12 @@ def interpolate_velocity_at_markers(u, kernels):
         out (ndarray of shape (N_MARKER, 2)): The interpolated fluid velocity at markers.
     """
     
-    return jnp.einsum("nxy,dxy->nd", kernels, u)
+    return jnp.einsum("dxy,nxy->nd", u, kernels)
 
 
-def get_noslip_forces_at_markers(v_markers, u_markers, marker_distance, rho=1):
-    """Compute the needed forces required to enforce no-slip boundary at markers.
-    according to g = 2 * rho * (v - u) / dt.
+def get_noslip_forces_at_markers(v_markers, u_markers, marker_distance):
+    """Compute the needed forces to enforce no-slip boundary at markers.
+    according to g = 2 * rho * (v - u) / dt. (rho is assumed to be 1) 
     
     Args:
         v_markers (ndarray of shape (N_MARKER, 2) or (2)): The velocity of the markers.
@@ -127,14 +126,12 @@ def get_noslip_forces_at_markers(v_markers, u_markers, marker_distance, rho=1):
     Returns:
         out (ndarray of shape (N_MARKER, 2)): The needed correction forces.
     """
-    if v_markers.ndim == 1:
-        return 2 * (v_markers[None,...] - u_markers)
        
-    return 2 * (v_markers - u_markers) * rho * marker_distance
+    return 2 * (v_markers - u_markers) * marker_distance
 
 
 def spread_force_to_fluid(force_at_markers, kernels):
-    """Spread the correction force that act only at the markers to the fluid.
+    """Spread the correction force that act at the markers to the fluid.
     
     Args:
         force_at_markers (ndarray of shape (N_MARKER, 2)): The correction forces at markers.
@@ -148,33 +145,28 @@ def spread_force_to_fluid(force_at_markers, kernels):
     return jnp.einsum("nd,nxy->dxy", force_at_markers, kernels)
 
 
-def multi_direct_forcing(rho, u, x_lattice, y_lattice, 
-    v_markers, x_markers, y_markers, n_marker, marker_distance,
-    n_iter, kernel_func):
-    """
-    Multi-direct forcing method to enforce no-slip boundary at markers.
+def multi_direct_forcing(u, x_lattice, y_lattice, v_markers, x_markers, y_markers, n_marker, marker_distance, n_iter=5, kernel_func=kernel_range4):
+    """Multi-direct forcing method to enforce no-slip boundary at markers.
     
     Args:
-        rho (scalar or ndarray): The density of the fluid.
         u (ndarray of shape (2, NX, NY)): The velocity field of fluid.
         x_lattice, y_lattice (ndarray of shape (NX, NY)): The coordinates of the lattice.
         v_markers (ndarray of shape (2)): The velocity of the markers.
         x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of markers.
         n_marker (int): The number of markers.
-        marker_distance (scalar): The distance between two adjacent markers.
+        marker_distance (scalar): The distance between two adjacent markers (assumed to be uniform).
         n_iter (int): The number of iterations.
-        kernel_func (callable): The kernel function. Available options: 
-            ib.kernel_range2, ib.kernel_range3, ib.kernel_range4.
+        kernel_func (callable): The kernel function defining how the interface is diffused. 
+            Available options: ib.kernel_range2, ib.kernel_range3, ib.kernel_range4.
     
     Returns:
-        g (ndarray of shape (2, NX, NY)): The force field applied to the fluid.
+        g_lattice (ndarray of shape (9, NX, NY)): The force field applied to the fluid lattice.
         h_markers (ndarray of shape (N_MARKER, 2)): The forces applied to the markers.    
     """
         
-    g = jnp.zeros_like(u)  # IB force to the fluid
-    h_markers = jnp.zeros((n_marker, 2))  # IB force to the markers
+    g = jnp.zeros_like(u)
+    h_markers = jnp.zeros((n_marker, 2))
 
-    # calculate the kernel functions for all markers
     kernels = get_kernels(x_markers, y_markers, x_lattice, y_lattice, kernel_func)
     
     for _ in range(n_iter):
@@ -183,17 +175,19 @@ def multi_direct_forcing(rho, u, x_lattice, y_lattice,
         u_markers = interpolate_velocity_at_markers(u, kernels)
         
         # compute correction force
-        g_markers_correction = get_noslip_forces_at_markers(v_markers, u_markers, marker_distance, rho)
-        g_correction = spread_force_to_fluid(g_markers_correction, kernels)
+        g_markers_needed = get_noslip_forces_at_markers(v_markers, u_markers, marker_distance)
+        g_needed = spread_force_to_fluid(g_markers_needed, kernels)
         
         # velocity correction
-        u += lbm.get_velocity_correction(g_correction, rho)
+        u += lbm.get_velocity_correction(g_needed)
         
         # accumulate the corresponding correction force to the markers and the fluid
-        h_markers -= g_markers_correction
-        g += g_correction
+        g = g + g_needed
+        h_markers = h_markers - g_markers_needed
     
-    return g, h_markers
+    g_lattice = lbm.get_discretized_force(g, u)
+    
+    return g_lattice, h_markers
 
 
 # ----------------- Kinetics from Rigid Object to Markers -----------------
