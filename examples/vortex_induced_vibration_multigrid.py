@@ -185,22 +185,25 @@ def update_coarse1(f1, feq1, rho1, u1,
     f2 = mg.clear_ghost(f2, location='left')
     f2 = mg.clear_ghost(f2, location='right')
     
+    # pre-streaming operations
     f2 = mg.explosion(f1, f2, dir='right')
     f2 = mg.explosion(f3, f2, dir='left')
+    f3 = mg.accumulate(f3, dir='right')
+    
+    # streaming (mesh1 & mesh3)
+    f1 = mg.streaming(f1)
+    f3 = mg.streaming(f3)
     
     # update fine mesh twice (mesh2)
     f2, feq2, rho2, u2, d, v, a, h = update_coarse0(f2, feq2, rho2, u2, d, v, a, h)
     f2, feq2, rho2, u2, d, v, a, h = update_coarse0(f2, feq2, rho2, u2, d, v, a, h)
     
-    # streaming (mesh1 & mesh3)
-    f1 = mg.streaming(f1)
+    # post-streaming operations
     f1 = mg.coalescence(f2, f1, dir='left')
-    f1 = f1.at[:, 1:-1, 1:-1].set(lbm.velocity_boundary(f1[:,1:-1, 1:-1], U0, 0, loc='left'))
-     
-    f3 = mg.accumulate(f3, dir='right')
-    f3 = mg.streaming(f3)
-    f3 = mg.propagate(f3, dir='left')
+    f1 = f1.at[:, 1:-1, 1:-1].set(lbm.velocity_boundary(f1[:,1:-1, 1:-1], U0, 0, loc='left')) 
+    
     f3 = mg.coalescence(f2, f3, dir='right')
+    f3 = mg.propagate(f3, dir='left')
         
     return (f1, feq1, rho1, u1, 
             f2, feq2, rho2, u2,
@@ -219,8 +222,12 @@ def update_coarse2(f1, feq1, rho1, u1,
     
     # reset ghost cells of mesh4
     f3 = mg.clear_ghost(f3, location='right')   
-     
+    
+    # pre-streaming operations
     f3 = mg.explosion(f4, f3, dir='left')
+    
+    # streaming (mesh4)
+    f4 = mg.streaming(f4)
     
     # update fine mesh twice (mesh1 & mesh2 & mesh3)
     (f1, feq1, rho1, u1, 
@@ -238,8 +245,7 @@ def update_coarse2(f1, feq1, rho1, u1,
                                   f3, feq3, rho3, u3, 
                                   d, v, a, h)   
 
-    # streaming (mesh4)
-    f4 = mg.streaming(f4)
+    # post-streaming operations
     f4 = mg.coalescence(f3, f4, dir='right')   
     f4 = f4.at[:, 1:-1, 1:-1].set(lbm.boundary_equilibrium(f4[:,1:-1,1:-1], feq_init[:, jnp.newaxis], loc='right'))
     
