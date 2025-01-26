@@ -62,7 +62,8 @@ Y_OBJ = 5 * D          # Cylinder y position
 # IB method parameters
 N_MARKER = 4 * D       # Number of markers on cylinder
 N_ITER_MDF = 3         # Multi-direct forcing iterations
-IB_MARGIN = 2          # Margin of the IB region to the cylinder
+IB_LEFT = D 
+IB_RIGHT = 2 * D
 
 # Physical parameters
 RE = 200               # Reynolds number
@@ -96,9 +97,8 @@ Y_MARKERS = Y_OBJ + 0.5 * D * jnp.sin(THETA_MAKERS)
 L_ARC = D * math.pi / N_MARKER
 
 # dynamic ibm region
-IB_START_X = int(X_OBJ - 0.5 * D - IB_MARGIN)
-IB_START_Y = int(Y_OBJ - 0.5 * D - IB_MARGIN)
-IB_SIZE = D + IB_MARGIN * 2
+IB_START_X = int(X_OBJ - IB_LEFT)
+IB_END_X = int(X_OBJ + IB_RIGHT)
 
 # =================== define variables ==================
 
@@ -145,17 +145,13 @@ def update(f, d, v, a, h, X, Y):
     # update markers position
     x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
     
-    # update ibm region
-    ib_start_x = (IB_START_X + d[0]).astype(jnp.int32)
-    ib_start_y = (IB_START_Y + d[1]).astype(jnp.int32)
-    
     # extract data from ibm region
-    u_slice = jax.lax.dynamic_slice(u, (0, ib_start_x, ib_start_y), (2, IB_SIZE, IB_SIZE))
-    X_slice = jax.lax.dynamic_slice(X, (ib_start_x, ib_start_y), (IB_SIZE, IB_SIZE))
-    Y_slice = jax.lax.dynamic_slice(Y, (ib_start_x, ib_start_y), (IB_SIZE, IB_SIZE))
-    f_slice = jax.lax.dynamic_slice(f, (0, ib_start_x, ib_start_y), (9, IB_SIZE, IB_SIZE))
+    u_slice = u[:, IB_START_X: IB_END_X]
+    X_slice = X[IB_START_X: IB_END_X]
+    Y_slice = Y[IB_START_X: IB_END_X]
+    f_slice = f[:, IB_START_X: IB_END_X]
         
-    g = jnp.zeros((2, IB_SIZE, IB_SIZE))  # ! important for multi-device simulation
+    g = jnp.zeros((2, IB_END_X - IB_START_X, NY // N_DEVICES))  # ! important for multi-device simulation
     h_markers = jnp.zeros((N_MARKER, 2))  # hydrodynamic force to the markers
     
     # calculate the kernel functions for all markers
@@ -182,7 +178,7 @@ def update(f, d, v, a, h, X, Y):
     
     # apply the force to the lattice
     s_slice = mrt.get_source(g_lattice, MRT_SRC_LEFT)    
-    f = jax.lax.dynamic_update_slice(f, f_slice + s_slice, (0, ib_start_x, ib_start_y))
+    f = f.at[:, IB_START_X:IB_END_X].set(f_slice + s_slice)
 
     # apply the force to the cylinder
     h = ib.get_force_to_obj(h_markers)
