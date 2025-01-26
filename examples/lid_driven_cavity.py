@@ -46,15 +46,16 @@ feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # equilibrium distribution func
 
 # =================== initialize ===================
 
-f = lbm.get_equilibrium(rho, u, f)
+f = lbm.get_equilibrium(rho, u)
 
 # =================== define the update function ===================
 
 @jax.jit
-def update(f, feq, rho, u):
+def update(f):
     
     # Collision
-    feq = lbm.get_equilibrium(rho, u, feq)
+    rho, u = lbm.get_macroscopic(f)
+    feq = lbm.get_equilibrium(rho, u)
     f = mrt.collision(f, feq, MRT_COL_LEFT)
 
     # Streaming
@@ -65,9 +66,6 @@ def update(f, feq, rho, u):
     f = lbm.noslip_boundary(f, loc='right')
     f = lbm.noslip_boundary(f, loc='bottom')
     f = lbm.velocity_boundary(f, U0, 0, loc='top')
-        
-    # update macroscopic properties
-    rho, u = lbm.get_macroscopic(f, rho, u)
     
     return f, feq, rho, u
 
@@ -89,7 +87,7 @@ if PLOT:
 # =================== start simulation ===================
 
 for t in tqdm(range(TM)):   
-    f, feq, rho, u  = update(f, feq, rho, u)
+    f, feq, rho, u  = update(f)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
         im.set_data(post.calculate_velocity(u).T)

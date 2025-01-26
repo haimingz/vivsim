@@ -33,9 +33,6 @@ Key Variables in this file:
     * g_lattice: External force discretized into lattice dirs, shape (9, NX, NY)
     where NX and NY are the number of lattice nodes in the x and y directions, respectively.
 
-Note:
-    * Some output arrays are created outside the functions and passed in as arguments, 
-      so that they can be modified in-place to avoid unnecessary memory allocation/deallocation. 
 """
 
 import jax.numpy as jnp
@@ -81,7 +78,7 @@ def streaming(f):
     return f
 
 
-def get_macroscopic(f, rho, u):
+def get_macroscopic(f):
     """Calculate the macroscopic properties (fluid density and velocity)
     based on the distribution functions.
     
@@ -96,12 +93,13 @@ def get_macroscopic(f, rho, u):
     """
     
     rho = jnp.sum(f, axis=0)
+    u = jnp.zeros((2, *rho.shape))
     u = u.at[0].set((jnp.sum(f[RIGHT_DIRS], axis=0) - jnp.sum(f[LEFT_DIRS], axis=0)) / rho)
     u = u.at[1].set((jnp.sum(f[UP_DIRS], axis=0) - jnp.sum(f[DOWN_DIRS], axis=0)) / rho)
     return rho, u
 
 
-def get_equilibrium(rho, u, feq):
+def get_equilibrium(rho, u):
     """Update the equilibrium distribution function based on the macroscopic properties.
     
     Args:

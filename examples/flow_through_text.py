@@ -68,15 +68,16 @@ MASK = jnp.array(img).astype(bool)[::-1].T
 # =================== initialize ===================
 
 u = u.at[1].set(U0)
-f = lbm.get_equilibrium(rho, u, f)
+f = lbm.get_equilibrium(rho, u)
 
 # =================== define calculation routine ===================
 
 @jax.jit
-def update(f, feq, rho, u):
-
+def update(f):
+      
     # Collision
-    feq = lbm.get_equilibrium(rho, u, feq)
+    rho, u = lbm.get_macroscopic(f)
+    feq = lbm.get_equilibrium(rho, u)
     f = mrt.collision(f, feq, MRT_COL_LEFT)
 
     # Streaming
@@ -89,9 +90,6 @@ def update(f, feq, rho, u):
     # Obstacle
     f = lbm.noslip_obstacle(f, MASK)
     
-    # update macroscopic properties
-    rho, u = lbm.get_macroscopic(f, rho, u)
-
     return f, feq, rho, u
 
 
@@ -118,7 +116,7 @@ if PLOT:
 # =============== start simulation ===============
 
 for t in tqdm(range(TM)):
-    f, feq, rho, u  = update(f, feq, rho, u)
+    f, feq, rho, u  = update(f)
 
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
         im.set_data(post.calculate_velocity(u).T)

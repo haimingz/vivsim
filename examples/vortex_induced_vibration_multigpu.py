@@ -16,9 +16,9 @@ os.environ['XLA_FLAGS'] = (
     # '--xla_gpu_enable_async_collectives=true '
     '--xla_gpu_enable_latency_hiding_scheduler=true '
     '--xla_gpu_enable_highest_priority_async_stream=true '
-    # '--xla_force_host_platform_device_count=8'
+    '--xla_force_host_platform_device_count=4'
 )
-# os.environ['JAX_PLATFORM_NAME'] = 'cpu' # use CPU cores to fake multiple devices  
+os.environ['JAX_PLATFORM_NAME'] = 'cpu' # use CPU cores to fake multiple devices  
 
 import math
 import jax
@@ -116,7 +116,7 @@ h = jnp.zeros((2), dtype=jnp.float32)   # hydrodynamic force
 
 # initial conditions
 u = u.at[0].set(U0)
-f = lbm.get_equilibrium(rho, u, f)
+f = lbm.get_equilibrium(rho, u)
 v = d.at[1].set(1e-2)  # add an initial velocity to the cylinder
 feq_init = f[:,0,0]
 
@@ -130,16 +130,16 @@ p2 = PartitionSpec(None, None, 'y')
 @jax.jit
 @partial(
     shard_map, mesh=mesh,
-    in_specs=(p2, p2, p1, p2, p_none, p_none, p_none, p_none, p1, p1),
-    out_specs=(p2, p2, p1, p2, p_none, p_none, p_none, p_none)
+    in_specs=(p2, p_none, p_none, p_none, p_none, p1, p1),
+    out_specs=(p2, p1, p2, p_none, p_none, p_none, p_none)
 )
-def update(f, feq, rho, u, d, v, a, h, X, Y):
+def update(f, d, v, a, h, X, Y):
     
     # update new macroscopic
-    rho, u = lbm.get_macroscopic(f, rho, u)
+    rho, u = lbm.get_macroscopic(f)
     
     # Collision
-    feq = lbm.get_equilibrium(rho, u, feq)
+    feq = lbm.get_equilibrium(rho, u)
     f = mrt.collision(f, feq, MRT_COL_LEFT)
     
     # update markers position
@@ -197,7 +197,7 @@ def update(f, feq, rho, u, d, v, a, h, X, Y):
     f = lbm.boundary_equilibrium(f, feq_init[:,jnp.newaxis], loc='right')
     f = lbm.velocity_boundary(f, U0, 0, loc='left')
 
-    return f, feq, rho, u, d, v, a, h
+    return f, rho, u, d, v, a, h
 
 
 # =============== create plot template ================
@@ -246,7 +246,7 @@ if PLOT:
 # =============== start simulation ===============
 
 for t in tqdm(range(TM)):
-    f, feq, rho, u, d, v, a, h = update(f, feq, rho, u, d, v, a, h, X, Y)
+    f, rho, u, d, v, a, h = update(f, d, v, a, h, X, Y)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
         im.set_data(post.calculate_curl(u).T)
