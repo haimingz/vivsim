@@ -98,7 +98,7 @@ h = jnp.zeros((2), dtype=jnp.float32)   # hydrodynamic force
 
 # initial conditions
 u = u.at[0].set(U0)
-f = lbm.get_equilibrium(rho, u, f)
+f = lbm.get_equilibrium(rho, u)
 v = d.at[1].set(1e-2)  # add an initial velocity to the cylinder
 feq_init = f[:,0,0]
 
@@ -106,13 +106,13 @@ feq_init = f[:,0,0]
 # =================== define calculation routine ===================
 
 @jax.jit
-def update(f, feq, rho, u, d, v, a, h):
+def update(f, d, v, a, h):
    
     # update new macroscopic
-    rho, u = lbm.get_macroscopic(f, rho, u)
+    rho, u = lbm.get_macroscopic(f)    
     
     # Collision
-    feq = lbm.get_equilibrium(rho, u, feq)
+    feq = lbm.get_equilibrium(rho, u)
     f = mrt.collision(f, feq, MRT_COL_LEFT)
       
     # update markers position
@@ -149,7 +149,7 @@ def update(f, feq, rho, u, d, v, a, h):
     f = lbm.boundary_equilibrium(f, feq_init[:,jnp.newaxis], loc='right')
     f = lbm.velocity_boundary(f, U0, 0, loc='left')
      
-    return f, feq, rho, u, d, v, a, h
+    return f, rho, u, d, v, a, h
 
 
 # =============== create plot template ================
@@ -188,7 +188,7 @@ if PLOT:
 # =============== start simulation ===============
 
 for t in tqdm(range(TM)):
-    f, feq, rho, u, d, v, a, h = update(f, feq, rho, u, d, v, a, h)
+    f, rho, u, d, v, a, h = update(f, d, v, a, h)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
         im.set_data(post.calculate_curl(u).T)

@@ -105,10 +105,10 @@ u2 = u2.at[0].set(U0)
 u3 = u3.at[0].set(U0)
 u4 = u4.at[0].set(U0)
 
-f1 = f1.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho1, u1, f1[:,1:-1,1:-1]))
-f2 = f2.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho2, u2, f2[:,1:-1,1:-1]))
-f3 = f3.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho3, u3, f3[:,1:-1,1:-1]))
-f4 = f4.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho4, u4, f4[:,1:-1,1:-1]))
+f1 = f1.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho1, u1))
+f2 = f2.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho2, u2))
+f3 = f3.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho3, u3))
+f4 = f4.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho4, u4))
 
 d = jnp.zeros((2), dtype=jnp.float32) 
 v = jnp.zeros((2), dtype=jnp.float32) 
@@ -122,11 +122,11 @@ feq_init = f1[:,1,1]
 # ======================= compute routine =====================
 
 
-def macro_collision(f, feq, rho, u, left_matrix):  
-    rho, u = lbm.get_macroscopic(f[:, 1:-1, 1:-1], rho, u)
-    feq = lbm.get_equilibrium(rho, u, feq)
+def macro_collision(f, left_matrix):  
+    rho, u = lbm.get_macroscopic(f[:, 1:-1, 1:-1])
+    feq = lbm.get_equilibrium(rho, u)
     f = f.at[:, 1:-1, 1:-1].set(mrt.collision(f[:, 1:-1, 1:-1], feq, left_matrix))
-    return f, feq, rho, u
+    return f, rho, u
 
 def solve_fsi(f, rho, u, d, v, a, h):
     
@@ -159,9 +159,9 @@ def solve_fsi(f, rho, u, d, v, a, h):
     
     return f, d, v, a, h
 
-def update_coarse0(f2, feq2, rho2, u2, d, v, a, h):
+def update_coarse0(f2, d, v, a, h):
     
-    f2, feq2, rho2, u2 = macro_collision(f2, feq2, rho2, u2, MRT_COL_LEFT2)
+    f2, rho2, u2 = macro_collision(f2, MRT_COL_LEFT2)
     f2, d, v, a, h = solve_fsi(f2, rho2, u2, d, v, a, h)
     
     f2 = mg.accumulate(f2, dir='left')
@@ -170,16 +170,13 @@ def update_coarse0(f2, feq2, rho2, u2, d, v, a, h):
     f2 = mg.propagate(f2, dir='right')
     f2 = mg.propagate(f2, dir='left')
     
-    return f2, feq2, rho2, u2, d, v, a, h
+    return f2, rho2, u2, d, v, a, h
 
-def update_coarse1(f1, feq1, rho1, u1, 
-                   f2, feq2, rho2, u2,
-                   f3, feq3, rho3, u3, 
-                   d, v, a, h):
+def update_coarse1(f1, f2, f3, d, v, a, h):
     
     # collision (mesh1 & mesh3)
-    f1, feq1, rho1, u1 = macro_collision(f1, feq1, rho1, u1, MRT_COL_LEFT1)
-    f3, feq3, rho3, u3 = macro_collision(f3, feq3, rho3, u3, MRT_COL_LEFT3)
+    f1, rho1, u1 = macro_collision(f1, MRT_COL_LEFT1)
+    f3, rho3, u3 = macro_collision(f3, MRT_COL_LEFT3)
     
     # reset ghost cells (mesh1 & mesh3)
     f2 = mg.clear_ghost(f2, location='left')
@@ -195,8 +192,8 @@ def update_coarse1(f1, feq1, rho1, u1,
     f3 = mg.streaming(f3)
     
     # update fine mesh twice (mesh2)
-    f2, feq2, rho2, u2, d, v, a, h = update_coarse0(f2, feq2, rho2, u2, d, v, a, h)
-    f2, feq2, rho2, u2, d, v, a, h = update_coarse0(f2, feq2, rho2, u2, d, v, a, h)
+    f2, rho2, u2, d, v, a, h = update_coarse0(f2, d, v, a, h)
+    f2, rho2, u2, d, v, a, h = update_coarse0(f2, d, v, a, h)
     
     # post-streaming operations
     f1 = mg.coalescence(f2, f1, dir='left')
@@ -205,20 +202,16 @@ def update_coarse1(f1, feq1, rho1, u1,
     f3 = mg.coalescence(f2, f3, dir='right')
     f3 = mg.propagate(f3, dir='left')
         
-    return (f1, feq1, rho1, u1, 
-            f2, feq2, rho2, u2,
-            f3, feq3, rho3, u3, 
+    return (f1, rho1, u1, 
+            f2, rho2, u2,
+            f3, rho3, u3, 
             d, v, a, h,)
 
 @jax.jit
-def update_coarse2(f1, feq1, rho1, u1, 
-                   f2, feq2, rho2, u2, 
-                   f3, feq3, rho3, u3, 
-                   f4, feq4, rho4, u4, 
-                   d, v, a, h):
+def update_coarse2(f1, f2, f3, f4, d, v, a, h):
     
     # collision (mesh4)
-    f4, feq4, rho4, u4 = macro_collision(f4, feq4, rho4, u4, MRT_COL_LEFT4)
+    f4, rho4, u4 = macro_collision(f4, MRT_COL_LEFT4)
     
     # reset ghost cells of mesh4
     f3 = mg.clear_ghost(f3, location='right')   
@@ -230,29 +223,23 @@ def update_coarse2(f1, feq1, rho1, u1,
     f4 = mg.streaming(f4)
     
     # update fine mesh twice (mesh1 & mesh2 & mesh3)
-    (f1, feq1, rho1, u1, 
-     f2, feq2, rho2, u2,
-     f3, feq3, rho3, u3, 
-     d, v, a, h) = update_coarse1(f1, feq1, rho1, u1, 
-                                  f2, feq2, rho2, u2,
-                                  f3, feq3, rho3, u3, 
-                                  d, v, a, h)    
-    (f1, feq1, rho1, u1, 
-     f2, feq2, rho2, u2,
-     f3, feq3, rho3, u3, 
-     d, v, a, h) = update_coarse1(f1, feq1, rho1, u1, 
-                                  f2, feq2, rho2, u2,
-                                  f3, feq3, rho3, u3, 
-                                  d, v, a, h)   
+    (f1, rho1, u1, 
+     f2, rho2, u2,
+     f3, rho3, u3, 
+     d, v, a, h) = update_coarse1(f1, f2, f3, d, v, a, h)
+    (f1, rho1, u1, 
+     f2, rho2, u2,
+     f3, rho3, u3, 
+     d, v, a, h) = update_coarse1(f1, f2, f3, d, v, a, h)
 
     # post-streaming operations
     f4 = mg.coalescence(f3, f4, dir='right')   
     f4 = f4.at[:, 1:-1, 1:-1].set(lbm.boundary_equilibrium(f4[:,1:-1,1:-1], feq_init[:, jnp.newaxis], loc='right'))
     
-    return (f1, feq1, rho1, u1, 
-            f2, feq2, rho2, u2, 
-            f3, feq3, rho3, u3, 
-            f4, feq4, rho4, u4, 
+    return (f1, rho1, u1, 
+            f2, rho2, u2, 
+            f3, rho3, u3, 
+            f4, rho4, u4, 
             d, v, a, h)
 
 
@@ -329,17 +316,13 @@ if PLOT == 'viv':
 
 for t in tqdm(range(TM)):
     (
-        f1, feq1, rho1, u1, 
-        f2, feq2, rho2, u2, 
-        f3, feq3, rho3, u3, 
-        f4, feq4, rho4, u4, 
+        f1, rho1, u1, 
+        f2, rho2, u2, 
+        f3, rho3, u3, 
+        f4, rho4, u4, 
         d, v, a, h
     ) = update_coarse2(
-        f1, feq1, rho1, u1, 
-        f2, feq2, rho2, u2, 
-        f3, feq3, rho3, u3, 
-        f4, feq4, rho4, u4, 
-        d, v, a, h,
+        f1, f2, f3, f4, d, v, a, h,
     )
     
     if t % PLOT_EVERY == 0 and t > PLOT_AFTER:
