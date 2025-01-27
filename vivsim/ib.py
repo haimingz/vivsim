@@ -4,13 +4,13 @@ The IB method is used to transfer the force between the fluid and the object.
 The interface is represented by a set of Lagrangian markers that can move freely. 
 
 Key variables:
-- u: The velocity field of the fluid (distributed).
+- u: The velocity field of the fluid.
 - u_marker(s): The interpolated velocity of the fluid at the marker(s).
-- v: The velocity of the object (as a whole body).
-- v_marker(s): The velocity of the object at marker(s).
-- g: The force that the object applied to the fluid (distributed)
+- v: The velocity of the object.
+- v_marker(s): The velocity of the marker(s) on the fluid-structure interface.
+- g: The force that the object applied to the fluid.
 - g_marker(s): The force that the object applied to the fluid at marker(s).
-- h: The force that the fluid applied to the object (as a whole body)
+- h: The force that the fluid applied to the object.
 - h_marker(s): The force that the fluid applied to the object at marker(s)
 
 """
