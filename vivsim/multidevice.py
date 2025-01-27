@@ -22,13 +22,13 @@ def stream_cross_devices(f: jax.Array, dir: str, device_axis: str, n_devices: in
     into a series of subdomains along the x or y axis, each corresponding to a single device.
     
     Args:
-        f (jax.Array): Distribution functions
+        f (jax.Array): Discrete distribution function (DDF)
         dir (str): Direction of streaming ('x' or 'y')
         device_axis (str): the axis name of the devices, assigned when creating the Mesh of devices
         n_devices (int): Number of devices in the direction
     
     Returns:
-        jax.Array: Distribution functions after streaming
+        jax.Array: DDF after streaming
     """
 
     device_pairs = [(i, (i + 1) % n_devices) for i in range(n_devices)]

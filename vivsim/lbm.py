@@ -27,8 +27,8 @@ Boundary Conditions (BC):
 Key Variables in this file:
     * rho: Macroscopic density, shape (NX, NY)
     * u: Macroscopic velocity vector, shape (2, NX, NY)
-    * f: Distribution functions, shape (9, NX, NY)
-    * feq: Equilibrium distribution functions, shape (9, NX, NY) 
+    * f: Discrete Distribution Function (DDF), shape (9, NX, NY)
+    * feq: Equilibrium DDF, shape (9, NX, NY) 
     * g: External force vector, shape (2, NX, NY)
     * g_lattice: External force discretized into lattice dirs, shape (9, NX, NY)
     where NX and NY are the number of lattice nodes in the x and y directions, respectively.
@@ -60,15 +60,15 @@ OPP_DIRS = jnp.array([0, 3, 4, 1, 2, 7, 8, 5, 6])
 
 
 def streaming(f):
-    """Perform the streaming step by shifting the distribution functions 
+    """Perform the streaming step by shifting the DDF 
     along their respective velocity directions, which automatically enforces
     periodic boundary conditions at domain boundaries.
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        f (jax.Array): Discrete distribution function (DDF)
         
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions after streaming
+        f (jax.Array of shape (9, NX, NY)): The DDF after streaming
     """
     
     f = f.at[RIGHT_DIRS].set(jnp.roll(f[RIGHT_DIRS], 1, axis=1))
@@ -79,11 +79,10 @@ def streaming(f):
 
 
 def get_macroscopic(f):
-    """Calculate the macroscopic properties (fluid density and velocity)
-    based on the distribution functions.
+    """Calculate the macroscopic properties (fluid density and velocity).
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        f (jax.Array): Discrete distribution function (DDF)
         rho (jax.Array of shape (NX, NY)): The macroscopic density.
         u (jax.Array of shape (2, NX, NY)): The macroscopic velocity.
     
@@ -105,10 +104,10 @@ def get_equilibrium(rho, u):
     Args:
         rho (jax.Array of shape (NX, NY)): The macroscopic density.
         u (jax.Array of shape (2, NX, NY)): The macroscopic velocity.
-        feq (jax.Array of shape (9, NX, NY)): The equilibrium distribution functions.
+        feq (jax.Array of shape (9, NX, NY)): The equilibrium DDF.
         
     Returns:
-        feq (jax.Array of shape (9, NX, NY)): The equilibrium distribution functions.    
+        feq (jax.Array of shape (9, NX, NY)): The equilibrium DDF.    
     """
 
     uc = (u[0, :, :] * VELOCITIES[:, 0, jnp.newaxis, jnp.newaxis] + 
@@ -125,12 +124,12 @@ def collision(f, feq, omega):
     """Perform the collision step using the single relaxation time (SRT) model. 
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
-        feq (jax.Array of shape (9, NX, NY)): The equilibrium distribution functions.
+        f (jax.Array): Discrete distribution function (DDF)
+        feq (jax.Array of shape (9, NX, NY)): The equilibrium DDF.
         omega (scalar): The relaxation parameter (= 1 / relaxation time).
     
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions after collision.
+        f (jax.Array of shape (9, NX, NY)): The DDF after collision.
     """
 
     return (1 - omega) * f + omega * feq
@@ -184,7 +183,7 @@ def get_discretized_force(g, u):
 
 def get_source(g_lattice, omega):
     """Compute the source term caused by the forcing using Guo Forcing scheme.
-    This term should be added to the distribution functions.
+    This term should be added to the DDF.
     
     Args:
         g_lattice (jax.Array of shape (9, NX, NY)): The discretize external force term.
@@ -204,12 +203,12 @@ def noslip_boundary(f, loc:str):
     """Enforce a no-slip boundary at the specified boundary using Bounce Back scheme. 
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        f (jax.Array): Discrete distribution function (DDF)
         boundary (str): The boundary where the no-slip condition is enforced, 
             can be 'left', 'right', 'top', or 'bottom'.
         
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions 
+        f (jax.Array of shape (9, NX, NY)): The DDF 
             after enforcing the boundary condition.
     """
     
@@ -224,17 +223,18 @@ def noslip_boundary(f, loc:str):
     else:
         raise ValueError("Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'.")
 
+
 def noslip_obstacle(f, mask):
     """Enforce a no-slip boundary at the obstacle 
     using the Bounce Back scheme. The obstacle is defined by a 2D mask
     where True indicates the presence of an obstacle.
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        f (jax.Array): Discrete distribution function (DDF)
         mask (jax.Array of shape (NX, NY)): The mask indicating the obstacle.
     
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions 
+        f (jax.Array of shape (9, NX, NY)): The DDF 
             after enforcing the boundary condition.    
     """
     
@@ -246,14 +246,14 @@ def velocity_boundary(f, ux, uy, loc:str):
     Non-Equilibrium Bounce-Back (or Zou/He) scheme.
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        f (jax.Array): Discrete distribution function (DDF)
         ux (scalar or jax.Array of shape NX): The x-component of velocity.
         uy (scalar or jax.Array of shape NY): The y-component of velocity.
         loc (str): The boundary where the velocity condition is enforced, 
             can be 'left', 'right', 'top', or 'bottom'.
     
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions 
+        f (jax.Array of shape (9, NX, NY)): The DDF 
             after enforcing the boundary condition.
     """
     
@@ -292,12 +292,12 @@ def outlet_boundary(f, loc:str):
     The outflow velocities is computed from the neighboring nodes.
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        f (jax.Array): Discrete distribution function (DDF)
         loc (str): The boundary where the outlet condition is enforced, 
             can be 'left', 'right', 'top', or 'bottom'.
             
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions 
+        f (jax.Array of shape (9, NX, NY)): The DDF 
             after enforcing the boundary condition.
     """
 
@@ -324,12 +324,12 @@ def outlet_boundary_simple(f, loc:str):
     by copying the second last row/column.
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
+        f (jax.Array): Discrete distribution function (DDF)
         loc (str): The boundary where the outlet condition is enforced, 
             can be 'left', 'right', 'top', or 'bottom'.
             
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions 
+        f (jax.Array of shape (9, NX, NY)): The DDF 
             after enforcing the boundary condition.
     """
 
@@ -349,14 +349,14 @@ def boundary_equilibrium(f, feq, loc:str):
     """setting the missing distributions at boundary to the equilibrium value.
     
     Args:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions.
-        feq (jax.Array of shape (9, NX, NY)): The equilibrium distribution functions,
+        f (jax.Array): Discrete distribution function (DDF)
+        feq (jax.Array of shape (9, NX, NY)): The equilibrium DDF,
             should has the same shape as the boundary.
         loc (str): The boundary where the outlet condition is enforced, 
             can be 'left', 'right', 'top', or 'bottom'.
     
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The distribution functions 
+        f (jax.Array of shape (9, NX, NY)): The DDF 
             after enforcing the boundary condition.    
     """
     
