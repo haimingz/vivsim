@@ -11,9 +11,7 @@ os.environ['XLA_FLAGS'] = (
     # '--xla_gpu_enable_async_collectives=true '
     '--xla_gpu_enable_latency_hiding_scheduler=true '
     '--xla_gpu_enable_highest_priority_async_stream=true '
-    # '--xla_force_host_platform_device_count=12'  # fake 8 devices, comment this if you do have multiple devices   
 )
-# os.environ['JAX_PLATFORM_NAME'] = 'cpu' # use CPU cores to fake multiple devices, comment this if you do have multiple devices   
 
 import math
 import jax
@@ -33,13 +31,13 @@ PLOT_AFTER = 00  # plot after n time steps
 # ====================== Configuration ======================
 
 # LBM parameters
-D = 24                 # Cylinder diameter
+D = 48                 # Cylinder diameter
 U0 = 0.1               # Inlet velocity
 TM = 60000             # Total time steps
 
 # multi-block config
-HEIGHT = 10 * D
-WIDTHS = [7 * D, 3 * D, 3 * D, 7 * D]
+HEIGHT = 20 * D
+WIDTHS = [7 * D, 6 * D, 3 * D, 14 * D]
 LEVELS = [-1, 0, -1, -2]
 
 # cylinder position
@@ -68,7 +66,6 @@ DAMPING = 2 * math.sqrt(STIFFNESS * MASS) * DR              # Damping of the spr
 
 # fluid parameters
 NU = U0 * D / RE                                            # Kinematic viscosity
-
 MRT_COL_LEFT1, MRT_SRC_LEFT1 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[0]))
 MRT_COL_LEFT2, MRT_SRC_LEFT2 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[1]))
 MRT_COL_LEFT3, MRT_SRC_LEFT3 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[2]))
@@ -95,20 +92,20 @@ X, Y = jnp.meshgrid(jnp.arange(WIDTHS[1]), jnp.arange(HEIGHT), indexing='ij')
 
 # ======================= define variables =====================
 
-f1, feq1, rho1, u1 = mg.generate_block_data(WIDTHS[0], HEIGHT, LEVELS[0])
-f2, feq2, rho2, u2 = mg.generate_block_data(WIDTHS[1], HEIGHT, LEVELS[1])
-f3, feq3, rho3, u3 = mg.generate_block_data(WIDTHS[2], HEIGHT, LEVELS[2])
-f4, feq4, rho4, u4 = mg.generate_block_data(WIDTHS[3], HEIGHT, LEVELS[3])
+f1, rho1, u1 = mg.init_grid(WIDTHS[0], HEIGHT, LEVELS[0], buffer_x=1)
+f2, rho2, u2 = mg.init_grid(WIDTHS[1], HEIGHT, LEVELS[1])
+f3, rho3, u3 = mg.init_grid(WIDTHS[2], HEIGHT, LEVELS[2], buffer_x=1)
+f4, rho4, u4 = mg.init_grid(WIDTHS[3], HEIGHT, LEVELS[3], buffer_x=1)
 
 u1 = u1.at[0].set(U0)
 u2 = u2.at[0].set(U0)
 u3 = u3.at[0].set(U0)
 u4 = u4.at[0].set(U0)
 
-f1 = f1.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho1, u1))
-f2 = f2.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho2, u2))
-f3 = f3.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho3, u3))
-f4 = f4.at[:,1:-1,1:-1].set(lbm.get_equilibrium(rho4, u4))
+f1 = lbm.get_equilibrium(rho1, u1)
+f2 = lbm.get_equilibrium(rho2, u2)
+f3 = lbm.get_equilibrium(rho3, u3)
+f4 = lbm.get_equilibrium(rho4, u4)
 
 d = jnp.zeros((2), dtype=jnp.float32) 
 v = jnp.zeros((2), dtype=jnp.float32) 
@@ -128,7 +125,7 @@ def macro_collision(f, left_matrix):
     f = f.at[:, 1:-1, 1:-1].set(mrt.collision(f[:, 1:-1, 1:-1], feq, left_matrix))
     return f, rho, u
 
-def solve_fsi(f, rho, u, d, v, a, h):
+def solve_fsi(f, u, d, v, a, h):
     
     # update markers position
     x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS_LOCAL, Y_MARKERS_LOCAL, d)
@@ -159,49 +156,39 @@ def solve_fsi(f, rho, u, d, v, a, h):
     
     return f, d, v, a, h
 
-def update_coarse0(f2, d, v, a, h):
+def update_coarse0(f1, f2, f3, d, v, a, h):
     
     f2, rho2, u2 = macro_collision(f2, MRT_COL_LEFT2)
-    f2, d, v, a, h = solve_fsi(f2, rho2, u2, d, v, a, h)
+    f2, d, v, a, h = solve_fsi(f2, u2, d, v, a, h)
     
-    f2 = mg.accumulate(f2, dir='left')
-    f2 = mg.accumulate(f2, dir='right')
-    f2 = mg.streaming(f2)
-    f2 = mg.propagate(f2, dir='right')
-    f2 = mg.propagate(f2, dir='left')
+    f2 = lbm.streaming(f2)
+    
+    f2 = mg.coarse_to_fine(f1, f2, dir='right')
+    f2 = mg.coarse_to_fine(f3, f2, dir='left')
     
     return f2, rho2, u2, d, v, a, h
 
-def update_coarse1(f1, f2, f3, d, v, a, h):
+def update_coarse1(f1, f2, f3, f4, d, v, a, h):
     
     # collision (mesh1 & mesh3)
     f1, rho1, u1 = macro_collision(f1, MRT_COL_LEFT1)
     f3, rho3, u3 = macro_collision(f3, MRT_COL_LEFT3)
     
-    # reset ghost cells (mesh1 & mesh3)
-    f2 = mg.clear_ghost(f2, location='left')
-    f2 = mg.clear_ghost(f2, location='right')
-    
-    # pre-streaming operations
-    f2 = mg.explosion(f1, f2, dir='right')
-    f2 = mg.explosion(f3, f2, dir='left')
-    f3 = mg.accumulate(f3, dir='right')
-    
-    # streaming (mesh1 & mesh3)
-    f1 = mg.streaming(f1)
-    f3 = mg.streaming(f3)
+    # streaming
+    f1 = lbm.streaming(f1)
+    f3 = lbm.streaming(f3)
     
     # update fine mesh twice (mesh2)
-    f2, rho2, u2, d, v, a, h = update_coarse0(f2, d, v, a, h)
-    f2, rho2, u2, d, v, a, h = update_coarse0(f2, d, v, a, h)
+    f2, rho2, u2, d, v, a, h = update_coarse0(f1, f2, f3, d, v, a, h)
+    f2, rho2, u2, d, v, a, h = update_coarse0(f1, f2, f3, d, v, a, h)
     
-    # post-streaming operations
-    f1 = mg.coalescence(f2, f1, dir='left')
-    f1 = f1.at[:, 1:-1, 1:-1].set(lbm.velocity_boundary(f1[:,1:-1, 1:-1], U0, 0, loc='left')) 
+    # boundary conditions
+    f1 = mg.fine_to_coarse(f2, f1, dir='left')
+    f1 = lbm.velocity_boundary(f1, U0, 0, loc='left')
     
-    f3 = mg.coalescence(f2, f3, dir='right')
-    f3 = mg.propagate(f3, dir='left')
-        
+    f3 = mg.fine_to_coarse(f2, f3, dir='right')
+    f3 = mg.coarse_to_fine(f4, f3, dir='left')    
+    
     return (f1, rho1, u1, 
             f2, rho2, u2,
             f3, rho3, u3, 
@@ -213,28 +200,22 @@ def update_coarse2(f1, f2, f3, f4, d, v, a, h):
     # collision (mesh4)
     f4, rho4, u4 = macro_collision(f4, MRT_COL_LEFT4)
     
-    # reset ghost cells of mesh4
-    f3 = mg.clear_ghost(f3, location='right')   
-    
-    # pre-streaming operations
-    f3 = mg.explosion(f4, f3, dir='left')
-    
     # streaming (mesh4)
-    f4 = mg.streaming(f4)
+    f4 = lbm.streaming(f4)
     
     # update fine mesh twice (mesh1 & mesh2 & mesh3)
     (f1, rho1, u1, 
      f2, rho2, u2,
      f3, rho3, u3, 
-     d, v, a, h) = update_coarse1(f1, f2, f3, d, v, a, h)
+     d, v, a, h) = update_coarse1(f1, f2, f3, f4, d, v, a, h)
     (f1, rho1, u1, 
      f2, rho2, u2,
      f3, rho3, u3, 
-     d, v, a, h) = update_coarse1(f1, f2, f3, d, v, a, h)
+     d, v, a, h) = update_coarse1(f1, f2, f3, f4, d, v, a, h)
 
-    # post-streaming operations
-    f4 = mg.coalescence(f3, f4, dir='right')   
-    f4 = f4.at[:, 1:-1, 1:-1].set(lbm.boundary_equilibrium(f4[:,1:-1,1:-1], feq_init[:, jnp.newaxis], loc='right'))
+    # boundary conditions
+    f4 = mg.fine_to_coarse(f3, f4, dir='right') 
+    f4 = lbm.boundary_equilibrium(f4, feq_init[:, jnp.newaxis], loc='right')
     
     return (f1, rho1, u1, 
             f2, rho2, u2, 
