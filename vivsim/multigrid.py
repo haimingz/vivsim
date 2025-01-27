@@ -13,10 +13,10 @@ to fill up the missing incoming DDFs.
 """
 
 
-import jax
 import jax.numpy as jnp
 
 from .lbm import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
+
 
 def init_grid(width, height, level=0, buffer_x=0, buffer_y=0):
     """
