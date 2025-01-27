@@ -56,6 +56,17 @@ def init_grid(width, height, level=0, buffer_x=0, buffer_y=0):
 
 
 def fine_to_coarse(f_fine, f_coarse, dir):
+    """Transfer DDFs from a fine grid to a coarser grid along a given direction.
+    
+    Args:
+        f_fine (jnp.ndarray): The DDFs of the fine grid.
+        f_coarse (jnp.ndarray): The DDFs of the coarse grid.
+        dir (str): The direction of transfer. 
+            'left', 'right', 'up', 'down'.
+            
+    Returns:
+        f_coarse (jnp.ndarray): The updated DDFs of the coarse grid.
+    """
     
     if dir ==  'left':
         f_coarse = f_coarse.at[LEFT_DIRS, -1].set(
@@ -87,6 +98,17 @@ def fine_to_coarse(f_fine, f_coarse, dir):
     return f_coarse
         
 def coarse_to_fine(f_coarse, f_fine, dir):
+    """Transfer DDFs from a coarser grid to a fine grid along a given direction.
+    
+    Args:
+        f_coarse (jnp.ndarray): The DDFs of the coarse grid.
+        f_fine (jnp.ndarray): The DDFs of the fine grid.
+        dir (str): The direction of transfer. 
+            'left', 'right', 'up', 'down'.
+    
+    Returns:
+        f_fine (jnp.ndarray): The updated DDFs of the fine grid.
+    """
     
     if dir == 'left':
         f_fine = f_fine.at[LEFT_DIRS, -1, 0::2].set(f_coarse[LEFT_DIRS, 0])
