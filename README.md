@@ -10,20 +10,33 @@
 
 VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) simulations based on the immersed boundary -lattice Boltzmann method (IB-LBM). It was originated from a research project requiring efficient simulation codes for studying vortex-induced vibration (VIV) of underwater structures. 
 
-Similar to projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators, achieving massive parallelism on GPU/GPUs. 
+Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators, achieving massive parallelism on GPU/GPUs. 
 
-**What's New**: 
-- Now we can run multi-GPU and multi-gird simulations (check out the example scripts). 🎉
-- Dynamic IB region is supported for both single-device and multi-device simulations. 🎉
+VIVSIM is not a comprehensive, out-of-the-box tool. Instead, it provides a lean collection of **pure functions** for core IB-LBM computations. Users are expected to construct custom simulation models and computation routines for their exploration. Start with the included demo examples to see how easy that is!
 
 ## Examples
 
-|  |  |
-|---------|-------------|
-| ![Cavity](assets/cavity.gif) | ![Text](assets/text.gif) |
-| Lid-driven cavity at $Re = 2\times 10^4$ on a 1000x1000 lattice grid. | Flow passes through some texts on a 1000x1000 lattice grid. |
-| <img src="assets/viv_100.gif" width=700/> | <img src="assets/viv_10000.gif" width=420/> |
-| VIV of a cylinder with $U_r = 5$ and $Re = 100$. The simulation was conducted on a 2000x3000 lattice grid with 400 immersed boundary markers, taking about 8 min on a Nvidia A100.| VIV of a cylinder with $U_r = 5$ and $Re = 1\times 10^4$. The simulation was conducted on a 8000x4000 lattice grid with 1200 immersed boundary markers, taking about 30 min on 8 Nvidia A800. |
+<div style="display: flex; justify-content: space-around;">
+  <figure style="text-align: center;">
+    <img src="assets/cavity.gif" alt="Image 1" width="300"/>
+    <figcaption>Lid-driven cavity at Re = 2e4 on a 1000x1000 lattice grid.</figcaption>
+  </figure>
+  <figure style="text-align: center;">
+    <img src="assets/text.gif" alt="Image 2" width="300"/>
+    <figcaption>Flow passes some texts on a 1000x1000 lattice grid.</figcaption>
+  </figure>
+</div>
+
+<div style="display: flex; justify-content: space-around;">
+  <figure style="text-align: center;">
+    <img src="assets/viv_100.gif" alt="Image 1" width="300"/>
+    <figcaption>VIV of a cylinder with U_r = 5 and Re = 1e2.</figcaption>
+  </figure>
+  <figure style="text-align: center;">
+    <img src="assets/viv_10000.gif" alt="Image 2" width="300"/>
+    <figcaption>VIV of a cylinder with U_r = 5 and Re = 1e4.</figcaption>
+  </figure>
+</div>
 
 ## Capabilities
 
@@ -44,6 +57,23 @@ Boundary Conditions:
 Fluid-Structure Interaction
 - Multi Direct-Forcing Immersed Boundary method.
 
+Acceleration techniques
+- multi-GPU simulation (using JAX)
+- Gird refinement (shown below)
+- Dynamic IB region (shown below)
+
+<div align='center'>
+  <figure style="text-align: center;">
+    <img src="assets/grid_refinement.png" width=500/>
+    <figcaption>Grid refinement and dynamic IB region.</figcaption>
+  </figure>
+</div>
+
+## Todos
+
+- Large-Eddy simulation
+- 3D simulation capability
+
 
 ## Getting Started
 
@@ -54,13 +84,6 @@ git clone https://github.com/haimingz/vivsim.git
 pip install -e vivsim
 ```
 This package is based on JAX, whose installation may depend on the OS and hardware. If the above command does not work well, please refer to the [JAX Documentation](https://jax.readthedocs.io/en/latest/installation.html) for the latest installation guidance. 
-
-Alternatively, you can run the following command in a cell on Google Colab to install VIVSIM and run simulations using free/paid GPU on the cloud.
-
-```python
-!pip install git+https://github.com/haimingz/vivsim
-```
-You can also create a Singularity image from the provided definition file `vivsim.def` and execute your code on High Performance Computing (HPC) clusters. 
 
 More detailed instructions can be found in our [Documentation](https://github.com/haimingz/vivsim/wiki/Installation).
 
