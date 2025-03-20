@@ -16,27 +16,21 @@ VIVSIM is not a comprehensive, out-of-the-box tool. Instead, it provides a lean 
 
 ## Examples
 
-<div style="display: flex; justify-content: space-around;">
-  <figure style="text-align: center;">
-    <img src="assets/cavity.gif" alt="Image 1" width="300"/>
-    <figcaption>Lid-driven cavity at Re = 2e4 on a 1000x1000 lattice grid.</figcaption>
-  </figure>
-  <figure style="text-align: center;">
-    <img src="assets/text.gif" alt="Image 2" width="300"/>
-    <figcaption>Flow passes some texts on a 1000x1000 lattice grid.</figcaption>
-  </figure>
-</div>
+_Lid-driven cavity at Re = 2e4 on a 1000x1000 lattice grid_
 
-<div style="display: flex; justify-content: space-around;">
-  <figure style="text-align: center;">
-    <img src="assets/viv_100.gif" alt="Image 1" width="300"/>
-    <figcaption>VIV of a cylinder with U_r = 5 and Re = 1e2.</figcaption>
-  </figure>
-  <figure style="text-align: center;">
-    <img src="assets/viv_10000.gif" alt="Image 2" width="300"/>
-    <figcaption>VIV of a cylinder with U_r = 5 and Re = 1e4.</figcaption>
-  </figure>
-</div>
+<img src="assets/cavity.gif" alt="Lid-driven cavity flow" width="300">  
+
+_Flow passes some texts on a 1000x1000 lattice grid_
+
+<img src="assets/text.gif" alt="Flow past text" width="300">  
+
+_VIV of a cylinder with U_r = 5 and Re = 1e2_
+
+<img src="assets/viv_100.gif" alt="VIV at Re = 1e2" width="300">  
+
+_VIV of a cylinder with U_r = 5 and Re = 1e4_
+
+<img src="assets/viv_10000.gif" alt="VIV at Re = 1e4" width="300">  
 
 ## Capabilities
 
@@ -58,16 +52,11 @@ Fluid-Structure Interaction
 - Multi Direct-Forcing Immersed Boundary method.
 
 Acceleration techniques
-- multi-GPU simulation (using JAX)
+- Multi-GPU simulation (using JAX)
 - Gird refinement (shown below)
 - Dynamic IB region (shown below)
 
-<div align='center'>
-  <figure style="text-align: center;">
-    <img src="assets/grid_refinement.png" width=500/>
-    <figcaption>Grid refinement and dynamic IB region.</figcaption>
-  </figure>
-</div>
+<img src="assets/grid_refinement.png" width=500 />
 
 ## Todos
 
