@@ -129,11 +129,12 @@ def update(f, d, v, a, h):
     f_slice = jax.lax.dynamic_slice(f, (0, ib_start_x, ib_start_y), (9, IB_SIZE, IB_SIZE))
     
     # calculate ibm force
-    g_lattice, h_markers = ib.multi_direct_forcing(u_slice, X_slice, Y_slice, 
+    g_slice, h_markers = ib.multi_direct_forcing(u_slice, X_slice, Y_slice, 
                                                    v, x_markers, y_markers, N_MARKER, L_ARC, 
                                                    N_ITER_MDF, ib.kernel_range4)
     
     # apply the force to the lattice
+    g_lattice = lbm.get_discretized_force(g_slice, u_slice)
     s_slice = mrt.get_source(g_lattice, MRT_SRC_LEFT)    
     f = jax.lax.dynamic_update_slice(f, f_slice + s_slice, (0, ib_start_x, ib_start_y))
 

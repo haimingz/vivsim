@@ -151,7 +151,7 @@ def update(f, d, v, a, h, X, Y):
     Y_slice = Y[IB_START_X: IB_END_X]
     f_slice = f[:, IB_START_X: IB_END_X]
         
-    g = jnp.zeros((2, IB_END_X - IB_START_X, NY // N_DEVICES))  # ! important for multi-device simulation
+    g_slice = jnp.zeros((2, IB_END_X - IB_START_X, NY // N_DEVICES))  # ! important for multi-device simulation
     h_markers = jnp.zeros((N_MARKER, 2))  # hydrodynamic force to the markers
     
     # calculate the kernel functions for all markers
@@ -171,10 +171,10 @@ def update(f, d, v, a, h, X, Y):
         u_slice += lbm.get_velocity_correction(g_correction)
         
         # accumulate the corresponding correction force to the markers and the fluid
-        g += g_correction
+        g_slice += g_correction
         h_markers -= g_markers_correction
 
-    g_lattice = lbm.get_discretized_force(g, u_slice)
+    g_lattice = lbm.get_discretized_force(g_slice, u_slice)
     
     # apply the force to the lattice
     s_slice = mrt.get_source(g_lattice, MRT_SRC_LEFT)    
