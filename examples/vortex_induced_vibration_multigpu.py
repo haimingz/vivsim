@@ -151,7 +151,7 @@ def update(f, d, v, a, h, X, Y):
     Y_slice = Y[IB_START_X: IB_END_X]
     f_slice = f[:, IB_START_X: IB_END_X]
         
-    g = jnp.zeros((2, IB_END_X - IB_START_X, NY // N_DEVICES))  # ! important for multi-device simulation
+    g_slice = jnp.zeros((2, IB_END_X - IB_START_X, NY // N_DEVICES))  # ! important for multi-device simulation
     h_markers = jnp.zeros((N_MARKER, 2))  # hydrodynamic force to the markers
     
     # calculate the kernel functions for all markers
@@ -160,21 +160,20 @@ def update(f, d, v, a, h, X, Y):
     for _ in range(N_ITER_MDF):
         
         # velocity interpolation
-        u_markers = ib.interpolate_velocity_at_markers(u_slice, kernels)
+        u_markers = jnp.einsum("dxy,nxy->nd", u_slice, kernels)
         u_markers = jax.lax.psum(u_markers, 'y')  # ! important for multi-device simulation
         
         # compute correction force
-        g_markers_correction = ib.get_noslip_forces_at_markers(v, u_markers, L_ARC)
-        g_correction = ib.spread_force_to_fluid(g_markers_correction, kernels)
+        delta_u_markers = v - u_markers
+        h_markers -= delta_u_markers * L_ARC
         
-        # velocity correction
-        u_slice += lbm.get_velocity_correction(g_correction)
+        # force to the fluid
+        delta_u = jnp.einsum("nd,nxy->dxy", delta_u_markers, kernels) * L_ARC
+        g_slice += delta_u * 2 
+        u_slice += delta_u 
         
-        # accumulate the corresponding correction force to the markers and the fluid
-        g += g_correction
-        h_markers -= g_markers_correction
 
-    g_lattice = lbm.get_discretized_force(g, u_slice)
+    g_lattice = lbm.get_discretized_force(g_slice, u_slice)
     
     # apply the force to the lattice
     s_slice = mrt.get_source(g_lattice, MRT_SRC_LEFT)    

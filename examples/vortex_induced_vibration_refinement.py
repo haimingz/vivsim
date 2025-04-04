@@ -164,11 +164,12 @@ def solve_fsi(f, u, d, v, a, h, left_matrix):
     f_slice = jax.lax.dynamic_slice(f, (0, ib_x1_, ib_y1_), (9, IB_SIZE, IB_SIZE))
     
     # calculate ibm force
-    g_lattice, h_markers = ib.multi_direct_forcing(u_slice, X_slice, Y_slice, 
+    g_slice, h_markers = ib.multi_direct_forcing(u_slice, X_slice, Y_slice, 
                                                    v, x_markers, y_markers, N_MARKER, L_ARC, 
                                                    N_ITER_MDF, ib.kernel_range3)
 
     # apply the force to the lattice
+    g_lattice = lbm.get_discretized_force(g_slice, u_slice)
     s_slice = mrt.get_source(g_lattice, left_matrix)    
     f = jax.lax.dynamic_update_slice(f, f_slice + s_slice, (0, ib_x1_, ib_y1_))
 
