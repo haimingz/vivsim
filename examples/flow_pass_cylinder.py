@@ -164,8 +164,8 @@ for t in tqdm(range(TM)):
         
         cl = h_history[1] * 2 / (D * U0 ** 2)
         cd = h_history[0] * 2 / (D * U0 ** 2)         
-        l1.set_ydata(cl)
-        l2.set_ydata(cd)
+        l1.set_ydata(cd)
+        l2.set_ydata(cl)
         
         if t > TM//2:
             cd_mean = jnp.mean(cd[TM//2:t])
