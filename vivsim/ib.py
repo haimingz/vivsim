@@ -121,6 +121,7 @@ def multi_direct_forcing(u, x, y, v_markers, x_markers, y_markers,
     g = jnp.zeros_like(u)
     h_markers = jnp.zeros((n_markers, 2))
     kernels = get_kernels(x_markers, y_markers, x, y, kernel_func)
+    seg_len_markers = jnp.reshape(seg_len_markers, (-1,1)) # make sure the shape is correct for multiplication
     for _ in range(n_iter):        
         # velocity at markers
         u_markers = jnp.einsum("dxy,nxy->nd", u, kernels) # fluid velocity at markers
@@ -144,6 +145,7 @@ def implicit(u, x, y, v_markers, x_markers, y_markers,
              seg_len_markers,  kernel_func=kernel_range4):
 
     kernels = get_kernels(x_markers, y_markers, x, y, kernel_func) 
+    seg_len_markers = jnp.reshape(seg_len_markers, (-1,1)) # make sure the shape is correct for multiplication
     
     # velocity at markers
     u_markers = jnp.einsum("dxy,nxy->nd", u, kernels) # fluid velocity at markers
