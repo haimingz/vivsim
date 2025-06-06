@@ -170,7 +170,7 @@ def get_markers_coords_2dof(x_markers_init, y_markers_init, d):
     
     Args:
         x_markers_init, y_markers_init (ndarray of shape (N_MARKER)): The initial coordinates of the markers.
-        d (ndarray of shape (1) or (3)): The instantaneous displacement of the object.
+        d (ndarray of shape (2)): The instantaneous displacement of the object.
     
     Returns:
         x_markers, y_markers (ndarray of shape (N_MARKER)): The updated coordinates.
@@ -187,7 +187,7 @@ def get_markers_coords_3dof(x_markers_init, y_markers_init, x_center_init, y_cen
     Args:
         x_markers_init, y_markers_init (ndarray of shape (N_MARKER)): The initial coordinates of the markers.
         x_center_init, y_center_init (scaler): The original coordinates of the object center.
-        d (ndarray of shape (2)): The instantaneous displacement of the object.
+        d (ndarray of shape (3)): The instantaneous displacement of the object.
     
     Returns:
         x_markers, y_markers (ndarray of shape (N_MARKER)): The updated coordinates.
