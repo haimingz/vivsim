@@ -4,15 +4,6 @@
 # domain and is free to move in the flow. The flow is driven by a constant
 # velocity U0 in the x direction.
 
-import os
-os.environ['XLA_FLAGS'] = (
-    '--xla_gpu_enable_triton_softmax_fusion=true '
-    '--xla_gpu_triton_gemm_any=True '
-    # '--xla_gpu_enable_async_collectives=true '
-    '--xla_gpu_enable_latency_hiding_scheduler=true '
-    '--xla_gpu_enable_highest_priority_async_stream=true '
-)
-
 import math
 import jax
 import jax.numpy as jnp
@@ -24,7 +15,7 @@ from vivsim import dyn, ib, lbm, multigrid as mg, post, mrt, multidevice as md
 
 # ============================= plot options =======================
 
-PLOT = 'curl'  # whether to plot the results
+PLOT = True  # whether to plot the results
 PLOT_EVERY = 100  # plot every n time steps
 PLOT_AFTER = 00  # plot after n time steps
 
@@ -37,11 +28,11 @@ TM = 60000             # Total time steps
 
 # multi-block config
 HEIGHT = 20 * D
-WIDTHS = [7 * D, 6 * D, 3 * D, 14 * D]
-LEVELS = [-1, 0, -1, -2]
+WIDTHS = jnp.array([7.5, 0.5, 4, 0.5, 17.5]) * D
+LEVELS = [-2, -1, 0, -1, -2]
 
 # cylinder position
-X_OBJ = 8 * D
+X_OBJ = 10 * D
 Y_OBJ = HEIGHT // 2 
 
 # IB parameters
@@ -66,14 +57,15 @@ DAMPING = 2 * math.sqrt(STIFFNESS * MASS) * DR              # Damping of the spr
 
 # fluid parameters
 NU = U0 * D / RE                                            # Kinematic viscosity
-MRT_COL_LEFT1, MRT_SRC_LEFT1 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[0]))
-MRT_COL_LEFT2, MRT_SRC_LEFT2 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[1]))
-MRT_COL_LEFT3, MRT_SRC_LEFT3 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[2]))
+MRT_COL_LEFT0, MRT_SRC_LEFT0 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[0]))
+MRT_COL_LEFT1, MRT_SRC_LEFT1 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[1]))
+MRT_COL_LEFT2, MRT_SRC_LEFT2 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[2]))
+MRT_COL_LEFT3, MRT_SRC_LEFT3 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[3]))
 MRT_COL_LEFT4, MRT_SRC_LEFT4 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[3]))
 
 # ====================== IBM parameters ==================
 
-X_OBJ_LOCAL = X_OBJ - WIDTHS[0]
+X_OBJ_LOCAL = X_OBJ - WIDTHS[0] - WIDTHS[1]
 Y_OBJ_LOCAL = Y_OBJ
 
 THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, dtype=jnp.float32, endpoint=False)
@@ -87,21 +79,24 @@ IB_START_X = int(X_OBJ_LOCAL - 0.5 * D - IB_MARGIN)
 IB_START_Y = int(Y_OBJ_LOCAL - 0.5 * D - IB_MARGIN)
 IB_SIZE = D + IB_MARGIN * 2
  
-X, Y = jnp.meshgrid(jnp.arange(WIDTHS[1]), jnp.arange(HEIGHT), indexing='ij')
+X, Y = jnp.meshgrid(jnp.arange(WIDTHS[2]), jnp.arange(HEIGHT), indexing='ij')
 
 
 # ======================= define variables =====================
 
-f1, rho1, u1 = mg.init_grid(WIDTHS[0], HEIGHT, LEVELS[0], buffer_x=1)
-f2, rho2, u2 = mg.init_grid(WIDTHS[1], HEIGHT, LEVELS[1])
-f3, rho3, u3 = mg.init_grid(WIDTHS[2], HEIGHT, LEVELS[2], buffer_x=1)
-f4, rho4, u4 = mg.init_grid(WIDTHS[3], HEIGHT, LEVELS[3], buffer_x=1)
+f0, rho0, u0 = mg.init_grid(WIDTHS[0], HEIGHT, LEVELS[0], buffer_x=1)
+f1, rho1, u1 = mg.init_grid(WIDTHS[1], HEIGHT, LEVELS[1], buffer_x=1)
+f2, rho2, u2 = mg.init_grid(WIDTHS[2], HEIGHT, LEVELS[2])
+f3, rho3, u3 = mg.init_grid(WIDTHS[3], HEIGHT, LEVELS[3], buffer_x=1)
+f4, rho4, u4 = mg.init_grid(WIDTHS[4], HEIGHT, LEVELS[4], buffer_x=1)
 
+u0 = u0.at[0].set(U0)
 u1 = u1.at[0].set(U0)
 u2 = u2.at[0].set(U0)
 u3 = u3.at[0].set(U0)
 u4 = u4.at[0].set(U0)
 
+f0 = lbm.get_equilibrium(rho0, u0)
 f1 = lbm.get_equilibrium(rho1, u1)
 f2 = lbm.get_equilibrium(rho2, u2)
 f3 = lbm.get_equilibrium(rho3, u3)
@@ -112,9 +107,9 @@ v = jnp.zeros((2), dtype=jnp.float32)
 a = jnp.zeros((2), dtype=jnp.float32) 
 h = jnp.zeros((2), dtype=jnp.float32) 
 
-v = v.at[1].set(1e-3) 
+v = v.at[1].set(U0 * 0.01) 
 
-feq_init = f1[:,1,1]
+feq_init = f0[:, 1, 1]
 
 # ======================= compute routine =====================
 
@@ -147,7 +142,7 @@ def solve_fsi(f, u, d, v, a, h):
     
     # apply the force to the lattice
     g_lattice = lbm.get_discretized_force(g_slice, u_slice)
-    s_slice = mrt.get_source(g_lattice, MRT_SRC_LEFT2)    
+    s_slice = mrt.get_source(g_lattice, MRT_SRC_LEFT3)    
     f = jax.lax.dynamic_update_slice(f, f_slice + s_slice, (0, ib_start_x + 1, ib_start_y + 1))
 
     # apply the force to the cylinder
@@ -185,7 +180,7 @@ def update_coarse1(f1, f2, f3, f4, d, v, a, h):
     
     # boundary conditions
     f1 = mg.fine_to_coarse(f2, f1, dir='left')
-    f1 = lbm.velocity_boundary(f1, U0, 0, loc='left')
+    f1 = mg.coarse_to_fine(f0, f1, dir='right')
     
     f3 = mg.fine_to_coarse(f2, f3, dir='right')
     f3 = mg.coarse_to_fine(f4, f3, dir='left')    
@@ -196,12 +191,14 @@ def update_coarse1(f1, f2, f3, f4, d, v, a, h):
             d, v, a, h,)
 
 @jax.jit
-def update_coarse2(f1, f2, f3, f4, d, v, a, h):
+def update_coarse2(f0, f1, f2, f3, f4, d, v, a, h):
     
-    # collision (mesh4)
+    # collision (mesh0 & mesh4)
+    f0, rho0, u0 = macro_collision(f0, MRT_COL_LEFT0)
     f4, rho4, u4 = macro_collision(f4, MRT_COL_LEFT4)
     
-    # streaming (mesh4)
+    # streaming (mesh0 & mesh4)
+    f0 = lbm.streaming(f0)
     f4 = lbm.streaming(f4)
     
     # update fine mesh twice (mesh1 & mesh2 & mesh3)
@@ -215,10 +212,14 @@ def update_coarse2(f1, f2, f3, f4, d, v, a, h):
      d, v, a, h) = update_coarse1(f1, f2, f3, f4, d, v, a, h)
 
     # boundary conditions
+    f0 = mg.fine_to_coarse(f1, f0, dir='left')
+    f0 = lbm.velocity_boundary(f0, U0, 0, loc='left')
+    
     f4 = mg.fine_to_coarse(f3, f4, dir='right') 
     f4 = lbm.boundary_equilibrium(f4, feq_init[:, jnp.newaxis], loc='right')
     
-    return (f1, rho1, u1, 
+    return (f0, rho0, u0,
+            f1, rho1, u1, 
             f2, rho2, u2, 
             f3, rho3, u3, 
             f4, rho4, u4, 
@@ -227,7 +228,7 @@ def update_coarse2(f1, f2, f3, f4, d, v, a, h):
 
 # ======================= create plot template =====================
 
-if PLOT == 'curl':
+if PLOT:
     mpl.rcParams['figure.raise_window'] = False
     
     plt.figure(figsize=(10, 4))
@@ -235,31 +236,37 @@ if PLOT == 'curl':
     kwargs = dict(
         cmap="seismic", aspect="equal", origin="lower",
         # norm=mpl.colors.CenteredNorm(),
-        vmax=0.3,
-        vmin=-0.3,
+        vmax=0.01,
+        vmin=-0.01,
     )
 
-    im1 = plt.imshow(
-        post.calculate_curl(u1).T, 
+    im0 = plt.imshow(
+        post.calculate_curl(u0).T, 
         extent=[0, WIDTHS[0] / D, 0, HEIGHT / D],
         **kwargs
     )
     
+    im1 = plt.imshow(
+        post.calculate_curl(u1).T * 2, 
+        extent=[WIDTHS[0] / D, jnp.sum(WIDTHS[:2]) / D, 0, HEIGHT / D],
+        **kwargs
+    )
+    
     im2 = plt.imshow(
-        post.calculate_curl(u2).T * 2, 
-        extent=[WIDTHS[0] / D, (WIDTHS[0] + WIDTHS[1]) / D, 0, HEIGHT / D],
+        post.calculate_curl(u2).T, 
+        extent=[jnp.sum(WIDTHS[:2]) / D, jnp.sum(WIDTHS[:3]) / D, 0, HEIGHT / D],
         **kwargs
     )
     
     im3 = plt.imshow(
-        post.calculate_curl(u3).T, 
-        extent=[(WIDTHS[0] + WIDTHS[1]) / D, (WIDTHS[0] + WIDTHS[1] + WIDTHS[2]) / D, 0, HEIGHT / D],
+        post.calculate_curl(u3).T,
+        extent=[ jnp.sum(WIDTHS[:3]) / D,  jnp.sum(WIDTHS[:4]) / D, 0, HEIGHT / D],
         **kwargs
     )
-    
+
     im4 = plt.imshow(
         post.calculate_curl(u4).T,
-        extent=[ (WIDTHS[0] + WIDTHS[1] + WIDTHS[2]) / D,  (WIDTHS[0] + WIDTHS[1] + WIDTHS[2] + WIDTHS[3]) / D, 0, HEIGHT / D],
+        extent=[jnp.sum(WIDTHS[:4]) / D, jnp.sum(WIDTHS)/D, 0, HEIGHT / D],
         **kwargs
     )
 
@@ -274,51 +281,38 @@ if PLOT == 'curl':
     plt.gca().add_artist(circle)
     
     # draw the boundaries of mesh blocks
-    plt.axvline(WIDTHS[0] / D, color="g", linestyle="--", linewidth=0.5)
-    plt.axvline((WIDTHS[0] + WIDTHS[1]) / D, color="g", linestyle="--", linewidth=0.5)   
-    plt.axvline((WIDTHS[0] + WIDTHS[1] + WIDTHS[2]) / D, color="g", linestyle="--", linewidth=0.5)
+    plt.axvline(jnp.sum(WIDTHS[:1])/ D, color="g", linestyle="--", linewidth=0.5)
+    plt.axvline(jnp.sum(WIDTHS[:2]) / D, color="g", linestyle="--", linewidth=0.5)   
+    plt.axvline(jnp.sum(WIDTHS[:3]) / D, color="g", linestyle="--", linewidth=0.5)
+    plt.axvline(jnp.sum(WIDTHS[:4]) / D, color="g", linestyle="--", linewidth=0.5)
 
     # mark the initial position of the cylinder
     plt.plot(X_OBJ / D, Y_OBJ / D, 
              marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
     
     plt.tight_layout()
-
-dy = []
-
-if PLOT == 'viv':
-    mpl.rcParams['figure.raise_window'] = False
-    plt.figure(figsize=(10, 4))    
-    line, = plt.plot(dy, label='displacement')
-    title = plt.title('')
-    plt.ylim(-1, 1)
-    
+   
 
 # ========================== start simulation ==========================
 
 for t in tqdm(range(TM)):
     (
+        f0, rho0, u0, 
         f1, rho1, u1, 
         f2, rho2, u2, 
         f3, rho3, u3, 
         f4, rho4, u4, 
         d, v, a, h
     ) = update_coarse2(
-        f1, f2, f3, f4, d, v, a, h,
+        f0, f1, f2, f3, f4, d, v, a, h,
     )
     
-    if t % PLOT_EVERY == 0 and t > PLOT_AFTER:
-    
-        if PLOT == 'curl':
-            im1.set_data(post.calculate_curl(u1).T * 2)
-            im2.set_data(post.calculate_curl(u2).T * 4)
-            im3.set_data(post.calculate_curl(u3).T * 2)
-            im4.set_data(post.calculate_curl(u4).T)
-            circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
-            plt.pause(0.01)
+    if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
 
-        if PLOT == 'viv':            
-            line.set_data(range(len(dy)),dy)
-            title.set_text(f'amp: {max(dy[-1000:]):.3f}D')
-            plt.xlim(0, len(dy))
-            plt.pause(0.01)
+        im0.set_data(post.calculate_curl(u0).T / D / U0 / 4)
+        im1.set_data(post.calculate_curl(u1).T / D / U0 / 2)
+        im2.set_data(post.calculate_curl(u2).T / D / U0 / 1)
+        im3.set_data(post.calculate_curl(u3).T / D / U0 / 2)   
+        im4.set_data(post.calculate_curl(u4).T / D / U0 / 4)  
+        circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
+        plt.pause(0.01)

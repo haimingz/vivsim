@@ -1,12 +1,3 @@
-import os
-os.environ['XLA_FLAGS'] = (
-    '--xla_gpu_enable_triton_softmax_fusion=true '
-    '--xla_gpu_triton_gemm_any=True '
-    # '--xla_gpu_enable_async_collectives=true '
-    '--xla_gpu_enable_latency_hiding_scheduler=true '
-    '--xla_gpu_enable_highest_priority_async_stream=true ' 
-)
-
 import math
 import jax
 import jax.numpy as jnp
@@ -16,33 +7,28 @@ import matplotlib as mpl
 
 from vivsim import dyn, ib, lbm, multigrid as mg, post, mrt
 
-# ========================== CONSTANTS =======================
-
-D = 20                 # Cylinder diameter
-U0 = 0.1                # Inlet velocity
-
-# Cylinder position
-X_OBJ = 10 * D          # Cylinder x position
-Y_OBJ = 10 * D          # Cylinder y position
-
-# IB method parameters
-N_MARKER = 4 * D       # Number of markers on cylinder
-N_ITER_MDF = 3         # Multi-direct forcing iterations
-IB_PADDING = 2         # Padding around the cylinder
-
-# Physical parameters
-RE = 200               # Reynolds number
-UR = 5                 # Reduced velocity
-MR = 10                # Mass ratio
-DR = 0                 # Damping ratio
-
 # ========================== PLOT OPTIONS =======================
 
 PLOT = True
 PLOT_AFTER = 0
 PLOT_EVERY = 50
 
-# ========================== GRID PARAMETERS =======================
+# ========================== CONSTANTS =======================
+
+# Physical parameters
+RE = 200               # Reynolds number
+UR = 5                 # Reduced velocity
+MASS_RATIO = 10                # Mass ratio
+DAMP_RATIO = 0                 # Damping ratio
+
+
+
+# ========================== GEOMETRY PARAMETERS =======================
+
+D = 20                  # Cylinder diameter
+
+OBJ_X = 10 * D          # Cylinder x position
+OBJ_Y = 10 * D          # Cylinder y position
 
 # absolute coordinates of the grids (G1, G2, G3)
 
@@ -68,51 +54,46 @@ G3_Y2 = G3_Y1 + G3_HEIGHT               # bottom boundary of grid 3
 
 # relative coordinates of the grids (with respect to the parent grid)
 
-def global_to_grid1(x, y):
-    return int(x // 4), int(y // 4) 
+G2_X1_, G2_Y1_ = mg.coord_to_indices(G2_X1, G2_Y1, 0, 0, -2)
+G2_X2_, G2_Y2_ = mg.coord_to_indices(G2_X2, G2_Y2, 0, 0, -2)
+G3_X1_, G3_Y1_ = mg.coord_to_indices(G3_X1, G3_Y1, G2_X1, G2_Y1, -1)
+G3_X2_, G3_Y2_ = mg.coord_to_indices(G3_X2, G3_Y2, G2_X1, G2_Y1, -1)
+OBJ_X_, OBJ_Y_ = mg.coord_to_indices(OBJ_X , OBJ_Y, G3_X1, G3_Y1, 0)
 
-def global_to_grid2(x, y):
-    return int((x - G2_X1) // 2), int((y - G2_Y1) // 2)
+# ==================== SIMULATION PARAMETERS =======================
 
-def global_to_grid3(x, y):
-    return int(x - G3_X1), int(y - G3_Y1)
+U0 = 0.05                                           # Inlet velocity
+FN = U0 / (UR * D)                                  # Natural frequency
+AREA  = math.pi * (D / 2) ** 2                      # Area of the cylinder
+MASS = AREA * MASS_RATIO                            # Mass of the cylinder
+STIFF = (FN * 2 * math.pi) ** 2 * MASS              # Stiffness of the spring
+DAMP = 2 * math.sqrt(STIFF * MASS) * DAMP_RATIO     # Damping of the spring
+TM = int(100 / FN / 4)                               # Total time steps 
+VISC = U0 * D / RE                                  # Kinematic viscosity
 
-G2_X1_, G2_Y1_ = global_to_grid1(G2_X1, G2_Y1)
-G2_X2_, G2_Y2_ = global_to_grid1(G2_X2, G2_Y2)
-G3_X1_, G3_Y1_ = global_to_grid2(G3_X1, G3_Y1)
-G3_X2_, G3_Y2_ = global_to_grid2(G3_X2, G3_Y2)
+# multiple relaxation time parameters
+MRT_COL_LEFT1, MRT_SRC_LEFT1 = mrt.precompute_left_matrices(mg.get_omega(VISC, -2))
+MRT_COL_LEFT2, MRT_SRC_LEFT2 = mrt.precompute_left_matrices(mg.get_omega(VISC, -1))
+MRT_COL_LEFT3, MRT_SRC_LEFT3 = mrt.precompute_left_matrices(mg.get_omega(VISC, 0))
 
-# ==================== DERIVED CONSTANTS =======================
-
-# structural parameters
-FN = U0 / (UR * D)                                          # Natural frequency
-MASS = math.pi * (D / 2) ** 2 * MR                          # Mass of the cylinder
-STIFFNESS = (FN * 2 * math.pi) ** 2 * MASS * (1 + 1 / MR)   # Stiffness of the spring
-DAMPING = 2 * math.sqrt(STIFFNESS * MASS) * DR              # Damping of the spring
-
-# time steps
-TM = int(50 / FN / 4)                                       # Total time steps 
-
-# fluid parameters
-NU = U0 * D / RE                                            # Kinematic viscosity
-MRT_COL_LEFT1, MRT_SRC_LEFT1 = mrt.precompute_left_matrices(mg.get_omega(NU, G1_LEVEL))
-MRT_COL_LEFT2, MRT_SRC_LEFT2 = mrt.precompute_left_matrices(mg.get_omega(NU, G2_LEVEL))
-MRT_COL_LEFT3, MRT_SRC_LEFT3 = mrt.precompute_left_matrices(mg.get_omega(NU, G3_LEVEL))
 
 # IBM parameters
-X_OBJ_, Y_OBJ_ = global_to_grid3(X_OBJ , Y_OBJ)
-THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, dtype=jnp.float32, endpoint=False)
-X_MARKERS_ = X_OBJ_ + 0.5 * D * jnp.cos(THETA_MAKERS)
-Y_MARKERS_ = Y_OBJ_ + 0.5 * D * jnp.sin(THETA_MAKERS)
-L_ARC = D * math.pi / N_MARKER  # arc length between the markers
+N_MARKER = 4 * D                                   # Number of markers on cylinder
+ARC_LEN = D * math.pi / N_MARKER                   # arc length between the markers
+MAKERS_THETA = jnp.linspace(0, jnp.pi * 2, N_MARKER, dtype=jnp.float32, endpoint=False)
+MARKERS_X_ = OBJ_X_ + 0.5 * D * jnp.cos(MAKERS_THETA) # initial x position of the markers (indices on grid3)
+MARKERS_Y_ = OBJ_Y_ + 0.5 * D * jnp.sin(MAKERS_THETA) # initial y position of the markers (indices on grid3)
 
-# dynamic ibm region
-IB_X1_ = int(X_OBJ_ - 0.5 * D - IB_PADDING)
-IB_Y1_ = int(Y_OBJ_ - 0.5 * D - IB_PADDING)
-IB_SIZE = D + IB_PADDING * 2
 
-# coords of grid3 (where FSI happens)
-G3_X_, G3_Y_ = jnp.mgrid[0:G3_WIDTH, 0:G3_HEIGHT]
+IB_PADDING = 2                                      # Padding size for IB
+IB_X1_ = int(OBJ_X_ - 0.5 * D - IB_PADDING)         # intial x position of the IB
+IB_Y1_ = int(OBJ_Y_ - 0.5 * D - IB_PADDING)         # intial y position of the IB
+IB_SIZE = D + IB_PADDING * 2                        # size of the IB region
+
+MDF_ITER = 3                                        # Number of Multi-direct forcing iterations
+FSI_ITER = 3                                        # Number of FSI iterations
+
+G3_X_, G3_Y_ = jnp.mgrid[0:G3_WIDTH, 0:G3_HEIGHT]            # coords of grid3 (for IB calculation)
 
 # ======================= define variables =====================
 
@@ -151,7 +132,7 @@ def macro_collision(f, left_matrix):
 def solve_fsi(f, u, d, v, a, h, left_matrix):
     
     # update markers position
-    x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS_, Y_MARKERS_, d)
+    x_markers, y_markers = ib.get_markers_coords_2dof(MARKERS_X_, MARKERS_Y_, d)
     
     # update ibm region
     ib_x1_ = (IB_X1_ + d[0]).astype(jnp.int32)
@@ -165,8 +146,8 @@ def solve_fsi(f, u, d, v, a, h, left_matrix):
     
     # calculate ibm force
     g_slice, h_markers = ib.multi_direct_forcing(u_slice, X_slice, Y_slice, 
-                                                   v, x_markers, y_markers, N_MARKER, L_ARC, 
-                                                   N_ITER_MDF, ib.kernel_range3)
+                                                   v, x_markers, y_markers, N_MARKER, ARC_LEN, 
+                                                   MDF_ITER, ib.kernel_range3)
 
     # apply the force to the lattice
     g_lattice = lbm.get_discretized_force(g_slice, u_slice)
@@ -176,7 +157,7 @@ def solve_fsi(f, u, d, v, a, h, left_matrix):
     # apply the force to the cylinder
     h = ib.get_force_to_obj(h_markers)
     h += a * math.pi * D ** 2 / 4   
-    a, v, d = dyn.newmark_2dof(a, v, d, h, MASS, STIFFNESS, DAMPING)
+    a, v, d = dyn.newmark_2dof(a, v, d, h, MASS, STIFF, DAMP)
     
     return f, d, v, a, h
 
@@ -314,12 +295,12 @@ if PLOT:
     
    
     # draw a circle representing the cylinder
-    cylinder = plt.Circle(((X_OBJ + d[0]) / D , (Y_OBJ + d[1]) / D), 0.5, 
+    cylinder = plt.Circle(((OBJ_X + d[0]) / D , (OBJ_Y + d[1]) / D), 0.5, 
                         edgecolor='black', linewidth=0.5, facecolor='white', fill=True)
     plt.gca().add_artist(cylinder)
     
     # mark the initial position of the cylinder
-    plt.plot(X_OBJ / D , Y_OBJ / D, marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
+    plt.plot(OBJ_X / D , OBJ_Y / D, marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
        
         
     plt.xlabel("x/D")
@@ -345,8 +326,8 @@ for t in tqdm(range(TM)):
         im2.set_data(post.calculate_curl(u2).T * 2)
         im3.set_data(post.calculate_curl(u3).T * 4)            
     
-        obj_x = (X_OBJ + d[0]) / D
-        obj_y = (Y_OBJ + d[1]) / D
+        obj_x = (OBJ_X + d[0]) / D
+        obj_y = (OBJ_Y + d[1]) / D
         cylinder.set_center((obj_x, obj_y))
         
         ib_region.set_xy(((G3_X1 + IB_X1_ + d[0]).astype(jnp.int32) / D, (G3_Y1 + IB_Y1_ + d[1]).astype(jnp.int32) / D))

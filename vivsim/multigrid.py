@@ -144,3 +144,27 @@ def get_omega(nu, level=0):
     omega = 2 * omega_l0 / ( 2 ** (level + 1) + (1 - 2 ** level) * omega_l0)
     
     return omega
+
+
+def coord_to_indices(x, y, grid_start_x, grid_start_y, level=0):
+    """ 
+    Convert global coordinates to local indices within a refined grid level.
+    Given a global (x, y) coordinate, and the starting coordinates of a grid block,
+    this function computes the corresponding local indices at a specified refinement level.
+    The refinement level determines the fineness of the grid; higher levels correspond
+    to finer grids, while lower levels represent coarser grids.
+        
+    Args:
+        grid_start_x (int): The x-coordinate of the grid block's origin.
+        grid_start_y (int): The y-coordinate of the grid block's origin.
+        level (int, optional): The refinement level. Defaults to 0.
+            Positive levels indicate finer grids (higher resolution), while negative
+            levels indicate coarser grids (lower resolution).
+    Returns:
+        tuple of int: A tuple containing the local x and y indices (local_x, local_y).
+    """
+    
+    local_x = int((x - grid_start_x) * 2 ** level)
+    local_y = int((y - grid_start_y) * 2 ** level)
+    
+    return local_x, local_y

@@ -76,7 +76,7 @@ if PLOT:
     mpl.rcParams['figure.raise_window'] = False
     plt.subplots(figsize=(5, 4))
     im = plt.imshow(
-        post.calculate_velocity(u).T,
+        post.calculate_velocity_magnitude(u).T,
         cmap="plasma_r",
         aspect="equal",
         origin="lower",
@@ -90,6 +90,6 @@ for t in tqdm(range(TM)):
     f, feq, rho, u  = update(f)
     
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
-        im.set_data(post.calculate_velocity(u).T)
+        im.set_data(post.calculate_velocity_magnitude(u).T)
         im.autoscale()
         plt.pause(0.001)
