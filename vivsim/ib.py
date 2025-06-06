@@ -133,7 +133,7 @@ def multi_direct_forcing(u, x, y, v_markers, x_markers, y_markers,
         g += g_correction # accumulate required force to fluid at lattice points        
         
         # force to solid
-        h_markers -= u_markers_diff * seg_len_markers  # accumulate required force to solid at markers
+        h_markers -= g_markers_correction # accumulate required force to solid at markers
         
         # update velocity
         u += g_correction * 0.5 # correct fluid velocity at lattice points (Guo's forcing scheme)
@@ -157,7 +157,7 @@ def implicit(u, x, y, v_markers, x_markers, y_markers,
     u_correction = jnp.einsum("nd,nxy->dxy", u_markers_correction, kernels) # required fluid velocity correction at lattice points
     
     # required force correction
-    h_markers = - u_markers_correction * seg_len_markers # required force to solid at markers
+    h_markers = - u_markers_correction * 2 * seg_len_markers # required force to solid at markers
     g = u_correction * 2 * seg_len_markers # required force to fluid at lattice points
     
     return g, h_markers
