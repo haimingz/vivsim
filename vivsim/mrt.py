@@ -29,7 +29,7 @@ def get_relax_matrix(omega):
     """Get the relaxation matrix for the MRT collision model
     according to the given relaxation parameter omega."""
 
-    return jnp.diag(jnp.array([1, 1.4, 1.4, 1, 1.2, 1, 1.2, omega, omega]))
+    return jnp.diag(jnp.array([0, 1.4, 1.4, 0, 1.2, 0, 1.2, omega, omega]))
 
 def get_collision_left_matrix(M, S):
     """Pre-compute the constant left matrix for the MRT collision model.
