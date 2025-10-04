@@ -5,7 +5,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-from vivsim import ib, lbm, multigrid as mg, post, mrt
+from vivsim import dyn, ib, lbm, multigrid as mg, post, mrt
 
 
 # ========================== CONSTANTS =======================
@@ -90,7 +90,7 @@ def update(f, d, v, a, h):
     f = f.at[:, IB_IDX1:IB_IDX1+IB_SIZE, IB_IDY1:IB_IDY1+IB_SIZE].add(s_slice)
 
     # calculate the total force to the cylinder
-    h = ib.get_force_to_obj(h_markers)
+    h = dyn.get_force_to_obj(h_markers)
     
     # streaming and applying boundary conditions
     f = lbm.streaming(f)

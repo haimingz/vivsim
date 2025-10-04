@@ -136,7 +136,7 @@ def update(f, d, v, a, h, X, Y):
     f = mrt.collision(f, feq, MRT_COL_LEFT)
     
     # update markers position
-    x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
+    x_markers, y_markers = dyn.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
     
     # extract data from ibm region
     u_slice = u[:, IB_START_X: IB_END_X]
@@ -173,7 +173,7 @@ def update(f, d, v, a, h, X, Y):
     f = f.at[:, IB_START_X:IB_END_X].set(f_slice + s_slice)
 
     # apply the force to the cylinder
-    h = ib.get_force_to_obj(h_markers)
+    h = dyn.get_force_to_obj(h_markers)
     h += a * math.pi * D ** 2 / 4   
     a, v, d = dyn.newmark_2dof(a, v, d, h, MASS, STIFFNESS, DAMPING)
     

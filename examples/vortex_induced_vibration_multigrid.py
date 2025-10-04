@@ -123,7 +123,7 @@ def macro_collision(f, left_matrix):
 def solve_fsi(f, u, d, v, a, h):
     
     # update markers position
-    x_markers, y_markers = ib.get_markers_coords_2dof(X_MARKERS_LOCAL, Y_MARKERS_LOCAL, d)
+    x_markers, y_markers = dyn.get_markers_coords_2dof(X_MARKERS_LOCAL, Y_MARKERS_LOCAL, d)
     
     # update ibm region
     ib_start_x = (IB_START_X + d[0]).astype(jnp.int32)
@@ -146,7 +146,7 @@ def solve_fsi(f, u, d, v, a, h):
     f = jax.lax.dynamic_update_slice(f, f_slice + s_slice, (0, ib_start_x + 1, ib_start_y + 1))
 
     # apply the force to the cylinder
-    h = ib.get_force_to_obj(h_markers)
+    h = dyn.get_force_to_obj(h_markers)
     h += a * math.pi * D ** 2 / 4   
     a, v, d = dyn.newmark_2dof(a, v, d, h, MASS, STIFFNESS, DAMPING)
     
