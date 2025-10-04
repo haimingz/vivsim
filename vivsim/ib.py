@@ -1,4 +1,4 @@
-"""This file implements the immersed boundary method (IBM) in the lattice Boltzmann method framework.
+"""This file implements the immersed boundary method (IBM) in the LBM framework.
 
 The IBM is used to transfer force between fluid and solid object. 
 The fluid-solid interface is represented by a set of Lagrangian markers that can move freely. 
@@ -15,6 +15,7 @@ Key variables:
 
 """
 
+import jax
 import jax.numpy as jnp
 
 
@@ -78,33 +79,33 @@ def kernel_range4(distance):
     )
 
 
-def get_kernels(x_markers, y_markers, x, y, kernel_func):
+def get_kernels(x_markers, y_markers, x_grid, y_grid, kernel_func):
     """Generate a stack of kernels for all the markers. The kernels are to be
     used in future interpolation and spreading operations.
     
     Args:
         x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of lagrangian markers.
-        x, y (ndarray of shape (NX, NY)): The coordinates of the lattice.
+        x_grid, y_grid (ndarray of shape (NX, NY)): The coordinates of the lattice.
         kernel_func (callable): The kernel function. Available options: 
             kernel_range2, kernel_range3, kernel_range4.
     
     Returns:
         out (ndarray of shape (N_MARKER, NX, NY))： The stacked kernel functions.
     """
-    return (kernel_func(x[None, ...] - x_markers[:, None, None]) \
-          * kernel_func(y[None, ...] - y_markers[:, None, None]))
+    return (kernel_func(x_grid[None, ...] - x_markers[:, None, None]) \
+          * kernel_func(y_grid[None, ...] - y_markers[:, None, None]))
 
 
 # ----------------- Core IB calculation -----------------
 
 
-def multi_direct_forcing(u, x, y, v_markers, x_markers, y_markers, 
+def multi_direct_forcing(u, x_grid, y_grid, v_markers, x_markers, y_markers, 
                          n_markers, seg_len_markers, n_iter=5, kernel_func=kernel_range4):
     """Multi-direct forcing method to enforce no-slip boundary at markers.
     
     Args:
         u (ndarray of shape (2, NX, NY)): The fluid velocity field.
-        x, y (ndarray of shape (NX, NY)): The coordinates of the Eulerian points.
+        x_grid, y_grid (ndarray of shape (NX, NY)): The coordinates of the Eulerian points.
         v_markers (ndarray of shape (2)): The solid velocity at the markers.
         x_markers, y_markers (ndarray of shape (n_markers)): The coordinates of the Lagrangian markers.
         n_markers (int): The number of markers.
@@ -114,15 +115,18 @@ def multi_direct_forcing(u, x, y, v_markers, x_markers, y_markers,
             Available options: ib.kernel_range2, ib.kernel_range3, ib.kernel_range4.
     
     Returns:
-        g (ndarray of shape (9, NX, NY)): The force density field applied to the fluid.
+        g (ndarray of shape (2, NX, NY)): The force density field applied to the fluid.
         h_markers (ndarray of shape (n_markers, 2)): The forces applied to individual markers.    
     """
         
     g = jnp.zeros_like(u)
     h_markers = jnp.zeros((n_markers, 2))
-    kernels = get_kernels(x_markers, y_markers, x, y, kernel_func)
+    kernels = get_kernels(x_markers, y_markers, x_grid, y_grid, kernel_func)
     seg_len_markers = jnp.reshape(seg_len_markers, (-1,1)) # make sure the shape is correct for multiplication
-    for _ in range(n_iter):        
+    
+    # Use jax.lax.fori_loop for better JIT compilation and optimization
+    def loop_body(i, carry):
+        g, h_markers, u = carry
         # velocity at markers
         u_markers = jnp.einsum("dxy,nxy->nd", u, kernels) # fluid velocity at markers
         u_markers_diff = v_markers - u_markers  # fluid and solid velocity difference at markers 
@@ -137,6 +141,10 @@ def multi_direct_forcing(u, x, y, v_markers, x_markers, y_markers,
         
         # update velocity
         u += g_correction * 0.5 # correct fluid velocity at lattice points (Guo's forcing scheme)
+        
+        return g, h_markers, u
+        
+    g, h_markers, _ = jax.lax.fori_loop(0, n_iter, loop_body, (g, h_markers, u))
     
     return g, h_markers
 
