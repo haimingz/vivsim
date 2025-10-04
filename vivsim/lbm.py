@@ -31,7 +31,7 @@ Key Variables in this file:
     * feq: Equilibrium DDF, shape (9, NX, NY) 
     * g: External force vector, shape (2, NX, NY)
     * g_lattice: External force discretized into lattice dirs, shape (9, NX, NY)
-    where NX and NY are the number of lattice nodes in the x and y directions, respectively.
+    where NX and NY are the numbers of lattice nodes in the x and y directions, respectively.
 
 """
 
@@ -161,7 +161,6 @@ def get_discretized_force(g, u):
     Args:
         g (jax.Array of shape (2, NX, NY)): The external force density.
         u (jax.Array of shape (2, NX, NY)): The fluid velocity.
-        g_lattice (jax.Array of shape (9, NX, NY)): The discretize external force term.
     
     Returns:
         g_lattice (jax.Array of shape (9, NX, NY)): The discretize external force term.    
@@ -204,7 +203,7 @@ def noslip_boundary(f, loc:str):
     
     Args:
         f (jax.Array): Discrete distribution function (DDF)
-        boundary (str): The boundary where the no-slip condition is enforced, 
+        loc (str): The boundary where the no-slip condition is enforced, 
             can be 'left', 'right', 'top', or 'bottom'.
         
     Returns:
