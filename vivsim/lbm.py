@@ -102,22 +102,19 @@ def get_equilibrium(rho, u):
     """Update the equilibrium distribution function based on the macroscopic properties.
     
     Args:
-        rho (jax.Array of shape (NX, NY)): The macroscopic density.
-        u (jax.Array of shape (2, NX, NY)): The macroscopic velocity.
-        feq (jax.Array of shape (9, NX, NY)): The equilibrium DDF.
-        
-    Returns:
-        feq (jax.Array of shape (9, NX, NY)): The equilibrium DDF.    
-    """
+        rho (jax.Array): The macroscopic density with shape (*spatial_dims).
+        u (jax.Array): The macroscopic velocity with shape (2, *spatial_dims).
+        They can be either 1D slice or 2D block.
 
-    uc = (u[0, :, :] * VELOCITIES[:, 0, jnp.newaxis, jnp.newaxis] + 
-          u[1, :, :] * VELOCITIES[:, 1, jnp.newaxis, jnp.newaxis])
+    Returns:
+        feq (jax.Array): The equilibrium DDF with shape (9, *spatial_dims).    
+    """
     
-    feq = rho[jnp.newaxis, ...] * WEIGHTS[:, jnp.newaxis, jnp.newaxis] * (
-            1 + 3 * uc + 4.5 * uc ** 2 
-            - 1.5 * (u[jnp.newaxis, 0] ** 2 + u[jnp.newaxis, 1] ** 2)
-        )
-    return feq
+    ndim = len(rho.shape)
+    uc = jnp.sum(u[jnp.newaxis, ...] *  VELOCITIES.reshape((9, 2) + (1,) * ndim), axis=1)
+    feq = (rho * WEIGHTS.reshape((9,) + (1,) * ndim) * 
+          (1 + 3 * uc + 4.5 * uc ** 2 - 1.5 * jnp.sum(u ** 2, axis=0)))
+    return feq 
 
 
 def collision(f, feq, omega):
