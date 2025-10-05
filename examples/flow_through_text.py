@@ -84,8 +84,8 @@ def update(f):
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.outlet_boundary(f, loc='top')
-    f = lbm.velocity_boundary(f, 0, U0, loc='bottom')
+    f = lbm.nebb_velocity(f, loc='bottom', uy_wall=U0)
+    f = lbm.nebb_pressure(f, loc='top')
     
     # Obstacle
     f = lbm.noslip_obstacle(f, MASK)

@@ -61,7 +61,6 @@ h = jnp.zeros((2), dtype=jnp.float32)
 
 u = u.at[0].set(U0)
 f =  lbm.get_equilibrium(rho, u)
-feq_init = f[:, 1, 1]
 
 
 # ======================= compute routine =====================
@@ -94,8 +93,8 @@ def update(f, d, v, a, h):
     
     # streaming and applying boundary conditions
     f = lbm.streaming(f)
-    f = lbm.velocity_boundary(f, U0, 0, loc='left')
-    f = lbm.boundary_equilibrium(f, feq_init[:, jnp.newaxis], loc='right') 
+    f = lbm.nebb_velocity(f, loc='left', ux_wall=U0)
+    f = lbm.nebb_pressure(f, loc='right') 
        
     return f, rho, u, d, v, a, h
 
@@ -148,7 +147,7 @@ for t in tqdm(range(TM)):
     h_history = h_history.at[:, t].set(h)
     
     if t % 400 == 0:
-        im.set_data(post.calculate_velocity(u).T)
+        im.set_data(post.calculate_velocity_magnitude(u).T)
         fig1.canvas.draw()
         fig1.canvas.flush_events()
         

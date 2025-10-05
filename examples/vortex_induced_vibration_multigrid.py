@@ -41,7 +41,7 @@ N_ITER_MDF = 3
 IB_MARGIN = 4          # Margin of the IB region to the cylinder
 
 # Physical parameters
-RE = 200               # Reynolds number
+RE = 20               # Reynolds number
 UR = 5                 # Reduced velocity
 MR = 10                # Mass ratio
 DR = 0                 # Damping ratio
@@ -61,7 +61,7 @@ MRT_COL_LEFT0, MRT_SRC_LEFT0 = mrt.precompute_left_matrices(mg.get_omega(NU, LEV
 MRT_COL_LEFT1, MRT_SRC_LEFT1 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[1]))
 MRT_COL_LEFT2, MRT_SRC_LEFT2 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[2]))
 MRT_COL_LEFT3, MRT_SRC_LEFT3 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[3]))
-MRT_COL_LEFT4, MRT_SRC_LEFT4 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[3]))
+MRT_COL_LEFT4, MRT_SRC_LEFT4 = mrt.precompute_left_matrices(mg.get_omega(NU, LEVELS[4]))
 
 # ====================== IBM parameters ==================
 
@@ -115,9 +115,9 @@ feq_init = f0[:, 1, 1]
 
 
 def macro_collision(f, left_matrix):  
-    rho, u = lbm.get_macroscopic(f[:, 1:-1, 1:-1])
+    rho, u = lbm.get_macroscopic(f)
     feq = lbm.get_equilibrium(rho, u)
-    f = f.at[:, 1:-1, 1:-1].set(mrt.collision(f[:, 1:-1, 1:-1], feq, left_matrix))
+    f = mrt.collision(f, feq, left_matrix)
     return f, rho, u
 
 def solve_fsi(f, u, d, v, a, h):
@@ -213,10 +213,10 @@ def update_coarse2(f0, f1, f2, f3, f4, d, v, a, h):
 
     # boundary conditions
     f0 = mg.fine_to_coarse(f1, f0, dir='left')
-    f0 = lbm.velocity_boundary(f0, U0, 0, loc='left')
+    f0 = lbm.nebb_velocity(f0, loc='left', ux_wall=U0)
     
     f4 = mg.fine_to_coarse(f3, f4, dir='right') 
-    f4 = lbm.boundary_equilibrium(f4, feq_init[:, jnp.newaxis], loc='right')
+    f4 = lbm.nebb_pressure(f4, loc='right')
     
     return (f0, rho0, u0,
             f1, rho1, u1, 
