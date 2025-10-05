@@ -19,7 +19,7 @@ PLOT_AFTER = 100   # plot after n time steps
 # =================== define fluid parameters ===================
 
 # fluid parameters
-U0 = 0.5  # velocity (must < 0.5 for stability)
+U0 = 0.3  # velocity (must < 0.5 for stability)
 RE_GRID = 20 # Reynolds number based on grid size (must < 22 for stability)
 NU = U0 / RE_GRID  # kinematic viscosity
 

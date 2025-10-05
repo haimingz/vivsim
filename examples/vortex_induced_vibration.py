@@ -92,7 +92,6 @@ h = jnp.zeros((2), dtype=jnp.float32)   # hydrodynamic force
 u = u.at[0].set(U0)
 f = lbm.get_equilibrium(rho, u)
 v = d.at[1].set(1e-2)  # add an initial velocity to the cylinder
-feq_init = f[:,0,0]
 
 
 # =================== define calculation routine ===================
@@ -139,8 +138,8 @@ def update(f, d, v, a, h):
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.boundary_equilibrium(f, feq_init[:,jnp.newaxis], loc='right')
-    f = lbm.velocity_boundary(f, U0, 0, loc='left')
+    f = lbm.nebb_pressure(f, loc='right')
+    f = lbm.nebb_velocity(f, loc='left', ux_wall=U0)
      
     return f, rho, u, d, v, a, h
 

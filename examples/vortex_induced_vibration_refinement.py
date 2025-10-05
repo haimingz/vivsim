@@ -118,8 +118,6 @@ h = jnp.zeros((2), dtype=jnp.float32)
 
 v = v.at[1].set(U0 * 0.01) 
 
-feq_init = f1[:, 1, 1]
-
 # ======================= compute routine =====================
 
 def macro_collision(f, left_matrix):  
@@ -210,8 +208,8 @@ def update_grid1(f1, f2, f3, d, v, a, h):
     f1 = lbm.streaming(f1)
     
     # outer boundary
-    f1 = lbm.velocity_boundary(f1, U0, 0, loc='left')
-    f1 = lbm.boundary_equilibrium(f1, feq_init[:, jnp.newaxis], loc='right')
+    f1 = lbm.nebb_pressure(f1, loc='right')
+    f1 = lbm.nebb_velocity(f1, loc='left', ux_wall=U0)
     
     # inner boundary
     f2, rho2, u2, f3, rho3, u3, d, v, a, h = update_grid2(f1, f2, f3, d, v, a, h)
