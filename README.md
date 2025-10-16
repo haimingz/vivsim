@@ -12,9 +12,21 @@ VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) sim
 
 Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators, achieving massive parallelism on GPU/GPUs. 
 
+
+
+## Recent Updates
+
+**Version 1.1.0** (October 2024)
+- **Modular LBM Architecture**: Reorganized all LBM-related code into a structured `lbm` module with submodules for `boundary`, `collision`, and `forcing`, enabling easier maintenance and future extensions with new methods.
+- **Enhanced Boundary Conditions**: Implemented more boundary condition methods including Non-Equilibrium Extrapolation (NEE), Non-Equilibrium Bounce Back (NEBB), and equilibrium boundary conditions. Support predescribe velocity, density, and forces.
+- **Improved LBM Collision Operators**: Implemented Karlin-Bösch-Chikatamarla (KBC) collision operator that is super stable for high Re numbers.
+- **New Forcing Scheme**: Implemented the modified Exact Difference Method (EDM) which requires no forcing-correction to the collision operator.
+- **Code Quality**: Improved code readability, fixed typos in docstrings, and enhanced documentation throughout the codebase using AI under supervision. 
+
+
 ## Usage
 
-VIVSIM is not a comprehensive, out-of-the-box tool. Instead, it provides a lean collection of **pure functions** for core IB-LBM computations. Users are expected to construct custom simulation models and computation routines for their exploration. Start with the included demo examples to see how easy that is! 
+VIVSIM is provides a collection of **pure functions** for core IB-LBM computations. Users are expected to construct custom simulation models and computation routines for their exploration. Start with the included demo examples to see how easy that is! 
 
 Below is a minimum workable example for lid-driven cavity simulation:
 
@@ -26,7 +38,8 @@ from vivsim import lbm
 # define constants
 U0 = 0.5  # velocity of lid
 NU = 0.1  # kinematic viscosity
-OMEGA = 1 / (3 * NU + 0.5)  # relaxation parameter
+
+OMEGA = lbm.get_omega(NU)  # relaxation parameter
 
 # define fluid properties
 rho = jnp.ones((NX, NY), dtype=jnp.float32)      # density
@@ -42,16 +55,16 @@ def update(f):
     # Collision
     rho, u = lbm.get_macroscopic(f)
     feq = lbm.get_equilibrium(rho, u)
-    f = lbm.collision(f, feq, nu)
+    f = lbm.collision_bgk(f, feq, OMEGA)
 
     # Streaming
     f = lbm.streaming(f)
 
     # Boundary conditions
-    f = lbm.noslip_boundary(f, loc='left')
-    f = lbm.noslip_boundary(f, loc='right')
-    f = lbm.noslip_boundary(f, loc='bottom')
-    f = lbm.velocity_boundary(f, U0, 0, loc='top')
+    f = lbm.boundary_nee(f, loc='left')
+    f = lbm.boundary_nee(f, loc='right')
+    f = lbm.boundary_nee(f, loc='bottom')
+    f = lbm.boundary_nee(f, loc='top', ux_wall=U0)
     
     return f, rho, u
 
@@ -87,18 +100,26 @@ Lattice Models
 - D2Q9
   
 Collision Models
-- Single Relaxation Time (SRT) model
-- Multiple Relaxation Time (MRT) model
+- Bhatnagar-Gross-Krook (BGK) collision operator
+- Multiple Relaxation Time (MRT) collision operator
+- Karlin–Bösch–Chikatamarla (KBC) collision operator
 
 Boundary Conditions:
-- Velocity boundary using Non-Equilibrium Bounce Back (NEBB) method
-- No-slip boundary using Halfway Bounce-Back method
-- Outflow boundary simply by copying the second last column/row
-- Outflow boundary by assigning equilibrium distribution values
+- Predescribed velocity, density, and forces at boundaies using: 
+  - Non-Equilibrium Bounce Back (NEBB) method
+  - Non-Equilibrium Extrapolation (NEE) method
+  - Equilibrium boundary
+- Predescribed velocity boundary using
+  - Bounce-Back method (no-slip)
+  - Specular Reflection (slip)
 - Periodic boundary
 
+Forcing Schemes:
+- Guo's Forcing sheme
+- Modified Exact Difference Method (EDM)
+
 Fluid-Structure Interaction
-- Multi Direct-Forcing Immersed Boundary method.
+- Multi-Direct-Forcing (MDF) Immersed Boundary method.
 
 Acceleration techniques
 - Multi-GPU simulation (using JAX)
@@ -109,8 +130,8 @@ Acceleration techniques
 
 ## Todos
 
-- Large-Eddy simulation
-- 3D simulation capability
+- Standardized simulation routines.
+- 3D simulation capability.
 
 
 ## Getting Started
