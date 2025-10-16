@@ -10,12 +10,7 @@ import jax
 import jax.numpy as jnp
 
 
-# lattice directions
-RIGHT_DIRS = jnp.array([1, 5, 8])
-LEFT_DIRS = jnp.array([3, 7, 6])
-UP_DIRS = jnp.array([2, 5, 6])
-DOWN_DIRS = jnp.array([4, 7, 8])
-
+from .lbm.basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
 
 def stream_cross_devices(f: jax.Array, dir: str, device_axis: str, n_devices: int)  -> jax.Array:
     """Stream particles across device boundaries. The computational domain is divided evenly
