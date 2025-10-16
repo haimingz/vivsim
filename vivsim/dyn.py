@@ -86,7 +86,7 @@ def get_markers_coords_3dof(x_markers_init, y_markers_init, x_center_init, y_cen
     
     Args:
         x_markers_init, y_markers_init (ndarray of shape (N_MARKER)): The initial coordinates of the markers.
-        x_center_init, y_center_init (scaler): The original coordinates of the object center.
+        x_center_init, y_center_init (scalar): The original coordinates of the object center.
         d (ndarray of shape (3)): The instantaneous displacement of the object.
     
     Returns:
@@ -105,7 +105,7 @@ def get_markers_velocity_3dof(x_markers, y_markers, x_center_init, y_center_init
     
     Args:
         x_markers, y_markers (ndarray of shape (N_MARKER)): instantaneous coordinates of the markers.
-        x_center_init, y_center_init (scaler): The initial coordinates of the object center.
+        x_center_init, y_center_init (scalar): The initial coordinates of the object center.
         d: The instantaneous displacement of the object with shape (dim).
         v: The instantaneous velocity of the object with shape (2).
     
