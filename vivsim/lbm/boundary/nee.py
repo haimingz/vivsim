@@ -40,6 +40,16 @@ def boundary_nee(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0, gx_wall=0, gy_wa
             after enforcing the boundary condition.
     """
 
+    # Determine boundary size and convert scalars to arrays if needed
+    size = f.shape[2] if loc in ['left', 'right'] else f.shape[1]
+    
+    if jnp.isscalar(rho_wall):
+        rho_wall = jnp.full(size, rho_wall)
+    if jnp.isscalar(ux_wall):
+        ux_wall = jnp.full(size, ux_wall)
+    if jnp.isscalar(uy_wall):
+        uy_wall = jnp.full(size, uy_wall)
+    
     ux_wall = ux_wall - get_velocity_correction(gx_wall, rho_wall)
     uy_wall = uy_wall - get_velocity_correction(gy_wall, rho_wall)
     
