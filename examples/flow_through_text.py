@@ -1,5 +1,5 @@
-# In this example, we simulate a 2D flow through a text using LBM.
-# The flow is driven by a constant velocity U0 in the y+ direction.
+# 2D flow through a text using LBM.
+# Just for fun and testing the boundary condition implementation.
 
 import jax
 import jax.numpy as jnp
@@ -8,38 +8,29 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 from PIL import Image, ImageDraw, ImageFont
-from vivsim import lbm, post, mrt
+from vivsim import lbm, post
+
 
 
 # ====================== plot options ======================
 
-PLOT = True   # whether to plot the results during simulation
-PLOT_EVERY = 100   # plot every n time steps
-PLOT_AFTER = 100   # plot after n time steps
+PLOT = True                     # whether to plot the results during simulation
+PLOT_EVERY = 200                # plot every n time steps
 
 
 # =================== define fluid parameters ===================
 
-# fluid parameters
-NU = 0.005          # kinematic viscosity
-RE_GRID = 5         # Reynolds number based on grid size
-U0 = RE_GRID * NU   # velocity
+U0 = 0.05                        # kinematic viscosity
+RE_GRID = 20                   # Reynolds number based on grid size
 
-# LBM parameters
-TAU = 3 * NU + 0.5  # relaxation time
-OMEGA = 1 / TAU     # relaxation parameter
-
-# MRT parameters
-MRT_TRANS = mrt.get_trans_matrix()
-MRT_RELAX = mrt.get_relax_matrix(OMEGA)
-MRT_COL_LEFT = mrt.get_collision_left_matrix(MRT_TRANS, MRT_RELAX)
-
+NU = U0 / RE_GRID               # kinematic viscosity
+OMEGA = lbm.get_omega(NU)       # relaxation parameter
 
 # =================== setup computation domain ===================
 
-NX = 500       # number of grid points in x direction
-NY = 500       # number of grid points in x direction
-TM = 50000      # number of time steps
+NX = 500                        # number of grid points in x direction
+NY = 500                        # number of grid points in y direction
+TM = 80000                      # number of time steps
 
 rho = jnp.ones((NX, NY), dtype=jnp.float32)      # density
 u = jnp.zeros((2, NX, NY), dtype=jnp.float32)    # velocity
@@ -74,21 +65,14 @@ f = lbm.get_equilibrium(rho, u)
 
 @jax.jit
 def update(f):
-      
-    # Collision
+
     rho, u = lbm.get_macroscopic(f)
     feq = lbm.get_equilibrium(rho, u)
-    f = mrt.collision(f, feq, MRT_COL_LEFT)
-
-    # Streaming
+    f = lbm.collision_kbc(f, feq, OMEGA)
     f = lbm.streaming(f)
-
-    # Boundary conditions
-    f = lbm.nebb_velocity(f, loc='bottom', uy_wall=U0)
-    f = lbm.nebb_pressure(f, loc='top')
-    
-    # Obstacle
-    f = lbm.noslip_obstacle(f, MASK)
+    f = lbm.boundary_nee(f, loc='bottom', uy_wall=U0)
+    f = lbm.boundary_equilibrium(f, loc='top', uy_wall=U0)
+    f = lbm.obstacle_bounce_back(f, MASK)
     
     return f, feq, rho, u
 
@@ -104,7 +88,7 @@ if PLOT:
         cmap="viridis",
         aspect="equal",
         origin="lower",
-        vmax=U0 * 5,
+        vmax=U0 * 4,
         vmin=0.0,
         extent=[0, NX, 0, NY],
         )
@@ -118,6 +102,6 @@ if PLOT:
 for t in tqdm(range(TM)):
     f, feq, rho, u  = update(f)
 
-    if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
+    if PLOT and t % PLOT_EVERY == 0:
         im.set_data(post.calculate_velocity_magnitude(u).T)
         plt.pause(0.001)

@@ -1,123 +1,123 @@
-# This example simulates the vortex-induced vibration of a circular cylinder
-# in a 2D flow using the Immersed Boundary Method (IBM) coupled with the
-# Lattice Boltzmann Method (LBM). The cylinder is placed at the center of the
-# domain and is free to move in both directions with spring constraints. 
-# The flow is driven by a constant velocity U0 in the x direction. 
-# 
-# To test this script in a single-device environment, we fake 8 devices by 
-# setting the environment variable `xla_force_host_platform_device_count=8`. 
-# You can remove this line if you have multiple devices (e.g., GPUs). 
-# But remember to make sure that NY can be evenly divided by N_DEVICES.
+"""
+Vortex-Induced Vibration (VIV) of a circular cylinder using IB-LBM with Multi-GPU
 
-import os
+This example simulates the vortex-induced vibration of a circular cylinder
+in a 2D flow using the Immersed Boundary Method (IBM) coupled with the
+Lattice Boltzmann Method (LBM). The cylinder is free to oscillate in both
+cross-flow and in-line directions with spring-mass-damper constraints.
 
-os.environ['JAX_PLATFORM_NAME'] = 'cpu' # use CPU cores to fake multiple devices  
+This implementation uses JAX's multi-device parallelization to distribute
+the computation across multiple GPUs (or CPU cores for testing).
+
+Note: Ensure that NY can be evenly divided by N_DEVICES.
+"""
 
 import math
+from functools import partial
+
+import numpy as np
 import jax
 import jax.numpy as jnp
-from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from vivsim import dyn, ib, lbm, multidevice as md, post, mrt
-
-from functools import partial
+from tqdm import tqdm
 from jax.sharding import Mesh, PartitionSpec
 from jax.experimental.shard_map import shard_map
 
-# ======================== multi-gpu parallelization ========================
-
-N_DEVICES = len(jax.devices())  # number of gpu devices
-mesh = Mesh(jax.devices(), axis_names=('y')) # divide the domain along the y-axis
+from vivsim import dyn, ib, lbm, multidevice as md, post
 
 
-# ============================= plot options =======================
 
-PLOT = True
-PLOT_EVERY = 100
-PLOT_AFTER = 0
+# ========================== MULTI-GPU CONFIGURATION ====================
 
-# ====================== Configuration ======================
+N_DEVICES = len(jax.devices())  # Number of GPU devices
+mesh = Mesh(jax.devices(), axis_names=('y'))  # Divide domain along y-axis
 
-# Simulation parameters
-D = 24                 # Cylinder diameter
-U0 = 0.1               # Inlet velocity
-TM = 60000             # Total time steps
 
-# Domain size
-NX = 20 * D            # Grid points in x direction
-NY = 10 * D            # Grid points in y direction
+# ========================== VISUALIZATION PARAMETERS ====================
 
-# Cylinder position
-X_OBJ = 8 * D          # Cylinder x position
-Y_OBJ = 5 * D          # Cylinder y position
+PLOT = True                 # Enable real-time visualization
+PLOT_EVERY = 100            # Plot update frequency
+PLOT_AFTER = 0              # Start plotting after this timestep
 
-# IB method parameters
-N_MARKER = 4 * D       # Number of markers on cylinder
-N_ITER_MDF = 3         # Multi-direct forcing iterations
-IB_LEFT = D 
-IB_RIGHT = 2 * D
 
-# Physical parameters
-RE = 200               # Reynolds number
-UR = 5                 # Reduced velocity
-MR = 10                # Mass ratio
-DR = 0                 # Damping ratio
+# ========================== GEOMETRY =======================
 
-# =================== Pre-calculations ==================
+D = 24                      # Cylinder diameter
+NX = 20 * D                 # Domain width
+NY = 10 * D                 # Domain height
+X_CYL = 8 * D               # Cylinder center x-position
+Y_CYL = 5 * D               # Cylinder center y-position
+N_MARKER = 4 * D            # Number of markers on cylinder surface
 
-# structural parameters
-FN = U0 / (UR * D)                                          # Natural frequency
-MASS = math.pi * (D / 2) ** 2 * MR                          # Mass of the cylinder
-STIFFNESS = (FN * 2 * math.pi) ** 2 * MASS * (1 + 1 / MR)   # Stiffness of the spring
-DAMPING = 2 * math.sqrt(STIFFNESS * MASS) * DR              # Damping of the spring
 
-# fluid parameters
-NU = U0 * D / RE                                            # Kinematic viscosity
-TAU = 3 * NU + 0.5                                          # Relaxation time
-OMEGA = 1 / TAU                                             # Relaxation parameter
-MRT_COL_LEFT, MRT_SRC_LEFT = mrt.precompute_left_matrices(OMEGA)
+# ========================== PHYSICAL PARAMETERS =====================
 
-# eulerian meshgrid
+U0 = 0.1                    # Inlet velocity
+RE = 200                    # Reynolds number
+UR = 5                      # Reduced velocity
+MR = 10                     # Mass ratio
+DR = 0                      # Damping ratio
+NU = U0 * D / RE            # Kinematic viscosity
+FN = U0 / (UR * D)                                  # Natural frequency
+M = math.pi * (D / 2) ** 2 * MR                     # Mass of the cylinder
+K = (FN * 2 * math.pi) ** 2 * M * (1 + 1 / MR)      # Spring stiffness
+C = 2 * math.sqrt(K * M) * DR                       # Damping coefficient
+TM = 60000                                          # Total simulation timesteps
+
+
+# ========================== IB-LBM PARAMETERS ==========================
+
+OMEGA = lbm.get_omega(NU)    # Relaxation parameter
+IB_ITER = 3                  # Multi-direct forcing iterations
+IB_LEFT = D                  # IBM region left padding
+IB_RIGHT = 2 * D             # IBM region right padding
+
+
+# ==================== MESHES ========================
+
+# LBM grid coordinates
 X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.int32), 
                     jnp.arange(NY, dtype=jnp.int32), 
                     indexing="ij")
 
-# lagrangian markers
-THETA_MAKERS = jnp.linspace(0, jnp.pi * 2, N_MARKER, dtype=jnp.float32, endpoint=False)
-X_MARKERS = X_OBJ + 0.5 * D * jnp.cos(THETA_MAKERS)
-Y_MARKERS = Y_OBJ + 0.5 * D * jnp.sin(THETA_MAKERS)
-L_ARC = D * math.pi / N_MARKER
+# IBM marker configuration
+THETA = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
+X_MARKERS = X_CYL + 0.5 * D * jnp.cos(THETA)
+Y_MARKERS = Y_CYL + 0.5 * D * jnp.sin(THETA)
+DS_MARKERS = D * math.pi / N_MARKER
 
-# dynamic ibm region
-IB_START_X = int(X_OBJ - IB_LEFT)
-IB_END_X = int(X_OBJ + IB_RIGHT)
+# Dynamic IBM region boundaries
+IB_START_X = int(X_CYL - IB_LEFT)
+IB_END_X = int(X_CYL + IB_RIGHT)
 
-# =================== define variables ==================
 
-# fluid variables
-rho = jnp.ones((NX, NY), dtype=jnp.float32)      # density of fluid
-u = jnp.zeros((2, NX, NY), dtype=jnp.float32)    # velocity of fluid
-f = jnp.zeros((9, NX, NY), dtype=jnp.float32)    # distribution functions
-feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # equilibrium distribution functions
+# ======================= INITIALIZE VARIABLES ====================
 
-# structural variables
-d = jnp.zeros((2), dtype=jnp.float32)   # displacement of cylinder
-v = jnp.zeros((2), dtype=jnp.float32)   # velocity of cylinder
-a = jnp.zeros((2), dtype=jnp.float32)   # acceleration of cylinder
-h = jnp.zeros((2), dtype=jnp.float32)   # hydrodynamic force
-
-# initial conditions
+# Fluid variables
+rho = jnp.ones((NX, NY), dtype=jnp.float32)
+u = jnp.zeros((2, NX, NY), dtype=jnp.float32)
 u = u.at[0].set(U0)
 f = lbm.get_equilibrium(rho, u)
-v = d.at[1].set(1e-2)  # add an initial velocity to the cylinder
+
+# Structural variables
+d = jnp.zeros(2, dtype=jnp.float32)            # Displacement of cylinder
+v = jnp.zeros(2, dtype=jnp.float32)            # Velocity of cylinder
+a = jnp.zeros(2, dtype=jnp.float32)            # Acceleration of cylinder
+h = jnp.zeros(2, dtype=jnp.float32)            # Hydrodynamic force
+
+# Optional: add initial perturbation
+v = v.at[1].set(1e-2 * U0)
 
 
-# =================== define calculation routine ===================
+# ======================= SHARDING SPECIFICATIONS ====================
 
 p_none = PartitionSpec(None)
 p1 = PartitionSpec(None, 'y')
 p2 = PartitionSpec(None, None, 'y')
+
+
+# ======================= SIMULATION ROUTINE =====================
 
 @jax.jit
 @partial(
@@ -127,100 +127,107 @@ p2 = PartitionSpec(None, None, 'y')
 )
 def update(f, d, v, a, h, X, Y):
     
-    # update new macroscopic
+    # Update macroscopic variables
     rho, u = lbm.get_macroscopic(f)
     
-    # Collision
+    # Collision step
     feq = lbm.get_equilibrium(rho, u)
-    f = mrt.collision(f, feq, MRT_COL_LEFT)
+    f = lbm.collision_kbc(f, feq, OMEGA)
     
-    # update markers position
+    # Update markers position
     x_markers, y_markers = dyn.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
     
-    # extract data from ibm region
-    u_slice = u[:, IB_START_X: IB_END_X]
-    X_slice = X[IB_START_X: IB_END_X]
-    Y_slice = Y[IB_START_X: IB_END_X]
-    f_slice = f[:, IB_START_X: IB_END_X]
-        
-    g_slice = jnp.zeros((2, IB_END_X - IB_START_X, NY // N_DEVICES))  # ! important for multi-device simulation
-    h_markers = jnp.zeros((N_MARKER, 2))  # hydrodynamic force to the markers
+    # Extract data from IBM region for efficient computation
+    u_ib = u[:, IB_START_X:IB_END_X]
+    x_ib = X[IB_START_X:IB_END_X]
+    y_ib = Y[IB_START_X:IB_END_X]
+    f_ib = f[:, IB_START_X:IB_END_X]
     
-    # calculate the kernel functions for all markers
-    kernels = ib.get_kernels(x_markers, y_markers, X_slice, Y_slice, ib.kernel_range4)
+    # Initialize forcing and marker forces
+    g_ib = jnp.zeros((2, IB_END_X - IB_START_X, NY // N_DEVICES))
+    h_marker = jnp.zeros((N_MARKER, 2))
     
-    for _ in range(N_ITER_MDF):
+    # Calculate kernel functions for all markers
+    kernels = ib.get_kernels(x_markers, y_markers, x_ib, y_ib, ib.kernel_range4)
+    
+    # Multi-direct forcing iterations
+    for _ in range(IB_ITER):
         
-        # velocity interpolation
-        u_markers = jnp.einsum("dxy,nxy->nd", u_slice, kernels)
-        u_markers = jax.lax.psum(u_markers, 'y')  # ! important for multi-device simulation
+        # Velocity interpolation
+        u_markers = jnp.einsum("dxy,nxy->nd", u_ib, kernels)
+        u_markers = jax.lax.psum(u_markers, 'y')  # Multi-device synchronization
         
-        # compute correction force
+        # Compute correction force
         delta_u_markers = v - u_markers
-        h_markers -= delta_u_markers * L_ARC
+        h_marker -= delta_u_markers * DS_MARKERS
         
-        # force to the fluid
-        delta_u = jnp.einsum("nd,nxy->dxy", delta_u_markers, kernels) * L_ARC
-        g_slice += delta_u * 2 
-        u_slice += delta_u 
-        
-
-    g_lattice = lbm.get_discretized_force(g_slice, u_slice)
+        # Apply force to the fluid
+        delta_u = jnp.einsum("nd,nxy->dxy", delta_u_markers, kernels) * DS_MARKERS
+        g_ib += delta_u * 2
+        u_ib += delta_u
     
-    # apply the force to the lattice
-    s_slice = mrt.get_source(g_lattice, MRT_SRC_LEFT)    
-    f = f.at[:, IB_START_X:IB_END_X].set(f_slice + s_slice)
-
-    # apply the force to the cylinder
-    h = dyn.get_force_to_obj(h_markers)
-    h += a * math.pi * D ** 2 / 4   
-    a, v, d = dyn.newmark_2dof(a, v, d, h, MASS, STIFFNESS, DAMPING)
+    # Apply forcing to distribution functions (EDM forcing)
+    rho_ib = jax.lax.dynamic_slice(rho, (IB_START_X, 0), (IB_END_X - IB_START_X, NY // N_DEVICES))
+    f_ib = lbm.forcing_edm(f_ib, g_ib, u_ib, rho_ib)
+    f = f.at[:, IB_START_X:IB_END_X].set(f_ib)
     
-    # Streaming
+    # Update velocity in IBM region
+    u_ib = u_ib + lbm.get_velocity_correction(g_ib, rho_ib)
+    u = jax.lax.dynamic_update_slice(u, u_ib, (0, IB_START_X, 0))
+    
+    # Apply marker forces to the cylinder
+    h = dyn.get_force_to_obj(h_marker)
+    h += a * math.pi * D ** 2 / 4  # Internal mass correction
+    a, v, d = dyn.newmark_2dof(a, v, d, h, M, K, C)
+    
+    # Streaming step
     f = lbm.streaming(f)
-    f = md.stream_cross_devices(f, 'y', 'y', N_DEVICES) # ! important for multi-device simulation
-
+    f = md.stream_cross_devices(f, 'y', 'y', N_DEVICES)  # Multi-device streaming
+    
     # Boundary conditions
-    f = lbm.nebb_pressure(f, loc='right')
-    f = lbm.nebb_velocity(f, loc='left', ux_wall=U0)
-
+    f = lbm.boundary_nebb(f, loc='left', ux_wall=U0)
+    f = lbm.boundary_equilibrium(f, loc='right', ux_wall=U0)
+    
     return f, rho, u, d, v, a, h
 
 
-# =============== create plot template ================
+# ======================= VISUALIZATION SETUP ====================
 
+mpl.rcParams['figure.raise_window'] = False
+
+# Storage for displacement and force history
+d_hist = np.zeros((2, TM))
+h_hist = np.zeros((2, TM))
+
+# Setup real-time visualization
 if PLOT:
-    mpl.rcParams['figure.raise_window'] = False
+    plt.figure(figsize=(8, 3))
     
-    plt.figure(figsize=(8, 4))
-    
-    curl = post.calculate_curl(u)
+    curl = post.calculate_vorticity_dimensionless(u, D, U0)
     im = plt.imshow(
         curl.T,
         extent=[0, NX/D, 0, NY/D],
-        cmap="seismic",
+        cmap="bwr",
         aspect="equal",
         origin="lower",
-        # norm=mpl.colors.CenteredNorm(),
-        vmax=0.05,
-        vmin=-0.05,
+        vmax=10, vmin=-10
     )
-
-    plt.colorbar()
     
-    plt.xlabel("x/D")
-    plt.ylabel("y/D")
-
-    # draw a circle representing the cylinder
-    circle = plt.Circle(((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D), 0.5, 
+    plt.colorbar(label=r"$\omega D / U_0$")
+    plt.xlabel(r"$x / D$")
+    plt.ylabel(r"$y / D$")
+    
+    # Draw a circle representing the cylinder
+    circle = plt.Circle(((X_CYL + d[0]) / D, (Y_CYL + d[1]) / D), 0.5, 
                         edgecolor='black', linewidth=0.5,
                         facecolor='white', fill=True)
     plt.gca().add_artist(circle)
-                
-    # mark the initial position of the cylinder
-    plt.plot((X_OBJ + d[0]) / D, Y_OBJ / D, marker='+', markersize=10, color='k', linestyle='None', markeredgewidth=0.5)
-        
-    # draw the boundary of subdomains corresponding to each device
+    
+    # Mark the initial position of the cylinder
+    plt.plot((X_CYL + d[0]) / D, Y_CYL / D, marker='+', markersize=10, 
+             color='k', linestyle='None', markeredgewidth=0.5)
+    
+    # Draw subdomain boundaries for multi-device visualization
     for i in range(N_DEVICES):
         plt.axhline(i * NY / N_DEVICES / D, color="r", linestyle="--", linewidth=0.5)
         plt.text(0.1, i * NY / N_DEVICES / D + 0.1, f'Device {i}', 
@@ -230,13 +237,18 @@ if PLOT:
     plt.tight_layout()
 
 
-# =============== start simulation ===============
+# ========================== RUN SIMULATION ==========================
 
 for t in tqdm(range(TM)):
     f, rho, u, d, v, a, h = update(f, d, v, a, h, X, Y)
     
+    # Store history
+    d_hist[:, t] = np.array(d)
+    h_hist[:, t] = np.array(h)
+    
+    # Update visualization
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
-        im.set_data(post.calculate_curl(u).T)
-        circle.center = ((X_OBJ + d[0]) / D, (Y_OBJ + d[1]) / D)
+        curl = post.calculate_vorticity_dimensionless(u, D, U0)
+        im.set_data(curl.T)
+        circle.center = ((X_CYL + d[0]) / D, (Y_CYL + d[1]) / D)
         plt.pause(0.001)
-
