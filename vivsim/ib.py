@@ -1,48 +1,55 @@
-"""This file implements the immersed boundary method (IBM) in the LBM framework.
+"""
+This module implements the Immersed Boundary Method (IBM) for the LBM framework.
 
-The IBM is used to transfer force between fluid and solid object. 
-The fluid-solid interface is represented by a set of Lagrangian markers that can move freely. 
+The IBM enables fluid-structure interaction by transferring forces between the fluid
+and solid objects. The fluid-solid interface is represented by a set of Lagrangian
+markers that can move freely through the fixed Eulerian grid.
 
-Key variables:
-- u: The velocity field of the fluid.
-- u_markers: The interpolated velocity of the fluid at the lagrangian markers.
-- v: The velocity of the object.
-- v_markers: The velocity of the lagrangian markers on the fluid-structure interface.
-- g: The force that the object applied to the fluid.
-- g_markers: The force that the object applied to the fluid at the lagrangian markers.
-- h: The force that the fluid applied to the object.
-- h_markers: The force that the fluid applied to the object at the lagrangian markers
+Two main IBM approaches are implemented:
+    * Multi-Direct Forcing: Iterative method for enforcing no-slip boundary conditions
+    * Implicit Method: Direct solution using matrix inversion
 
+Key Variables:
+    * u: Fluid velocity field, shape (2, NX, NY)
+    * u_markers: Interpolated fluid velocity at Lagrangian markers, shape (N_MARKER, 2)
+    * v_markers: Velocity of Lagrangian markers, shape (N_MARKER, 2)
+    * g: Force density that object applies to fluid, shape (2, NX, NY)
+    * g_markers: Force at Lagrangian markers applied to fluid, shape (N_MARKER, 2)
+    * h_markers: Force at Lagrangian markers applied to solid, shape (N_MARKER, 2)
+    * kernels: Interpolation/spreading kernel functions, shape (N_MARKER, NX, NY)
+    * ds_markers: Differential arc length of markers, scalar or shape (N_MARKER,)
+
+where NX, NY are the grid dimensions and N_MARKER is the number of Lagrangian markers.
 """
 
 import jax
 import jax.numpy as jnp
-
+from .lbm import get_velocity_correction
 
 # ----------------- Kernel functions -----------------
 
 
 def kernel_range2(distance):
-    """kernel function of range 2
+    """Kernel function of range 2
     
     Args:
-        distance (scalar or ndarray): The distance between the marker and the lattice.
+        distance (scalar or jax.Array): The distance between the marker and the lattice node.
     
     Returns:
-        out (scalar or ndarray): The kernel function value. 
+        out (scalar or jax.Array): The kernel function value in range [0, 1].
     """
     
     return jnp.where(jnp.abs(distance) <= 1, 1 - jnp.abs(distance), 0)
 
 
 def kernel_range3(distance):
-    """kernel function of range 3
+    """Kernel function of range 3
     
     Args:
-        distance (scalar or ndarray): The distance between the marker and the lattice.
+        distance (scalar or jax.Array): The distance between the marker and the lattice node.
     
     Returns:
-        out (scalar or ndarray): The kernel function value. 
+        out (scalar or jax.Array): The kernel function value in range [0, 1/3].
     """
     
     distance = jnp.abs(distance)
@@ -58,13 +65,13 @@ def kernel_range3(distance):
 
 
 def kernel_range4(distance):
-    """kernel function of range 4
+    """Kernel function of range 4.
     
     Args:
-        distance (scalar or ndarray): The distance between the marker and the lattice.
+        distance (scalar or jax.Array): The distance between the marker and the lattice node.
     
     Returns:
-        out (scalar or ndarray): The kernel function value. 
+        out (scalar or jax.Array): The kernel function value in range [0, 1/8].
     """
     
     distance = jnp.abs(distance)
@@ -80,17 +87,24 @@ def kernel_range4(distance):
 
 
 def get_kernels(x_markers, y_markers, x_grid, y_grid, kernel_func):
-    """Generate a stack of kernels for all the markers. The kernels are to be
-    used in future interpolation and spreading operations.
+    """Generate interpolation/spreading kernels for all Lagrangian markers.
+    
+    Precomputes the kernel functions for efficient interpolation (Eulerian to Lagrangian)
+    and spreading (Lagrangian to Eulerian) operations. The kernel is the tensor product
+    of 1D kernel functions in x and y directions.
     
     Args:
-        x_markers, y_markers (ndarray of shape (N_MARKER)): The coordinates of lagrangian markers.
-        x_grid, y_grid (ndarray of shape (NX, NY)): The coordinates of the lattice.
-        kernel_func (callable): The kernel function. Available options: 
+        x_markers (jax.Array of shape (N_MARKER,)): x-coordinates of Lagrangian markers.
+        y_markers (jax.Array of shape (N_MARKER,)): y-coordinates of Lagrangian markers.
+        x_grid (jax.Array of shape (NX, NY)): x-coordinates of Eulerian grid nodes.
+        y_grid (jax.Array of shape (NX, NY)): y-coordinates of Eulerian grid nodes.
+        kernel_func (callable): The kernel function. Options: 
             kernel_range2, kernel_range3, kernel_range4.
     
     Returns:
-        out (ndarray of shape (N_MARKER, NX, NY))： The stacked kernel functions.
+        kernels (jax.Array of shape (N_MARKER, NX, NY)): Stacked kernel functions
+            for all markers. Each slice kernels[i, :, :] gives the kernel weights
+            for marker i over all grid points.
     """
     return (kernel_func(x_grid[None, ...] - x_markers[:, None, None]) \
           * kernel_func(y_grid[None, ...] - y_markers[:, None, None]))
@@ -99,75 +113,51 @@ def get_kernels(x_markers, y_markers, x_grid, y_grid, kernel_func):
 # ----------------- Core IB calculation -----------------
 
 
-def multi_direct_forcing(u, x_grid, y_grid, v_markers, x_markers, y_markers, 
-                         n_markers, seg_len_markers, n_iter=5, kernel_func=kernel_range4):
-    """Multi-direct forcing method to enforce no-slip boundary at markers.
+def multi_direct_forcing(u, v_markers, kernels, ds_markers, n_iter=5):
+    """Multi-Direct Forcing (Iterative) IBM for moving boundaries.
     
     Args:
-        u (ndarray of shape (2, NX, NY)): The fluid velocity field.
-        x_grid, y_grid (ndarray of shape (NX, NY)): The coordinates of the Eulerian points.
-        v_markers (ndarray of shape (2)): The solid velocity at the markers.
-        x_markers, y_markers (ndarray of shape (n_markers)): The coordinates of the Lagrangian markers.
-        n_markers (int): The number of markers.
-        seg_len_markers (scalar or ndarray of shape (n_markers)): The segment length of markers.
-        n_iter (int): The number of iterations for multi-direct forcing.
-        kernel_func (callable): The kernel function defining how the interface is diffused. 
-            Available options: ib.kernel_range2, ib.kernel_range3, ib.kernel_range4.
+        u (jax.Array of shape (2, NX, NY)): Fluid velocity field.
+        v_markers (jax.Array of shape (N_MARKER, 2)): Velocity of Lagrangian markers.
+        kernels (jax.Array of shape (N_MARKER, NX, NY)): Kernel functions
+            from get_kernels(). This should be recomputed when markers move. 
+        ds_markers (scalar or jax.Array of shape (N_MARKER,)): Differential arc length 
+            associated with each marker (for force integration).
+        n_iter (int, optional): Number of iterations. Default is 5.
     
     Returns:
-        g (ndarray of shape (2, NX, NY)): The force density field applied to the fluid.
-        h_markers (ndarray of shape (n_markers, 2)): The forces applied to individual markers.    
+        g (jax.Array of shape (2, NX, NY)): Force density field applied to fluid.
+        h_markers (jax.Array of shape (N_MARKER, 2)): Forces applied to individual markers
+            (equal and opposite to the force applied to fluid).
     """
-        
-    g = jnp.zeros_like(u)
-    h_markers = jnp.zeros((n_markers, 2))
-    kernels = get_kernels(x_markers, y_markers, x_grid, y_grid, kernel_func)
-    seg_len_markers = jnp.reshape(seg_len_markers, (-1,1)) # make sure the shape is correct for multiplication
     
-    # Use jax.lax.fori_loop for better JIT compilation and optimization
+    ds_markers = jnp.reshape(ds_markers, (-1, 1))  # Ensure correct shape for broadcasting
+
+    g = jnp.zeros_like(u)
+    h_markers = jnp.zeros((kernels.shape[0], 2))
+    
     def loop_body(i, carry):
         g, h_markers, u = carry
-        # velocity at markers
-        u_markers = jnp.einsum("dxy,nxy->nd", u, kernels) # fluid velocity at markers
-        u_markers_diff = v_markers - u_markers  # fluid and solid velocity difference at markers 
         
-        # force to fluid
-        g_markers_correction = u_markers_diff * seg_len_markers * 2 # required force correction to fluid at markers
-        g_correction = jnp.einsum("nd,nxy->dxy", g_markers_correction, kernels) # required force to fluid at lattice points
-        g += g_correction # accumulate required force to fluid at lattice points        
+        # Interpolate velocity to markers
+        u_markers = jnp.einsum("dxy,nxy->nd", u, kernels)
         
-        # force to solid
-        h_markers -= g_markers_correction # accumulate required force to solid at markers
+        # Compute force correction at markers
+        g_markers_correction = (v_markers - u_markers) * ds_markers * 2
         
-        # update velocity
-        u += g_correction * 0.5 # correct fluid velocity at lattice points (Guo's forcing scheme)
+        # Spread force to Eulerian grid
+        g_correction = jnp.einsum("nd,nxy->dxy", g_markers_correction, kernels)
+        g += g_correction
+        
+        # Accumulate force on solid (action-reaction)
+        h_markers -= g_markers_correction
+        
+        # Update velocity field
+        u += get_velocity_correction(g_correction) 
         
         return g, h_markers, u
         
     g, h_markers, _ = jax.lax.fori_loop(0, n_iter, loop_body, (g, h_markers, u))
     
     return g, h_markers
-
-
-def implicit(u, x, y, v_markers, x_markers, y_markers, 
-             seg_len_markers,  kernel_func=kernel_range4):
-
-    kernels = get_kernels(x_markers, y_markers, x, y, kernel_func) 
-    seg_len_markers = jnp.reshape(seg_len_markers, (-1,1)) # make sure the shape is correct for multiplication
-    
-    # velocity at markers
-    u_markers = jnp.einsum("dxy,nxy->nd", u, kernels) # fluid velocity at markers
-    u_markers_diff = v_markers - u_markers # fluid and solid velocity difference at markers
-    
-    # required velocity correction
-    A = jnp.einsum("mxy,nxy->mn", kernels, kernels)
-    u_markers_correction = jnp.linalg.solve(A, u_markers_diff) # required fluid velocity correction at markers
-    u_correction = jnp.einsum("nd,nxy->dxy", u_markers_correction, kernels) # required fluid velocity correction at lattice points
-    
-    # required force correction
-    h_markers = - u_markers_correction * 2 * seg_len_markers # required force to solid at markers
-    g = u_correction * 2 * seg_len_markers # required force to fluid at lattice points
-    
-    return g, h_markers
-
 
