@@ -15,7 +15,7 @@ to fill up the missing incoming DDFs.
 
 import jax.numpy as jnp
 
-from .lbm import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
+from .lbm.basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
 
 
 def init_grid(width, height, level=0, buffer_x=0, buffer_y=0):
@@ -109,6 +109,7 @@ def coarse_to_fine(f_coarse, f_fine, dir):
     Returns:
         f_fine (jnp.ndarray): The updated DDFs of the fine grid.
     """
+    
     
     if dir == 'left':
         f_fine = f_fine.at[LEFT_DIRS, -1, 0::2].set(f_coarse[LEFT_DIRS, 0])
