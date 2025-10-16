@@ -18,15 +18,15 @@ Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB]
 
 **Version 1.1.0** (October 2024)
 - **Modular LBM Architecture**: Reorganized all LBM-related code into a structured `lbm` module with submodules for `boundary`, `collision`, and `forcing`, enabling easier maintenance and future extensions with new methods.
-- **Enhanced Boundary Conditions**: Implemented more boundary condition methods including Non-Equilibrium Extrapolation (NEE), Non-Equilibrium Bounce Back (NEBB), and equilibrium boundary conditions. Support predescribe velocity, density, and forces.
+- **Enhanced Boundary Conditions**: Implemented more boundary condition methods including Non-Equilibrium Extrapolation (NEE), Non-Equilibrium Bounce Back (NEBB), and equilibrium boundary conditions. Support predescribed velocity, density, and forces.
 - **Improved LBM Collision Operators**: Implemented Karlin-Bösch-Chikatamarla (KBC) collision operator that is super stable for high Re numbers.
-- **New Forcing Scheme**: Implemented the modified Exact Difference Method (EDM) which requires no forcing-correction to the collision operator.
-- **Code Quality**: Improved code readability, fixed typos in docstrings, and enhanced documentation throughout the codebase using AI under supervision. 
+- **New Forcing Scheme**: Implemented the modified Exact Difference Method (EDM) which requires no correction to the collision operator when there are forces..
+- **Code Quality**: Improved code readability, fixed typos in docstrings, and enhanced documentation throughout the codebase using AI with my supervision. 
 
 
 ## Usage
 
-VIVSIM is provides a collection of **pure functions** for core IB-LBM computations. Users are expected to construct custom simulation models and computation routines for their exploration. Start with the included demo examples to see how easy that is! 
+VIVSIM provides a collection of **pure functions** for IB-LBM computations. Users can construct custom simulation models for different tasks. Start with the included demo examples to see how easy that is! 
 
 Below is a minimum workable example for lid-driven cavity simulation:
 
