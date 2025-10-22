@@ -17,7 +17,7 @@ Key Variables:
     * g_markers: Force at Lagrangian markers applied to fluid, shape (N_MARKER, 2)
     * h_markers: Force at Lagrangian markers applied to solid, shape (N_MARKER, 2)
     * kernels: Interpolation/spreading kernel functions, shape (N_MARKER, NX, NY)
-    * ds_markers: Differential arc length of markers, scalar or shape (N_MARKER,)
+    * ds_markers: Differential segment length of markers, scalar or shape (N_MARKER,)
 
 where NX, NY are the grid dimensions and N_MARKER is the number of Lagrangian markers.
 """
@@ -110,6 +110,71 @@ def get_kernels(x_markers, y_markers, x_grid, y_grid, kernel_func):
           * kernel_func(y_grid[None, ...] - y_markers[:, None, None]))
 
 
+def get_area(coord_markers):
+    """
+    Calculate the area of a closed polygon using shoelace formula.
+    The polygon is defined by its vertices in the order they are connected.
+
+    Parameters:
+    - coord_markers: A JAX array of shape (N, 2) representing the (x, y) coordinates of the polygon vertices.
+
+    Returns:
+    - area: The area of the polygon (a JAX scalar).
+    """
+    x = coord_markers[:, 0]
+    y = coord_markers[:, 1]
+    area = 0.5 * jnp.abs(jnp.sum(x * jnp.roll(y, 1) - y * jnp.roll(x, 1)))
+    return area
+
+
+def get_ds_closed(coord_markers):
+    """
+    Calculate the differential segment length (ds) for each point on a closed curve.
+    This represents the segment length element associated with each point for integration.
+    
+    For each point, ds is the average of the two adjacent segment lengths.
+
+    Parameters:
+    - coord_markers: A numpy array of shape (N, 2) representing the (x, y) coordinates of the curve points.
+
+    Returns:
+    - ds: A numpy array of shape (N,) containing the differential segment length for each point.
+    """
+    # Calculate segment lengths (distance from each point to the next)
+    segment_lengths = jnp.linalg.norm(coord_markers - jnp.roll(coord_markers, shift=-1, axis=0), axis=1)
+    
+    # For each point, average the segment before and after it
+    ds = (segment_lengths + jnp.roll(segment_lengths, shift=1)) / 2.0
+    return ds
+
+
+def get_ds_open(coord_markers):
+    """
+    Calculate the differential segment length (ds) for each point on an open curve.
+    This represents the segment length element associated with each point for integration.
+    
+    For interior points, ds is the average of the two adjacent segment lengths.
+    For the first and last points, ds is half the length of their adjacent segment.
+
+    Parameters:
+    - coord_markers: A numpy array of shape (N, 2) representing the (x, y) coordinates of the curve points.
+
+    Returns:
+    - ds: A numpy array of shape (N,) containing the differential segment length for each point.
+    """
+    # Calculate segment lengths
+    segment_lengths = jnp.linalg.norm(coord_markers[1:] - coord_markers[:-1], axis=1)
+    
+    # Vectorized calculation: each point gets half of adjacent segments
+    ds = jnp.zeros(len(coord_markers))
+    ds[:-1] += segment_lengths / 2  # Add half to start of each segment
+    ds[1:] += segment_lengths / 2    # Add half to end of each segment
+    
+    return ds
+
+
+
+
 # ----------------- Core IB calculation -----------------
 
 
@@ -121,7 +186,7 @@ def multi_direct_forcing(u, v_markers, kernels, ds_markers, n_iter=5):
         v_markers (jax.Array of shape (N_MARKER, 2)): Velocity of Lagrangian markers.
         kernels (jax.Array of shape (N_MARKER, NX, NY)): Kernel functions
             from get_kernels(). This should be recomputed when markers move. 
-        ds_markers (scalar or jax.Array of shape (N_MARKER,)): Differential arc length 
+        ds_markers (scalar or jax.Array of shape (N_MARKER,)): Differential segment length 
             associated with each marker (for force integration).
         n_iter (int, optional): Number of iterations. Default is 5.
     
