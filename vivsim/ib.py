@@ -167,8 +167,8 @@ def get_ds_open(coord_markers):
     
     # Vectorized calculation: each point gets half of adjacent segments
     ds = jnp.zeros(len(coord_markers))
-    ds[:-1] += segment_lengths / 2  # Add half to start of each segment
-    ds[1:] += segment_lengths / 2    # Add half to end of each segment
+    ds = ds.at[:-1].add(segment_lengths / 2)  # Add half to start of each segment
+    ds = ds.at[1:].add(segment_lengths / 2)  # Add half to end of each segment
     
     return ds
 
