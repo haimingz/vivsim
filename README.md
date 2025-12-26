@@ -150,14 +150,13 @@ More detailed instructions can be found in our [Documentation](https://github.co
 
 If you find this repo useful, please cite [our paper](https://asmedigitalcollection.asme.org/OMAE/proceedings-abstract/OMAE2024/87844/1202724):
 ```
-@inproceedings{zhu2024computational,
-  title={Computational Performance of IB-LBM Based VIV Simulation Using Python With JAX},
-  author={Zhu, Haiming and Du, Zunfeng and Yang, Yuan and Han, Muxuan},
-  booktitle={International Conference on Offshore Mechanics and Arctic Engineering},
-  volume={87844},
-  pages={V006T08A020},
-  year={2024},
-  organization={American Society of Mechanical Engineers}
+@article{zhu2025gpu,
+  title={{GPU} Accelerated Vortex-Induced Vibration Simulation Using {JAX}: Efficiency and Accuracy Strategies},
+  author={Zhu, Haiming and Yang, Yuan and Du, Zunfeng and Yu, Jianxing},
+  journal={Computers \& Fluids},
+  pages={106913},
+  year={2025},
+  publisher={Elsevier}
 }
 ```
 
