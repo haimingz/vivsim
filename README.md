@@ -12,18 +12,6 @@ VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) sim
 
 Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators, achieving massive parallelism on GPU/GPUs. 
 
-
-
-## Recent Updates
-
-**Version 1.1.0** (October 2024)
-- **Modular LBM Architecture**: Reorganized all LBM-related code into a structured `lbm` module with submodules for `boundary`, `collision`, and `forcing`, enabling easier maintenance and future extensions with new methods.
-- **Enhanced Boundary Conditions**: Implemented more boundary condition methods including Non-Equilibrium Extrapolation (NEE), Non-Equilibrium Bounce Back (NEBB), and equilibrium boundary conditions. Support predescribed velocity, density, and forces.
-- **Improved LBM Collision Operators**: Implemented Karlin-Bösch-Chikatamarla (KBC) collision operator that is super stable for high Re numbers.
-- **New Forcing Scheme**: Implemented the modified Exact Difference Method (EDM) which requires no correction to the collision operator when there are forces..
-- **Code Quality**: Improved code readability, fixed typos in docstrings, and enhanced documentation throughout the codebase using AI with my supervision. 
-
-
 ## Usage
 
 VIVSIM provides a collection of **pure functions** for IB-LBM computations. Users can construct custom simulation models for different tasks. Start with the included demo examples to see how easy that is! 
