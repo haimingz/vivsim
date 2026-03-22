@@ -1,17 +1,30 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "vivsim"
-version = "1.1.1"
+version = "1.2.0"
+description = "Accelerated immersed boundary-lattice Boltzmann simulations built on JAX"
+readme = "README.md"
 requires-python = ">=3.8"
 authors = [{ name = "Haiming Zhu", email = "zhuhaiming@tju.edu.cn" }]
-dependencies = ['matplotlib', 'numpy', 'tqdm', 'jax[cuda12]']
+dependencies = [
+    "jax>=0.4",
+    "matplotlib",
+    "numpy",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+cpu = ["jax>=0.4"]
+cuda12 = ['jax[cuda12]>=0.4; platform_system == "Linux"']
+cuda13 = ['jax[cuda13]>=0.4; platform_system == "Linux"']
+tpu = ['jax[tpu]>=0.4; platform_system == "Linux"']
 
 [project.urls]
 "Homepage" = "https://github.com/haimingz/vivsim"
 "Source" = "https://github.com/haimingz/vivsim"
 
-[tool.setuptools]
-py-modules = ["vivsim"]
+[tool.setuptools.packages.find]
+include = ["vivsim*"]

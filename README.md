@@ -8,9 +8,9 @@
 [![GitHub Traffic](https://img.shields.io/badge/dynamic/json?color=success&label=Views&query=count&url=https://gist.githubusercontent.com/haimingz/b2e30dd706e57413c1c1f688de82ef6e/raw/traffic.json&logo=github)](https://github.com/MShawon/github-clone-count-badge) [![GitHub Clones](https://img.shields.io/badge/dynamic/json?color=success&label=Clone&query=count&url=https://gist.githubusercontent.com/haimingz/8981033dc17c32a7c2f409e631b57309/raw/clone.json&logo=github)](https://github.com/MShawon/github-clone-count-badge)
 
 
-VIVSIM is a Python library for accelerated fluid-structure interaction (FSI) simulations based on the immersed boundary -lattice Boltzmann method (IB-LBM). It was originated from a research project requiring efficient simulation codes for studying vortex-induced vibration (VIV) of underwater structures. 
+VIVSIM is a Python library for fluid-structure interaction (FSI) simulations based on the immersed boundary -lattice Boltzmann method (IB-LBM). It was originated from a research project requiring efficient simulation codes for studying vortex-induced vibration (VIV) of underwater structures. 
 
-Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to harness the power of hardware accelerators, achieving massive parallelism on GPU/GPUs. 
+Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to achieve *hardware acceleration* and *automatic differentiation*. The project follows the **Functional Programming** paradigm to facilitate XLA compilation while making the codebase easier to understand and maintain.
 
 ## Usage
 
@@ -91,6 +91,7 @@ Collision Models
 - Bhatnagar-Gross-Krook (BGK) collision operator
 - Multiple Relaxation Time (MRT) collision operator
 - Karlin–Bösch–Chikatamarla (KBC) collision operator
+- Regularized collision operator
 
 Boundary Conditions:
 - Predescribed velocity, density, and forces at boundaies using: 
@@ -116,11 +117,6 @@ Acceleration techniques
 
 <img src="assets/grid_refinement.png" width=500 />
 
-## Todos
-
-- Standardized simulation routines.
-- 3D simulation capability.
-
 
 ## Getting Started
 
@@ -128,11 +124,23 @@ To locally install VIVSIM for development:
 
 ```bash
 git clone https://github.com/haimingz/vivsim.git
-pip install -e vivsim
+cd vivsim
+pip install -e ".[cpu]"
 ```
-This package is based on JAX, whose installation may depend on the OS and hardware. If the above command does not work well, please refer to the [JAX Documentation](https://jax.readthedocs.io/en/latest/installation.html) for the latest installation guidance. 
 
-More detailed instructions can be found in our [Documentation](https://github.com/haimingz/vivsim/wiki/Installation).
+JAX installation depends on the operating system and accelerator backend. VIVSIM now exposes the most common JAX choices as optional extras:
+
+```bash
+# CPU-only development on Linux/macOS/Windows
+pip install -e ".[cpu]"
+
+# NVIDIA GPU on Linux
+pip install -e ".[cuda12]"
+pip install -e ".[cuda13]"
+
+# Google Cloud TPU VM
+pip install -e ".[tpu]"
+```
 
 ## Cite VIVSIM
 
@@ -147,4 +155,3 @@ If you find this repo useful, please cite [our paper](https://asmedigitalcollect
   publisher={Elsevier}
 }
 ```
-
