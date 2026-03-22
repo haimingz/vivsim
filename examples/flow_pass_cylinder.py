@@ -63,7 +63,8 @@ X, Y = jnp.mgrid[0:NX, 0:NY]
 THETA_MARKERS = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
 X_MARKERS = X_CYL + 0.5 * D * jnp.cos(THETA_MARKERS)
 Y_MARKERS = Y_CYL + 0.5 * D * jnp.sin(THETA_MARKERS)
-DS_MARKERS = D * math.pi / N_MARKER
+MARKER_COORDS = jnp.stack((X_MARKERS, Y_MARKERS), axis=1)
+DS_MARKERS = ib.get_ds_closed(MARKER_COORDS)
 
 # IBM region (for optimized computation)
 IB_X0 = int(X_CYL - 0.5 * D - IB_PAD)
@@ -71,10 +72,15 @@ IB_Y0 = int(Y_CYL - 0.5 * D - IB_PAD)
 IB_SIZE = D + 2 * IB_PAD
 IB_REGION = (slice(IB_X0, IB_X0 + IB_SIZE), slice(IB_Y0, IB_Y0 + IB_SIZE))
 
-# Pre-compute IBM region coordinates and kernels
-X_IB = X[IB_REGION]
-Y_IB = Y[IB_REGION]
-KERNELS = ib.get_kernels(X_MARKERS, Y_MARKERS, X_IB, Y_IB, ib.kernel_range4)
+# Pre-compute marker stencils in the local IBM region
+X_MARKERS_IB = X_MARKERS - IB_X0
+Y_MARKERS_IB = Y_MARKERS - IB_Y0
+STENCIL_WEIGHTS, STENCIL_INDICES = ib.get_ib_stencil(
+    X_MARKERS_IB,
+    Y_MARKERS_IB,
+    IB_SIZE,
+    kernel=ib.kernel_peskin_4pt,
+)
 
 
 # ======================= INITIALIZE VARIABLES ====================
@@ -101,7 +107,15 @@ def update(f, h):
     rho_ib = rho[IB_REGION]
     
     # Compute IBM forcing using multi-direct forcing method
-    g_ib, h_marker = ib.multi_direct_forcing(u_ib, 0, KERNELS, DS_MARKERS, n_iter=N_ITER)
+    v_markers = jnp.zeros((N_MARKER, 2))
+    g_ib, h_marker = ib.multi_direct_forcing(
+        u_ib,
+        STENCIL_WEIGHTS,
+        STENCIL_INDICES,
+        v_markers,
+        DS_MARKERS,
+        n_iter=N_ITER,
+    )
     
     # Integrate marker forces to get total force on cylinder
     h = dyn.get_force_to_obj(h_marker)
@@ -170,4 +184,3 @@ ax.text(
 
 fig.tight_layout()
 plt.show()
-

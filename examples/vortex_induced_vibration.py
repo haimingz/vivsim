@@ -69,7 +69,8 @@ X, Y = jnp.mgrid[0:NX, 0:NY]
 THETA = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
 X_MARKERS = X_CYL + 0.5 * D * jnp.cos(THETA)
 Y_MARKERS = Y_CYL + 0.5 * D * jnp.sin(THETA)
-DS_MARKERS = D * math.pi / N_MARKER
+MARKER_COORDS = jnp.stack((X_MARKERS, Y_MARKERS), axis=1)
+DS_MARKERS = ib.get_ds_closed(MARKER_COORDS)
 
 IB_X0 = int(X_CYL - 0.5 * D - IB_PAD)
 IB_Y0 = int(Y_CYL - 0.5 * D - IB_PAD)
@@ -97,7 +98,7 @@ v = v.at[1].set(1e-2 * U0)
 # ======================= SIMULATION ROUTINE =====================
 
 @jax.jit
-def update(f, rho, u, d, v, a, h):
+def update(f, d, v, a, h):
     
     # Update macroscopic variables
     rho, u = lbm.get_macroscopic(f)
@@ -113,16 +114,33 @@ def update(f, rho, u, d, v, a, h):
     # Extract data from IBM region for efficient computation
     rho_ib = jax.lax.dynamic_slice(rho, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
     u_ib = jax.lax.dynamic_slice(u, (0, ib_x0, ib_y0), (2, IB_SIZE, IB_SIZE))
-    x_ib = jax.lax.dynamic_slice(X, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
-    y_ib = jax.lax.dynamic_slice(Y, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
     f_ib = jax.lax.dynamic_slice(f, (0, ib_x0, ib_y0), (9, IB_SIZE, IB_SIZE))
     a_old, v_old, d_old = a, v, d
     
     for i in range(FSI_ITER):
         
         x_markers, y_markers = dyn.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
-        kernels = ib.get_kernels(x_markers, y_markers, x_ib, y_ib, ib.kernel_range4)
-        g_ib, h_marker = ib.multi_direct_forcing(u_ib, v, kernels, DS_MARKERS, n_iter=IB_ITER)
+        
+        # Adjust markers to be relative to the local IB region box
+        x_markers_ib = x_markers - ib_x0
+        y_markers_ib = y_markers - ib_y0
+        
+        stencil_weights, stencil_indices = ib.get_ib_stencil(
+            x_markers_ib,
+            y_markers_ib,
+            IB_SIZE,
+            kernel=ib.kernel_peskin_4pt,
+        )
+        v_markers = jnp.repeat(v[None, :], N_MARKER, axis=0)
+        
+        g_ib, h_marker = ib.multi_direct_forcing(
+            u_ib,
+            stencil_weights,
+            stencil_indices,
+            v_markers,
+            DS_MARKERS,
+            n_iter=IB_ITER,
+        )
         
         # apply marker forces to the cylinder
         h = dyn.get_force_to_obj(h_marker)
@@ -133,9 +151,6 @@ def update(f, rho, u, d, v, a, h):
     f_ib = lbm.forcing_edm(f_ib, g_ib, u_ib, rho_ib)
     f = jax.lax.dynamic_update_slice(f, f_ib, (0, ib_x0, ib_y0))
     
-    u_ib = u_ib + lbm.get_velocity_correction(g_ib, rho_ib)
-    u = jax.lax.dynamic_update_slice(u, u_ib, (0, ib_x0, ib_y0))
-    
     # Streaming step
     f = lbm.streaming(f)
     
@@ -143,7 +158,7 @@ def update(f, rho, u, d, v, a, h):
     f = lbm.boundary_nebb(f, loc='left', ux_wall=U0)
     f = lbm.boundary_equilibrium(f, loc='right', ux_wall=U0)
     
-    return f, rho, u, d, v, a, h
+    return f, d, v, a, h
 
 
 # ======================= VISUALIZATION SETUP ====================
@@ -180,9 +195,8 @@ if PLOT:
 
 
 # ========================== RUN SIMULATION ==========================
-
 for t in tqdm(range(TM)):
-    f, rho, u, d, v, a, h = update(f, rho, u, d, v, a, h)
+    f, d, v, a, h = update(f, d, v, a, h)
     
     # Store history
     d_hist[:, t] = np.array(d)
@@ -190,6 +204,7 @@ for t in tqdm(range(TM)):
     
     # Update visualization
     if PLOT and t % PLOT_EVERY == 0 and t > PLOT_AFTER:
+        _, u = lbm.get_macroscopic(f)
         curl = post.calculate_vorticity_dimensionless(u, D, U0)
         im.set_data(curl.T)
         plt.pause(0.001)
