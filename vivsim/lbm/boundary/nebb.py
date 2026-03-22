@@ -2,18 +2,17 @@
 This module implements the Non-Equilibrium Bounce-Back (or Zou/He) boundary condition
 for the Lattice Boltzmann Method (LBM) in a 2D D2Q9 lattice.
 
-The body force parameters gx_wall and gy_wall represent the external body forces applied
-at the boundary (e.g., gravity or other acceleration fields). These are used to correct
-the wall velocity when body forces are present in the simulation. 
+When body forces are present, pass the corrected wall velocity obtained from
+``get_corrected_wall_velocity`` (from this package) before calling these functions.
 """
 
 
 
-from ..basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS, get_velocity_correction
+from ..basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
 import jax.numpy as jnp
 
 
-def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0, gx_wall=0, gy_wall=0):
+def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
     """Non-Equilibrium Bounce-Back (or Zou/He) scheme.
 
     This is the core function for the nebb_velocity and nebb_pressure functions.
@@ -30,16 +29,11 @@ def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0, gx_wall=0, gy_w
         ux_wall (scalar or jax.Array of shape NX or NY): The x-component of velocity.
         uy_wall (scalar or jax.Array of shape NX or NY): The y-component of velocity.
         rho_wall (scalar or jax.Array of shape NX or NY): The density at the wall.
-        gx_wall (scalar or jax.Array of shape NX or NY): The x-component of body force.
-        gy_wall (scalar or jax.Array of shape NX or NY): The y-component of body force.
 
     Returns:
         f (jax.Array of shape (9, NX, NY)): The DDF
             after enforcing the boundary condition.
     """
-
-    ux_wall = ux_wall - get_velocity_correction(gx_wall, rho_wall)
-    uy_wall = uy_wall - get_velocity_correction(gy_wall, rho_wall)
 
     if loc == "left":
         f = f.at[1, 0].set(f[3, 0] + 2 / 3 * ux_wall * rho_wall)
@@ -64,7 +58,7 @@ def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0, gx_wall=0, gy_w
     return f
 
 
-def boundary_velocity_nebb(f, loc: str, ux_wall=0, uy_wall=0, gx_wall=0, gy_wall=0):
+def boundary_velocity_nebb(f, loc: str, ux_wall=0, uy_wall=0):
     """Enforce given velocity ux_wall, uy_wall at the specified boundary using the
     Non-Equilibrium Bounce-Back (or Zou/He) scheme.
 
@@ -77,8 +71,6 @@ def boundary_velocity_nebb(f, loc: str, ux_wall=0, uy_wall=0, gx_wall=0, gy_wall
             can be 'left', 'right', 'top', or 'bottom'.
         ux_wall (scalar or jax.Array of shape NX or NY): The x-component of velocity.
         uy_wall (scalar or jax.Array of shape NX or NY): The y-component of velocity.
-        gx_wall (scalar or jax.Array of shape NX or NY): The x-component of body force.
-        gy_wall (scalar or jax.Array of shape NX or NY): The y-component of body force.
 
     Returns:
         f (jax.Array of shape (9, NX, NY)): The DDF
@@ -101,10 +93,10 @@ def boundary_velocity_nebb(f, loc: str, ux_wall=0, uy_wall=0, gx_wall=0, gy_wall
     elif loc == "bottom":
         rho_wall = (f[0, :, 0] + f[1, :, 0] + f[3, :, 0] + 2 * (f[4, :, 0] + f[7, :, 0] + f[8, :, 0])) / (1 - uy_wall)
 
-    return boundary_nebb(f, loc, ux_wall=ux_wall, uy_wall=uy_wall, rho_wall=rho_wall, gx_wall=gx_wall, gy_wall=gy_wall)
+    return boundary_nebb(f, loc, ux_wall=ux_wall, uy_wall=uy_wall, rho_wall=rho_wall)
 
 
-def boundary_pressure_nebb(f, loc: str, rho_wall=1, gx_wall=0, gy_wall=0):
+def boundary_pressure_nebb(f, loc: str, rho_wall=1):
     """Enforce given pressure (density) rho_wall at the specified boundary using the
     Non-Equilibrium Bounce-Back (or Zou/He) scheme.
 
@@ -117,8 +109,6 @@ def boundary_pressure_nebb(f, loc: str, rho_wall=1, gx_wall=0, gy_wall=0):
         loc (str): The boundary where the pressure condition is enforced,
             can be 'left', 'right', 'top', or 'bottom'.
         rho_wall (scalar or jax.Array of shape NX or NY): The density at the wall.
-        gx_wall (scalar or jax.Array of shape NX or NY): The x-component of body force.
-        gy_wall (scalar or jax.Array of shape NX or NY): The y-component of body force.
 
     Returns:
         f (jax.Array of shape (9, NX, NY)): The DDF
@@ -151,4 +141,4 @@ def boundary_pressure_nebb(f, loc: str, rho_wall=1, gx_wall=0, gy_wall=0):
         ux_wall = (jnp.sum(f[RIGHT_DIRS, :, 1], axis=0) - jnp.sum(f[LEFT_DIRS, :, 1], axis=0)) / rho_next
 
 
-    return boundary_nebb(f, loc, ux_wall=ux_wall, uy_wall=uy_wall, rho_wall=rho_wall, gx_wall=gx_wall, gy_wall=gy_wall)
+    return boundary_nebb(f, loc, ux_wall=ux_wall, uy_wall=uy_wall, rho_wall=rho_wall)

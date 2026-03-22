@@ -1,5 +1,6 @@
 from .basic import streaming, collision_bgk, get_equilibrium, get_macroscopic, get_velocity_correction, get_omega
 
+from .boundary import get_corrected_wall_velocity
 from .boundary.bb import boundary_bounce_back, boundary_specular_reflection, obstacle_bounce_back
 from .boundary.cbc import boundary_characteristic
 from .boundary.eq import boundary_equilibrium
