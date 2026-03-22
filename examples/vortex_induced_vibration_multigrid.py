@@ -64,7 +64,8 @@ N_MARKER = 4 * D            # Number of markers on cylinder surface
 THETA_MARKERS = jnp.linspace(0, 2 * jnp.pi, N_MARKER, dtype=jnp.float32, endpoint=False)
 X_MARKERS = X_CYL + 0.5 * D * jnp.cos(THETA_MARKERS)  # Initial x positions (relative to Block 2)
 Y_MARKERS = Y_CYL + 0.5 * D * jnp.sin(THETA_MARKERS)  # Initial y positions (relative to Block 2)
-DS_MARKERS = D * math.pi / N_MARKER                    # Arc length between markers
+MARKER_COORDS = jnp.stack((X_MARKERS, Y_MARKERS), axis=1)
+DS_MARKERS = ib.get_ds_closed(MARKER_COORDS)
 
 # IBM region configuration
 IB_PAD = 10                                          # Padding around cylinder for IBM region
@@ -128,8 +129,6 @@ def solve_fsi(f, rho, u, d, v, a, h):
     # Extract data from IBM region for efficient computation
     rho_ib = jax.lax.dynamic_slice(rho, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
     u_ib = jax.lax.dynamic_slice(u, (0, ib_x0, ib_y0), (2, IB_SIZE, IB_SIZE))
-    x_ib = jax.lax.dynamic_slice(X, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
-    y_ib = jax.lax.dynamic_slice(Y, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
     f_ib = jax.lax.dynamic_slice(f, (0, ib_x0, ib_y0), (9, IB_SIZE, IB_SIZE))
     a_old, v_old, d_old = a, v, d
     
@@ -137,8 +136,23 @@ def solve_fsi(f, rho, u, d, v, a, h):
         
         # Update marker positions based on cylinder displacement
         x_markers, y_markers = dyn.get_markers_coords_2dof(X_MARKERS, Y_MARKERS, d)
-        kernels = ib.get_kernels(x_markers, y_markers, x_ib, y_ib, ib.kernel_range4)
-        g_ib, h_marker = ib.multi_direct_forcing(u_ib, v, kernels, DS_MARKERS, n_iter=IB_ITER)
+        x_markers_ib = x_markers - ib_x0
+        y_markers_ib = y_markers - ib_y0
+        stencil_weights, stencil_indices = ib.get_ib_stencil(
+            x_markers_ib,
+            y_markers_ib,
+            IB_SIZE,
+            kernel=ib.kernel_peskin_4pt,
+        )
+        v_markers = jnp.repeat(v[None, :], N_MARKER, axis=0)
+        g_ib, h_marker = ib.multi_direct_forcing(
+            u_ib,
+            stencil_weights,
+            stencil_indices,
+            v_markers,
+            DS_MARKERS,
+            n_iter=IB_ITER,
+        )
         
         # Apply marker forces to the cylinder with internal mass correction
         h = dyn.get_force_to_obj(h_marker)

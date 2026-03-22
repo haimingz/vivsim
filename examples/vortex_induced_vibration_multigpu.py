@@ -85,7 +85,8 @@ X, Y = jnp.meshgrid(jnp.arange(NX, dtype=jnp.int32),
 THETA = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
 X_MARKERS = X_CYL + 0.5 * D * jnp.cos(THETA)
 Y_MARKERS = Y_CYL + 0.5 * D * jnp.sin(THETA)
-DS_MARKERS = D * math.pi / N_MARKER
+MARKER_COORDS = jnp.stack((X_MARKERS, Y_MARKERS), axis=1)
+DS_MARKERS = ib.get_ds_closed(MARKER_COORDS)
 
 # Dynamic IBM region boundaries
 IB_START_X = int(X_CYL - IB_LEFT)
@@ -139,16 +140,16 @@ def update(f, d, v, a, h, X, Y):
     
     # Extract data from IBM region for efficient computation
     u_ib = u[:, IB_START_X:IB_END_X]
-    x_ib = X[IB_START_X:IB_END_X]
-    y_ib = Y[IB_START_X:IB_END_X]
     f_ib = f[:, IB_START_X:IB_END_X]
     
     # Initialize forcing and marker forces
     g_ib = jnp.zeros((2, IB_END_X - IB_START_X, NY // N_DEVICES))
     h_marker = jnp.zeros((N_MARKER, 2))
     
-    # Calculate kernel functions for all markers
-    kernels = ib.get_kernels(x_markers, y_markers, x_ib, y_ib, ib.kernel_range4)
+    # Compute dense kernel weights (N_MARKER, NX_IB, NY_DEVICE)
+    x_ib = X[IB_START_X:IB_END_X]
+    y_ib = Y[IB_START_X:IB_END_X]
+    kernels = jax.vmap(lambda xm, ym: ib.kernel_peskin_4pt(x_ib - xm) * ib.kernel_peskin_4pt(y_ib - ym))(x_markers, y_markers)
     
     # Multi-direct forcing iterations
     for _ in range(IB_ITER):
@@ -159,10 +160,10 @@ def update(f, d, v, a, h, X, Y):
         
         # Compute correction force
         delta_u_markers = v - u_markers
-        h_marker -= delta_u_markers * DS_MARKERS
+        h_marker -= delta_u_markers * DS_MARKERS[:, None]
         
         # Apply force to the fluid
-        delta_u = jnp.einsum("nd,nxy->dxy", delta_u_markers, kernels) * DS_MARKERS
+        delta_u = jnp.einsum("nd,nxy->dxy", delta_u_markers * DS_MARKERS[:, None], kernels)
         g_ib += delta_u * 2
         u_ib += delta_u
     
