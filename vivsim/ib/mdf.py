@@ -20,11 +20,11 @@ def multi_direct_forcing(
     """Run multi-direct forcing and return fluid and marker forces.
 
     Args:
-        grid_u: Grid velocity, shape `(2, nx, ny)`.
+        grid_u: Fluid velocity at grid points, shape `(2, nx, ny)`.
         stencil_weights: Stencil weights, shape `(n_markers, n_stencil)`.
         stencil_indices: Flattened stencil indices, same shape as
             `stencil_weights`.
-        marker_u_target: Target marker velocity, shape `(n_markers, 2)`.
+        marker_u_target: Target fluid velocity at marker positions, shape `(n_markers, 2)`.
         marker_ds: Marker segment length, scalar or shape `(n_markers,)`.
         n_iter: Number of MDF correction iterations.
 

@@ -1,17 +1,18 @@
 """
-Flow past a stationary cylinder using IB-LBM
+Flow past a stationary circular cylinder using IB-LBM
 
-This example can be used to validate the IB-LBM implementation via comparison the 
-hydrodynamic force coefficients against reference data from literature.
+This example simulates incompressible flow past a fixed cylinder and can be
+used to validate the IB-LBM implementation by comparing the hydrodynamic force
+coefficients against reference data from the literature.
 """
 
 import math
 
-import numpy as np
 import jax
 import jax.numpy as jnp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
 from tqdm import tqdm
 
 from vivsim import dyn, ib, lbm
@@ -19,167 +20,159 @@ from vivsim import dyn, ib, lbm
 
 # ========================== GEOMETRY =======================
 
-# Cylinder geometry
-D = 60                      # Cylinder diameter
-NY = 20 * D                 # Domain height
-NX = 30 * D                 # Domain width
-X_CYL = 10 * D              # Cylinder center x-position
-Y_CYL = 10 * D              # Cylinder center y-position
-N_MARKER = 4 * D            # Number of markers on cylinder surface
+D = 60  # Cylinder diameter
+NX = 30 * D  # Domain width
+NY = 20 * D  # Domain height
+CYL_X = 10 * D  # Cylinder center x-position
+CYL_Y = 10 * D  # Cylinder center y-position
+CYL_AREA = math.pi * (D / 2) ** 2  # Cylinder cross-sectional area
+
+N_MARKER = 4 * D  # Number of markers on cylinder surface
+MARKER_THETA = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
+MARKER_X = CYL_X + 0.5 * D * jnp.cos(MARKER_THETA)  # Marker x-coordinates
+MARKER_Y = CYL_Y + 0.5 * D * jnp.sin(MARKER_THETA)  # Marker y-coordinates
+MARKER_COORDS = jnp.stack((MARKER_X, MARKER_Y), axis=1)
+MARKER_DS = ib.get_ds_closed(MARKER_COORDS)  # Marker segment length
 
 
 # ========================== PHYSICAL PARAMETERS =====================
 
-U0 = 0.05                   # Inlet velocity
-RE = 200                    # Reynolds number
-NU = U0 * D / RE            # Kinematic viscosity
-TM = int(30 * 5 / U0 * D)   # Total simulation timesteps
+U0 = 0.05  # Inlet velocity
+RE = 200  # Reynolds number
+
+NU = U0 * D / RE  # Kinematic viscosity
+TM = int(30 * 5 / U0 * D)  # Total simulation timesteps
 
 
 # ========================== IB-LBM PARAMETERS ==========================
 
-OMEGA = lbm.get_omega(NU)   # Relaxation parameter
-N_ITER = 3                  # Multi-direct forcing iterations
-IB_PAD = 2                  # Padding around cylinder for IBM region
+OMEGA = lbm.get_omega(NU)  # Relaxation parameter
 
+IB_ITER = 3  # Multi-direct forcing iterations for IBM coupling
+IB_PAD = 2  # Padding around cylinder for defining the local IBM region
 
-# ========================== REF DATA ==========================
+IB_X0 = int(CYL_X - 0.5 * D - IB_PAD)  # X-coordinate of the IBM region
+IB_Y0 = int(CYL_Y - 0.5 * D - IB_PAD)  # Y-coordinate of the IBM region
+IB_SIZE = D + 2 * IB_PAD  # Size of the IBM region
 
-# Reference data, averaging the results from the following sources:
-# [1] https://doi.org/10.1016/j.ijmecsci.2024.108961.
-# [2] https://doi.org/10.1016/j.camwa.2014.05.013.
-# [3] https://doi.org/10.1017/S0022112086003014
-
-CD_REF = 1.389              # Mean drag coefficient
-CL_REF = 0.718              # Maximum lift coefficient amplitude
-
-
-# ==================== MESHES ========================
-
-# LBM grid coordinates
-X, Y = jnp.mgrid[0:NX, 0:NY]
-
-# IBM marker configuration
-THETA_MARKERS = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
-X_MARKERS = X_CYL + 0.5 * D * jnp.cos(THETA_MARKERS)
-Y_MARKERS = Y_CYL + 0.5 * D * jnp.sin(THETA_MARKERS)
-MARKER_COORDS = jnp.stack((X_MARKERS, Y_MARKERS), axis=1)
-DS_MARKERS = ib.get_ds_closed(MARKER_COORDS)
-
-# IBM region (for optimized computation)
-IB_X0 = int(X_CYL - 0.5 * D - IB_PAD)
-IB_Y0 = int(Y_CYL - 0.5 * D - IB_PAD)
-IB_SIZE = D + 2 * IB_PAD
-IB_REGION = (slice(IB_X0, IB_X0 + IB_SIZE), slice(IB_Y0, IB_Y0 + IB_SIZE))
-
-# Pre-compute marker stencils in the local IBM region
-X_MARKERS_IB = X_MARKERS - IB_X0
-Y_MARKERS_IB = Y_MARKERS - IB_Y0
+# Pre-compute marker stencils in the local IBM region.
+MARKER_X_IB = MARKER_X - IB_X0
+MARKER_Y_IB = MARKER_Y - IB_Y0
 STENCIL_WEIGHTS, STENCIL_INDICES = ib.get_ib_stencil(
-    X_MARKERS_IB,
-    Y_MARKERS_IB,
+    MARKER_X_IB, MARKER_Y_IB,
     IB_SIZE,
     kernel=ib.kernel_peskin_4pt,
 )
 
 
+# ========================== REFERENCE DATA ==========================
+
+# Averaged from the following sources:
+# [1] https://doi.org/10.1016/j.ijmecsci.2024.108961
+# [2] https://doi.org/10.1016/j.camwa.2014.05.013
+# [3] https://doi.org/10.1017/S0022112086003014
+CD_REF = 1.389  # Mean drag coefficient
+CL_REF = 0.718  # Maximum lift coefficient amplitude
+
+
 # ======================= INITIALIZE VARIABLES ====================
 
-rho = jnp.ones((NX, NY))
-u = jnp.zeros((2, NX, NY))
-u = u.at[0].set(U0)
-f = lbm.get_equilibrium(rho, u)
-h = jnp.zeros(2) 
+rho = jnp.ones((NX, NY))  # Fluid density
+u = jnp.zeros((2, NX, NY))  # Fluid velocity
+u = u.at[0].set(U0)  # Set initial x-velocity to U0 for a uniform inlet flow
+f = lbm.get_equilibrium(rho, u)  # Initial LBM distribution function
+
+h = jnp.zeros(2)  # Hydrodynamic force on the cylinder
+marker_v = jnp.zeros((N_MARKER, 2))  # Target marker velocity for a fixed cylinder
 
 
 # ======================= SIMULATION ROUTINE =====================
 
 @jax.jit
-def update(f, h):
-    
+def update(f):
+
+    # Collision
     rho, u = lbm.get_macroscopic(f)
     feq = lbm.get_equilibrium(rho, u)
     f = lbm.collision_kbc(f, feq, OMEGA)
-    
+
     # Extract IBM region data for efficient computation
-    u_ib = u[:, *IB_REGION]
-    f_ib = f[:, *IB_REGION]
-    rho_ib = rho[IB_REGION]
-    
-    # Compute IBM forcing using multi-direct forcing method
-    v_markers = jnp.zeros((N_MARKER, 2))
-    g_ib, h_marker = ib.multi_direct_forcing(
-        u_ib,
-        STENCIL_WEIGHTS,
-        STENCIL_INDICES,
-        v_markers,
-        DS_MARKERS,
-        n_iter=N_ITER,
+    ib_rho = jax.lax.dynamic_slice(rho, (IB_X0, IB_Y0), (IB_SIZE, IB_SIZE))
+    ib_u = jax.lax.dynamic_slice(u, (0, IB_X0, IB_Y0), (2, IB_SIZE, IB_SIZE))
+    ib_f = jax.lax.dynamic_slice(f, (0, IB_X0, IB_Y0), (9, IB_SIZE, IB_SIZE))
+
+    # Run multi-direct forcing to enforce the no-slip condition
+    ib_g, marker_h = ib.multi_direct_forcing(
+        grid_u=ib_u,
+        stencil_weights=STENCIL_WEIGHTS,
+        stencil_indices=STENCIL_INDICES,
+        marker_u_target=marker_v,
+        marker_ds=MARKER_DS,
+        n_iter=IB_ITER,
     )
-    
-    # Integrate marker forces to get total force on cylinder
-    h = dyn.get_force_to_obj(h_marker)
-    
-    # Update distribution functions and velocity in IBM region
-    f = f.at[:, *IB_REGION].set(lbm.forcing_edm(f_ib, g_ib, u_ib, rho_ib))
-    u = u.at[:, *IB_REGION].add(lbm.get_velocity_correction(g_ib, rho_ib))
 
+    h = dyn.get_force_to_obj(marker_h)
+
+    # Apply IBM forcing to the fluid in the local IBM region
+    ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
+    f = jax.lax.dynamic_update_slice(f, ib_f, (0, IB_X0, IB_Y0))
+
+    # Streaming and boundary conditions
     f = lbm.streaming(f)
-    f = lbm.boundary_nebb(f, loc='left', ux_wall=U0)          
-    f = lbm.boundary_equilibrium(f, loc='right', ux_wall=U0)  
-    
-    return f, rho, u, h
+    f = lbm.boundary_nebb(f, loc="left", ux_wall=U0)
+    f = lbm.boundary_equilibrium(f, loc="right", ux_wall=U0)
+
+    return f, h
 
 
-# ======================= VISUALIZATION SETUP ====================
+# ======================= HISTORY STORAGE ====================
 
-mpl.rcParams['figure.raise_window'] = False
+mpl.rcParams["figure.raise_window"] = False
 
-# Storage for force history
-h_hist = jnp.zeros((2, TM), dtype=jnp.float32)
+h_hist = np.zeros((2, TM), dtype=np.float32)
 
 
 # ========================== RUN SIMULATION ==========================
 
 for t in tqdm(range(TM)):
-    f, rho, u, h = update(f, h)
-    h_hist = h_hist.at[:, t].set(h)
+    f, h = update(f)
+    h_hist[:, t] = np.asarray(h)
 
 
-# ======================= PLOT RESULTS ==========================
+# ======================= POST-PROCESSING ==========================
 
-# Compute normalized force coefficients
-cd = h_hist[0] * 2 / (D * U0**2)
-cl = h_hist[1] * 2 / (D * U0**2)
+cd = h_hist[0] * 2 / (D * U0 ** 2)
+cl = h_hist[1] * 2 / (D * U0 ** 2)
 
-# Compute statistics from second half of simulation
-cd_mean = np.mean(cd[TM // 2:])
-cl_max = np.max(np.abs(cl[TM // 2:]))
+cd_mean = np.mean(cd[TM // 2 :])
+cl_max = np.max(np.abs(cl[TM // 2 :]))
 cd_err = abs(cd_mean - CD_REF) / CD_REF * 100
 cl_err = abs(cl_max - CL_REF) / CL_REF * 100
 
-# Create plot
 fig, ax = plt.subplots(figsize=(8, 5))
 ax.plot(cd, label="Cd (drag)", linewidth=1.5)
 ax.plot(cl, label="Cl (lift)", linewidth=1.5)
 
-ax.set_xlabel("Time step", fontsize=10)
-ax.set_ylabel("Force coefficient", fontsize=10)
-ax.legend(frameon=False, loc='upper right', fontsize=9)
+ax.set_xlabel("Time step")
+ax.set_ylabel("Force coefficient")
+ax.legend(frameon=False, loc="upper right")
 ax.set_ylim(-2, 4)
-ax.grid(True, alpha=0.3, linestyle=':')
+ax.grid(True, alpha=0.3, linestyle=":")
 
-# Add statistics text
 stats_text = (
     f"Cd = {cd_mean:.3f} (ref: {CD_REF}, err: {cd_err:.1f}%)\n"
     f"Cl = {cl_max:.3f} (ref: {CL_REF}, err: {cl_err:.1f}%)"
 )
 ax.text(
-    0.02, 0.95, stats_text,
+    0.02,
+    0.95,
+    stats_text,
     transform=ax.transAxes,
-    ha="left", va="top",
-    fontsize=9, color="blue",
-    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+    ha="left",
+    va="top",
+    fontsize=9,
+    color="blue",
+    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
 )
 
 fig.tight_layout()
