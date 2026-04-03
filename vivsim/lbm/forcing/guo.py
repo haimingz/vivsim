@@ -19,18 +19,17 @@ def get_guo_forcing_term(g, u):
         jax.Array: Lattice forcing term with shape (9, NX, NY), where 9 is the number
             of discrete velocity directions in the D2Q9 lattice.
     """
-    uc = (u[0, :, :] * VELOCITIES[:, 0, jnp.newaxis, jnp.newaxis] + 
-          u[1, :, :] * VELOCITIES[:, 1, jnp.newaxis, jnp.newaxis])
-    
-    g_lattice = WEIGHTS[..., jnp.newaxis, jnp.newaxis] * (
-        g[0] * (
-            3 * (VELOCITIES[:, 0, jnp.newaxis, jnp.newaxis] - u[jnp.newaxis, 0,...]) 
-            + 9 * (uc * VELOCITIES[:,0, jnp.newaxis, jnp.newaxis])) 
-        + g[1] * (
-            3 * (VELOCITIES[:, 1, jnp.newaxis, jnp.newaxis] - u[jnp.newaxis, 1,...]) 
-            + 9 * (uc * VELOCITIES[:, 1, jnp.newaxis, jnp.newaxis])))
-    
-    return g_lattice
+    spatial_ndim = u.ndim - 1
+    vel_x = VELOCITIES[:, 0].reshape((9,) + (1,) * spatial_ndim)
+    vel_y = VELOCITIES[:, 1].reshape((9,) + (1,) * spatial_ndim)
+    weights = WEIGHTS.reshape((9,) + (1,) * spatial_ndim)
+
+    uc = jnp.tensordot(VELOCITIES, u, axes=[[1], [0]])
+
+    force_x = 3 * (vel_x - u[0]) + 9 * uc * vel_x
+    force_y = 3 * (vel_y - u[1]) + 9 * uc * vel_y
+
+    return weights * (g[0] * force_x + g[1] * force_y)
 
 
 # ----------------- for srt -----------------

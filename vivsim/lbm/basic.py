@@ -42,6 +42,8 @@ VELOCITIES = jnp.array([
     [1, -1]
 ])
 
+VELOCITIES_T = VELOCITIES.T
+
 RIGHT_DIRS = jnp.array([1, 5, 8])
 LEFT_DIRS = jnp.array([3, 7, 6])
 UP_DIRS = jnp.array([2, 5, 6])
@@ -91,9 +93,8 @@ def get_macroscopic(f):
     """
     
     rho = jnp.sum(f, axis=0)
-    u = jnp.zeros((2, *rho.shape))
-    u = u.at[0].set((jnp.sum(f[RIGHT_DIRS], axis=0) - jnp.sum(f[LEFT_DIRS], axis=0)) / rho)
-    u = u.at[1].set((jnp.sum(f[UP_DIRS], axis=0) - jnp.sum(f[DOWN_DIRS], axis=0)) / rho)
+    momentum = jnp.tensordot(VELOCITIES_T, f, axes=1)
+    u = momentum / rho
     return rho, u
 
 
@@ -114,10 +115,12 @@ def get_equilibrium(rho, u):
         feq (jax.Array of shape (9, *spatial_dims)): The equilibrium DDF.
     """
     
-    ndim = len(rho.shape)
-    uc = jnp.sum(u[jnp.newaxis, ...] *  VELOCITIES.reshape((9, 2) + (1,) * ndim), axis=1)
-    feq = (rho * WEIGHTS.reshape((9,) + (1,) * ndim) * 
-          (1 + 3 * uc + 4.5 * uc ** 2 - 1.5 * jnp.sum(u ** 2, axis=0)))
+    u_sq = jnp.sum(u * u, axis=0)
+    uc = jnp.tensordot(VELOCITIES, u, axes=[[1], [0]])
+    weight_shape = (9,) + (1,) * u_sq.ndim
+    feq = WEIGHTS.reshape(weight_shape) * rho * (
+        1 + 3 * uc + 4.5 * uc ** 2 - 1.5 * u_sq
+    )
     return feq 
 
 
@@ -178,4 +181,3 @@ def get_velocity_correction(g, rho=1):
     """
 
     return g * 0.5 / rho
-
