@@ -65,6 +65,11 @@ STENCIL_WEIGHTS, STENCIL_INDICES = ib.get_ib_stencil(
 )
 
 
+# ========================== VISUALIZATION PARAMETERS ====================
+
+CHUNK_STEPS = 500  # Steps per scan chunk
+
+
 # ========================== REFERENCE DATA ==========================
 
 # Averaged from the following sources:
@@ -78,11 +83,9 @@ CL_REF = 0.718  # Maximum lift coefficient amplitude
 # ======================= INITIALIZE VARIABLES ====================
 
 rho = jnp.ones((NX, NY))  # Fluid density
-u = jnp.zeros((2, NX, NY))  # Fluid velocity
-u = u.at[0].set(U0)  # Set initial x-velocity to U0 for a uniform inlet flow
+u = jnp.zeros((2, NX, NY)).at[0].set(U0)  # Uniform inlet flow
 f = lbm.get_equilibrium(rho, u)  # Initial LBM distribution function
 
-h = jnp.zeros(2)  # Hydrodynamic force on the cylinder
 marker_v = jnp.zeros((N_MARKER, 2))  # Target marker velocity for a fixed cylinder
 
 
@@ -125,18 +128,31 @@ def update(f):
     return f, h
 
 
-# ======================= HISTORY STORAGE ====================
+# ======================= CHUNKED SIMULATION WITH SCAN =====================
 
-mpl.rcParams["figure.raise_window"] = False
+def run_chunk(carry, n_steps):
+    def step(f, _):
+        f, h = update(f)
+        return f, h
+    f, h_chunk = jax.lax.scan(step, carry, None, length=n_steps)
+    return f, h_chunk
 
-h_hist = np.zeros((2, TM), dtype=np.float32)
+run_chunk = jax.jit(run_chunk, static_argnums=1)
 
+chunk_sizes = [CHUNK_STEPS] * (TM // CHUNK_STEPS)
+if TM % CHUNK_STEPS:
+    chunk_sizes.append(TM % CHUNK_STEPS)
 
-# ========================== RUN SIMULATION ==========================
+h_chunks = []
 
-for t in tqdm(range(TM)):
-    f, h = update(f)
-    h_hist[:, t] = np.asarray(h)
+with tqdm(total=TM, unit="step") as pbar:
+    for n_steps in chunk_sizes:
+        f, h_chunk = run_chunk(f, n_steps)
+        jax.block_until_ready(h_chunk)
+        h_chunks.append(h_chunk)
+        pbar.update(n_steps)
+
+h_hist = np.asarray(jnp.concatenate(h_chunks, axis=0).T)
 
 
 # ======================= POST-PROCESSING ==========================
@@ -148,6 +164,8 @@ cd_mean = np.mean(cd[TM // 2 :])
 cl_max = np.max(np.abs(cl[TM // 2 :]))
 cd_err = abs(cd_mean - CD_REF) / CD_REF * 100
 cl_err = abs(cl_max - CL_REF) / CL_REF * 100
+
+mpl.rcParams["figure.raise_window"] = False
 
 fig, ax = plt.subplots(figsize=(8, 5))
 ax.plot(cd, label="Cd (drag)", linewidth=1.5)

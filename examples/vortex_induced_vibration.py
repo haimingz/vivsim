@@ -17,6 +17,7 @@ import numpy as np
 from tqdm import tqdm
 
 from vivsim import dyn, ib, lbm, post
+from vivsim.state import FSIState
 
 
 # ========================== VISUALIZATION PARAMETERS ====================
@@ -50,8 +51,8 @@ DR = 0        # Damping ratio
 
 # Derived physical parameters
 NU = U0 * D / RE           # Kinematic viscosity
-FN = U0 / (UR * D)         # Natural frequency of the structure                               
-M = CYL_AREA * MR          # Mass of the cylinder per unit length    
+FN = U0 / (UR * D)         # Natural frequency of the structure
+M = CYL_AREA * MR          # Mass of the cylinder per unit length
 K = (2 * math.pi * FN) ** 2 * M * (1 + 1 / MR) # Spring stiffness per unit length
 C = 2 * math.sqrt(K * M) * DR # Damping coefficient per unit length
 
@@ -73,25 +74,24 @@ IB_SIZE = D + 2 * IB_PAD  # Size of the IBM region
 
 # ======================= INITIALIZE VARIABLES ====================
 
-# Fluid variables
-rho = jnp.ones((NX, NY))            # Fluid density
-u = jnp.zeros((2, NX, NY))          # Fluid velocity
-u = u.at[0].set(U0)                 # Set initial x-velocity to U0 for a uniform inlet flow
-f = lbm.get_equilibrium(rho, u)     # Initial LBM distribution function as equilibrium state
+rho = jnp.ones((NX, NY))
+u = jnp.zeros((2, NX, NY)).at[0].set(U0)
+f = lbm.get_equilibrium(rho, u)
 
-# Structural variables
-d = jnp.zeros(2)            # Displacement of cylinder
-v = jnp.zeros(2)            # Velocity of cylinder
-a = jnp.zeros(2)            # Acceleration of cylinder
-
-# Optional: add a small cross-flow perturbation
-v = v.at[1].set(1e-2 * U0)
+state = FSIState(
+    f=f,
+    d=jnp.zeros(2),
+    v=jnp.zeros(2).at[1].set(1e-2 * U0),  # small cross-flow perturbation
+    a=jnp.zeros(2),
+)
 
 
 # ======================= SIMULATION ROUTINE =====================
 
 @jax.jit
-def update(f, d, v, a):
+def update(state: FSIState):
+
+    f, d, v, a = state.f, state.d, state.v, state.a
 
     # Collision
     rho, u = lbm.get_macroscopic(f)
@@ -106,7 +106,7 @@ def update(f, d, v, a):
     ib_rho = jax.lax.dynamic_slice(rho, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
     ib_u = jax.lax.dynamic_slice(u, (0, ib_x0, ib_y0), (2, IB_SIZE, IB_SIZE))
     ib_f = jax.lax.dynamic_slice(f, (0, ib_x0, ib_y0), (9, IB_SIZE, IB_SIZE))
-    
+
     # Run multi-direct forcing to get IBM forces based on current marker positions
     a_old, v_old, d_old = a, v, d
 
@@ -114,8 +114,8 @@ def update(f, d, v, a):
         marker_x, marker_y = dyn.get_markers_coords_2dof(MARKER_X, MARKER_Y, d)
 
         stencil_weights, stencil_indices = ib.get_ib_stencil(
-            marker_x=marker_x - ib_x0, # relative marker coordinates in the local IBM region
-            marker_y=marker_y - ib_y0, # relative marker coordinates in the local IBM region
+            marker_x=marker_x - ib_x0,
+            marker_y=marker_y - ib_y0,
             ny=IB_SIZE,
             kernel=ib.kernel_peskin_4pt,
             stencil_radius=2,
@@ -124,7 +124,7 @@ def update(f, d, v, a):
 
         ib_g, marker_h = ib.multi_direct_forcing(
             grid_u=ib_u,
-            stencil_weights=stencil_weights, 
+            stencil_weights=stencil_weights,
             stencil_indices=stencil_indices,
             marker_u_target=marker_v,
             marker_ds=MARKER_DS,
@@ -133,7 +133,7 @@ def update(f, d, v, a):
 
         h = dyn.get_force_to_obj(marker_h)
         h += a * CYL_AREA
-        a, v, d = dyn.newmark_2dof(a_old, v_old, d_old, h, M, K, C)
+        a, v, d = dyn.newmark(a_old, v_old, d_old, h, M, K, C)
 
     # apply IBM forcing to the fluid in the local IBM region
     ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
@@ -144,7 +144,8 @@ def update(f, d, v, a):
     f = lbm.boundary_nebb(f, loc="left", ux_wall=U0)
     f = lbm.boundary_equilibrium(f, loc="right", ux_wall=U0)
 
-    return f, d, v, a, h
+    new_state = FSIState(f=f, d=d, v=v, a=a)
+    return new_state, h
 
 @jax.jit
 def get_vorticity_image(f):
@@ -160,7 +161,7 @@ if PLOT:
     plt.figure(figsize=(8, 3))
 
     im = plt.imshow(
-        get_vorticity_image(f),
+        get_vorticity_image(state.f),
         extent=[0, NX / D, 0, NY / D],
         cmap="bwr", aspect="equal", origin="lower",
         vmax=10, vmin=-10,
@@ -179,12 +180,11 @@ if PLOT:
 
 # ========================== RUN SIMULATION ==========================
 
-def run_chunk(carry, n_steps):
-    def step(carry, _):
-        f, d, v, a = carry
-        f, d, v, a, h = update(f, d, v, a)
-        return (f, d, v, a), (d, h)
-    return jax.lax.scan(step, carry, None, length=n_steps)
+def run_chunk(state, n_steps):
+    def step(state, _):
+        state, h = update(state)
+        return state, (state.d, h)
+    return jax.lax.scan(step, state, None, length=n_steps)
 
 run_chunk = jax.jit(run_chunk, static_argnums=1)
 
@@ -198,7 +198,7 @@ if TM % CHUNK_STEPS:
 
 with tqdm(total=TM, unit="step") as pbar:
     for n_steps in chunk_sizes:
-        (f, d, v, a), (d_chunk, h_chunk) = run_chunk((f, d, v, a), n_steps)
+        state, (d_chunk, h_chunk) = run_chunk(state, n_steps)
         jax.block_until_ready(d_chunk)
 
         d_chunks.append(d_chunk)
@@ -207,7 +207,7 @@ with tqdm(total=TM, unit="step") as pbar:
         pbar.update(n_steps)
 
         if PLOT:
-            im.set_data(get_vorticity_image(f))
+            im.set_data(get_vorticity_image(state.f))
             plt.pause(0.001)
 
 d_hist = jnp.swapaxes(jnp.concatenate(d_chunks, axis=0), 0, 1)

@@ -15,12 +15,12 @@ from vivsim import lbm, post
 # ====================== plot options ======================
 
 PLOT = True                     # whether to plot the results during simulation
-PLOT_EVERY = 200                # plot every n time steps
+CHUNK_STEPS = 200               # steps per scan chunk (also controls plot frequency)
 
 
 # =================== define fluid parameters ===================
 
-U0 = 0.05                        # kinematic viscosity
+U0 = 0.05                        # inlet velocity
 RE_GRID = 20                   # Reynolds number based on grid size
 
 NU = U0 / RE_GRID               # kinematic viscosity
@@ -32,10 +32,8 @@ NX = 500                        # number of grid points in x direction
 NY = 500                        # number of grid points in y direction
 TM = 80000                      # number of time steps
 
-rho = jnp.ones((NX, NY), dtype=jnp.float32)      # density
-u = jnp.zeros((2, NX, NY), dtype=jnp.float32)    # velocity
-f = jnp.zeros((9, NX, NY), dtype=jnp.float32)    # distribution function
-feq = jnp.zeros((9, NX, NY), dtype=jnp.float32)  # equilibrium distribution function
+rho = jnp.ones((NX, NY), dtype=jnp.float32)
+u = jnp.zeros((2, NX, NY), dtype=jnp.float32)
 
 
 # =================== define text obstacle ===================
@@ -47,10 +45,10 @@ FONT_SIZE = NX // 5  # font size
 # generate the text mask
 img = Image.new("L", (NX, NY), 0)
 draw = ImageDraw.Draw(img)
-draw.text((NX // 2, NY // 2), 
-          TEXT, 
-          font=ImageFont.truetype(FONT_FAMILY, FONT_SIZE), 
-          fill=255, 
+draw.text((NX // 2, NY // 2),
+          TEXT,
+          font=ImageFont.truetype(FONT_FAMILY, FONT_SIZE),
+          fill=255,
           anchor='mm',
           )
 
@@ -65,7 +63,6 @@ f = lbm.get_equilibrium(rho, u)
 
 @jax.jit
 def update(f):
-
     rho, u = lbm.get_macroscopic(f)
     feq = lbm.get_equilibrium(rho, u)
     f = lbm.collision_kbc(f, feq, OMEGA)
@@ -73,9 +70,21 @@ def update(f):
     f = lbm.boundary_nee(f, loc='bottom', uy_wall=U0)
     f = lbm.boundary_equilibrium(f, loc='top', uy_wall=U0)
     f = lbm.obstacle_bounce_back(f, MASK)
-    
-    return f, feq, rho, u
+    return f
 
+# =================== chunked simulation with scan ===================
+
+def run_chunk(f, n_steps):
+    def step(f, _):
+        return update(f), None
+    f, _ = jax.lax.scan(step, f, None, length=n_steps)
+    return f
+
+run_chunk = jax.jit(run_chunk, static_argnums=1)
+
+chunk_sizes = [CHUNK_STEPS] * (TM // CHUNK_STEPS)
+if TM % CHUNK_STEPS:
+    chunk_sizes.append(TM % CHUNK_STEPS)
 
 # =============== create plot template ================
 
@@ -99,9 +108,12 @@ if PLOT:
 
 # =============== start simulation ===============
 
-for t in tqdm(range(TM)):
-    f, feq, rho, u  = update(f)
+with tqdm(total=TM, unit="step") as pbar:
+    for n_steps in chunk_sizes:
+        f = run_chunk(f, n_steps)
+        pbar.update(n_steps)
 
-    if PLOT and t % PLOT_EVERY == 0:
-        im.set_data(post.calculate_velocity_magnitude(u).T)
-        plt.pause(0.001)
+        if PLOT:
+            _, u = lbm.get_macroscopic(f)
+            im.set_data(post.calculate_velocity_magnitude(u).T)
+            plt.pause(0.001)

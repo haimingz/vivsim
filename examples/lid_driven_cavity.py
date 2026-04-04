@@ -2,12 +2,10 @@
 2D lid-driven cavity flow using LBM.
 
 This example can be used to test the stability of different collision models
-and boundary conditions. Genrally, the non-equilibrium extrapolation (NEE) scheme
+and boundary conditions. Generally, the non-equilibrium extrapolation (NEE) scheme
 is more stable than the non-equilibrium bounce-back (NEBB) scheme. Adopting the
 KBC collision model also helps improve stability at the boundaries.
 """
-
-
 
 import jax
 import jax.numpy as jnp
@@ -19,7 +17,7 @@ from vivsim import lbm, post
 # ====================== plot options ======================
 
 PLOT = True                 # whether to plot the results during simulation
-PLOT_EVERY = 500            # plot every n time steps
+CHUNK_STEPS = 500           # steps per scan chunk (also controls plot frequency)
 
 # =================== define fluid parameters ===================
 
@@ -37,8 +35,8 @@ TM = 80000                  # number of time steps
 
 # =================== initialize ===================
 
-rho = jnp.ones((NX, NY))    
-u = jnp.zeros((2, NX, NY))  
+rho = jnp.ones((NX, NY))
+u = jnp.zeros((2, NX, NY))
 f = lbm.get_equilibrium(rho, u)
 
 # =================== define the update function ===================
@@ -53,8 +51,21 @@ def update(f):
     f = lbm.boundary_nee(f, loc='left')
     f = lbm.boundary_nee(f, loc='right')
     f = lbm.boundary_nee(f, loc='bottom')
-    return f, feq, rho, u
+    return f
 
+# =================== chunked simulation with scan ===================
+
+def run_chunk(f, n_steps):
+    def step(f, _):
+        return update(f), None
+    f, _ = jax.lax.scan(step, f, None, length=n_steps)
+    return f
+
+run_chunk = jax.jit(run_chunk, static_argnums=1)
+
+chunk_sizes = [CHUNK_STEPS] * (TM // CHUNK_STEPS)
+if TM % CHUNK_STEPS:
+    chunk_sizes.append(TM % CHUNK_STEPS)
 
 # =================== create the plot template ===================
 
@@ -66,16 +77,18 @@ if PLOT:
         cmap="plasma_r",
         aspect="equal",
         origin="lower",
-        )
+    )
     plt.colorbar()
-
 
 # =================== start simulation ===================
 
-for t in tqdm(range(TM)):   
-    f, feq, rho, u  = update(f)
-    
-    if PLOT and t % PLOT_EVERY == 0:
-        im.set_data(post.calculate_velocity_magnitude(u).T)
-        im.autoscale()
-        plt.pause(0.001)
+with tqdm(total=TM, unit="step") as pbar:
+    for n_steps in chunk_sizes:
+        f = run_chunk(f, n_steps)
+        pbar.update(n_steps)
+
+        if PLOT:
+            _, u = lbm.get_macroscopic(f)
+            im.set_data(post.calculate_velocity_magnitude(u).T)
+            im.autoscale()
+            plt.pause(0.001)
