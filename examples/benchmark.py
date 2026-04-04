@@ -21,11 +21,11 @@ from vivsim import ib, lbm
 
 # ====================== Configuration ======================
 
-NX = 1000          # grid size in x direction
-NY = 1000          # grid size in y direction
-N_WARMUP = 10     # number of warm-up iterations (for JIT compilation)
-N_REPEAT = 100    # number of timed iterations for each function
-N_MARKER = 500
+NX = 1000           # grid size in x direction
+NY = 1000           # grid size in y direction
+N_MARKER = 500      # number of IB markers (for IB-related benchmarks)
+N_WARMUP = 10       # number of warm-up iterations (for JIT compilation)
+N_REPEAT = 100      # number of timed iterations for each function
 
 # ====================== Initialize with meaningless values ======================
 
@@ -88,7 +88,7 @@ def measure(fn, *args):
 
 # ====================== Benchmark functions ======================
 
-print(f"\nBenchmarking on {jax.devices()[0]} | grid: {NX}x{NY} | repeats: {N_REPEAT}\n")
+print(f"\nBenchmarking on {jax.devices()[0]} | grid: {NX}x{NY} | markers: {N_MARKER} | repeats: {N_REPEAT}\n")
 
 timings = {}
 
