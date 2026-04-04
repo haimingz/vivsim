@@ -99,10 +99,6 @@ def boundary_characteristic(rho, u, dir='right'):
     else:
         raise ValueError("dir must be one of: 'left', 'right', 'top', 'bottom'")
 
-    # Return consistent shape
-    if dir in ['left', 'right']:
-        u_next = jnp.stack([ux_next, uy_next])
-    else:
-        u_next = jnp.stack([ux_next, uy_next], axis=0)
+    u_next = jnp.stack([ux_next, uy_next])
 
     return rho_next, u_next

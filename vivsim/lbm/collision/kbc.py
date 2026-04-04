@@ -5,10 +5,11 @@ The KBC model is based on the entropic principle to ensure numerical stability.
 
 
 import chex
+import jax
 import jax.numpy as jnp
 
 
-def collision_kbc(f: jnp.ndarray, feq: jnp.ndarray, omega: float) -> jnp.ndarray:
+def collision_kbc(f: jax.Array, feq: jax.Array, omega: float) -> jax.Array:
     """
     Karlin–Bösch–Chikatamarla (KBC) collision operator for LBM.
     Based on the entropic principle to ensure numerical stability.
