@@ -7,7 +7,6 @@ transported across device boundaries to maintain continuity of particle transpor
 """
 
 import jax
-import jax.numpy as jnp
 
 
 from .lbm.basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS

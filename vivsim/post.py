@@ -27,18 +27,18 @@ def calculate_vorticity(u):
     return calculate_curl(u)
 
 
-def calculate_vorticity_dimensionless(u, l, u0):
+def calculate_vorticity_dimensionless(u, length, u0):
     """Calculate the dimensionless vorticity of a velocity field.
 
     Args:
         u (jax.Array of shape (2, NX, NY)): Velocity field.
-        l (float): The characteristic length.
+        length (float): The characteristic length.
         u0 (float): The free-stream velocity.
 
     Returns:
         jax.Array of shape (NX, NY): The dimensionless vorticity.
     """
-    return calculate_curl(u) * l / u0
+    return calculate_curl(u) * length / u0
 
 
 def calculate_velocity_magnitude(u):

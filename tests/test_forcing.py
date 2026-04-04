@@ -1,7 +1,6 @@
 """Tests for LBM forcing schemes (Guo and EDM)."""
 
 import chex
-import jax
 import jax.numpy as jnp
 from absl.testing import absltest
 

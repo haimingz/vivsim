@@ -26,7 +26,6 @@ def boundary_characteristic(rho, u, dir='right'):
         u_next: boundary velocity (2, N)
     """
     cs = 1 / jnp.sqrt(3)
-    cs2 = 1 / 3
 
     if dir == 'right':
         rho_b1, rho_b2, rho_b3 = rho[-1, :], rho[-2, :], rho[-3, :]
@@ -37,7 +36,7 @@ def boundary_characteristic(rho, u, dir='right'):
         dux_dx  = (3*ux_b1 - 4*ux_b2 + ux_b3) / 2
 
         L_out = (ux_b1 + cs) * (dux_dx + cs/rho_b1 * drho_dx)
-        L_in  = (ux_b1 - cs) * (dux_dx - cs/rho_b1 * drho_dx)
+        L_in  = (ux_b1 - cs) * (dux_dx - cs/rho_b1 * drho_dx)  # noqa: F841
 
         L_in_new = 0.0  # Non-reflective boundary (outflow)
 
@@ -54,7 +53,7 @@ def boundary_characteristic(rho, u, dir='right'):
         dux_dx  = (-3*ux_b1 + 4*ux_b2 - ux_b3) / 2
 
         L_out = (ux_b1 - cs) * (dux_dx - cs/rho_b1 * drho_dx)
-        L_in  = (ux_b1 + cs) * (dux_dx + cs/rho_b1 * drho_dx)
+        L_in  = (ux_b1 + cs) * (dux_dx + cs/rho_b1 * drho_dx)  # noqa: F841
 
         L_in_new = 0.0
 
@@ -71,7 +70,7 @@ def boundary_characteristic(rho, u, dir='right'):
         duy_dy  = (3*uy_b1 - 4*uy_b2 + uy_b3) / 2
 
         L_out = (uy_b1 + cs) * (duy_dy + cs/rho_b1 * drho_dy)
-        L_in  = (uy_b1 - cs) * (duy_dy - cs/rho_b1 * drho_dy)
+        L_in  = (uy_b1 - cs) * (duy_dy - cs/rho_b1 * drho_dy)  # noqa: F841
 
         L_in_new = 0.0
 
@@ -88,7 +87,7 @@ def boundary_characteristic(rho, u, dir='right'):
         duy_dy  = (-3*uy_b1 + 4*uy_b2 - uy_b3) / 2
 
         L_out = (uy_b1 - cs) * (duy_dy - cs/rho_b1 * drho_dy)
-        L_in  = (uy_b1 + cs) * (duy_dy + cs/rho_b1 * drho_dy)
+        L_in  = (uy_b1 + cs) * (duy_dy + cs/rho_b1 * drho_dy)  # noqa: F841
 
         L_in_new = 0.0
 

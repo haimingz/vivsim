@@ -4,6 +4,8 @@ All values are plain Python tuples/ints (not JAX arrays) so they are safe
 to use as static values in JIT-traced contexts.
 """
 
+from typing import TypedDict
+
 VALID_LOCS = ("left", "right", "top", "bottom")
 
 # Tuple indices for f.at[...] at the wall and the nearest interior neighbor.
@@ -45,6 +47,21 @@ BOUNDARY_SIZE_AXIS = {
     "top": 1, "bottom": 1,    # boundary runs along NX
 }
 
+class _NEBBWallConfig(TypedDict):
+    incoming: tuple[int, int, int]
+    source: tuple[int, int, int]
+    tangential: tuple[int, int]
+    normal_sign: int
+    normal_axis: int
+
+
+class _DensityRecoveryConfig(TypedDict):
+    zero: tuple[int, int, int]
+    outgoing: tuple[int, int, int]
+    sign: int
+    normal_axis: int
+
+
 # ── NEBB / bounce-back / specular reflection configuration ───────────────
 #
 # Each wall is described by:
@@ -63,7 +80,7 @@ BOUNDARY_SIZE_AXIS = {
 #   f[i2, ws] = f[s2, ws]  +  sn * 0.5*(f[t0,ws] - f[t1,ws])
 #                           +  sn * (1/6*un - 0.5*ut) * rho
 
-NEBB_CONFIG = {
+NEBB_CONFIG: dict[str, _NEBBWallConfig] = {
     "left": {
         "incoming": (1, 5, 8),
         "source": (3, 7, 6),
@@ -102,7 +119,7 @@ NEBB_CONFIG = {
 # For pressure BCs: un_wall = (sum of zero-momentum dirs + 2 * sum of
 # outgoing dirs) / rho_wall - 1
 
-DENSITY_RECOVERY = {
+DENSITY_RECOVERY: dict[str, _DensityRecoveryConfig] = {
     "left":   {"zero": (0, 2, 4), "outgoing": (3, 6, 7), "sign": -1, "normal_axis": 0},
     "right":  {"zero": (0, 2, 4), "outgoing": (1, 5, 8), "sign":  1, "normal_axis": 0},
     "top":    {"zero": (0, 1, 3), "outgoing": (2, 5, 6), "sign":  1, "normal_axis": 1},

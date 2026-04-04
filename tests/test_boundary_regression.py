@@ -7,7 +7,6 @@ implementation on 2026-04-04.
 """
 
 import jax
-import jax.numpy as jnp
 from absl.testing import absltest
 
 from vivsim import lbm

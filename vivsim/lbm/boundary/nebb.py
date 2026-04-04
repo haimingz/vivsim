@@ -9,9 +9,7 @@ When body forces are present, pass the corrected wall velocity obtained from
 from ..basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
 import jax.numpy as jnp
 from ._slices import (
-    WALL_SLICE, NEIGHBOR_SLICE,
     SPATIAL_WALL_SLICE, SPATIAL_NEIGHBOR_SLICE,
-    BOUNDARY_SIZE_AXIS,
     NEBB_CONFIG, DENSITY_RECOVERY, validate_loc,
 )
 

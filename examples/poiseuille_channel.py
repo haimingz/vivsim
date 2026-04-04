@@ -9,7 +9,6 @@ The results are compared with the analytical solution to validate the implementa
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 
 from vivsim import lbm
 

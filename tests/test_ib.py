@@ -1,7 +1,6 @@
 """Tests for the Immersed Boundary module."""
 
 import chex
-import jax
 import jax.numpy as jnp
 from absl.testing import absltest
 
@@ -14,7 +13,7 @@ class StencilTest(chex.TestCase):
     def test_stencil_shape(self):
         """Stencil weights and indices have shape (n_markers, n_stencil)."""
         n_markers = 10
-        nx, ny = 32, 32
+        ny = 32
         marker_x = jnp.linspace(8.0, 24.0, n_markers)
         marker_y = jnp.linspace(8.0, 24.0, n_markers)
         weights, indices = ib.get_ib_stencil(marker_x, marker_y, ny)
