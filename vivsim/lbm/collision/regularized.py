@@ -31,15 +31,19 @@ def collision_regularized(f, feq, omega):
     diag_pos = trace_term + pi_xy / 4.0
     diag_neg = trace_term - pi_xy / 4.0
 
-    fneq_reg = jnp.zeros_like(f)
-    fneq_reg = fneq_reg.at[0].set(-8.0 * trace_term)
-    fneq_reg = fneq_reg.at[1].set(axis_x)
-    fneq_reg = fneq_reg.at[2].set(axis_y)
-    fneq_reg = fneq_reg.at[3].set(axis_x)
-    fneq_reg = fneq_reg.at[4].set(axis_y)
-    fneq_reg = fneq_reg.at[5].set(diag_pos)
-    fneq_reg = fneq_reg.at[6].set(diag_neg)
-    fneq_reg = fneq_reg.at[7].set(diag_pos)
-    fneq_reg = fneq_reg.at[8].set(diag_neg)
+    fneq_reg = jnp.stack(
+        [
+            -8.0 * trace_term,
+            axis_x,
+            axis_y,
+            axis_x,
+            axis_y,
+            diag_pos,
+            diag_neg,
+            diag_pos,
+            diag_neg,
+        ],
+        axis=0,
+    )
 
     return feq + (1 - omega) * fneq_reg

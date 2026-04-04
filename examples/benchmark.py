@@ -21,9 +21,9 @@ from vivsim import ib, lbm
 
 # ====================== Configuration ======================
 
-NX = 1000           # grid size in x direction
-NY = 1000           # grid size in y direction
-N_MARKER = 500      # number of IB markers (for IB-related benchmarks)
+NX = 1024           # grid size in x direction
+NY = 1024           # grid size in y direction
+N_MARKER = 512      # number of IB markers (for IB-related benchmarks)
 N_WARMUP = 10       # number of warm-up iterations (for JIT compilation)
 N_REPEAT = 100      # number of timed iterations for each function
 

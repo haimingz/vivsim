@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vivsim"
-version = "1.2.0"
+version = "1.2.2"
 description = "Accelerated immersed boundary-lattice Boltzmann simulations built on JAX"
 readme = "README.md"
 requires-python = ">=3.8"
