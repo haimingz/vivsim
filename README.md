@@ -124,40 +124,40 @@ Here is a performance snippet showing the average execution time (ms) for core J
 ```
 Benchmarking on cuda:0 | grid: 1000x1000 | repeats: 100
 
-Function                                  Time (ms)  Bar
+Function                       Time (ms)  Bar
 -------------------------------------------------------------------------------------
-lbm.get_macroscopic                           0.002  
-lbm.get_equilibrium                           0.001  
-lbm.streaming                                 0.066  =========
-lbm.collision_bgk                             0.030  ====
-lbm.collision_kbc                             0.156  =======================
-lbm.collision_mrt                             0.264  ========================================
-lbm.collision_regularized                     0.087  =============
-lbm.forcing_edm                               0.105  ===============
-lbm.forcing_guo_bgk                           0.060  =========
-lbm.forcing_guo_mrt                           0.219  =================================
-lbm.get_guo_forcing_term                      0.001  
-lbm.boundary_nee                              0.007  =
-lbm.boundary_velocity_nee                     0.008  =
-lbm.boundary_pressure_nee                     0.008  =
-lbm.boundary_nebb                             0.014  ==
-lbm.boundary_velocity_nebb                    0.011  =
-lbm.boundary_pressure_nebb                    0.069  ==========
-lbm.boundary_equilibrium                      0.005  
-lbm.boundary_bounce_back                      0.118  =================
-lbm.boundary_specular_reflection              0.124  ==================
-lbm.obstacle_bounce_back                      0.001  
-lbm.boundary_characteristic                   0.001  
-ib.get_area                                   0.001  
-ib.get_ds_closed                              0.001  
-ib.get_ds_open                                0.001  
-ib.kernel_peskin_3pt                          0.004  
-ib.kernel_peskin_4pt                          0.003  
-ib.kernel_cosine_4pt                          0.004  
-ib.get_ib_stencil                             0.001  
-ib.interpolate                                0.001  
-ib.spread                                     0.001  
-ib.multi_direct_forcing                       0.001  
+lbm.get_macroscopic                0.002  
+lbm.get_equilibrium                0.001  
+lbm.streaming                      0.066  =========
+lbm.collision_bgk                  0.030  ====
+lbm.collision_kbc                  0.156  =======================
+lbm.collision_mrt                  0.264  ========================================
+lbm.collision_regularized          0.087  =============
+lbm.forcing_edm                    0.105  ===============
+lbm.forcing_guo_bgk                0.060  =========
+lbm.forcing_guo_mrt                0.219  =================================
+lbm.get_guo_forcing_term           0.001  
+lbm.boundary_nee                   0.007  =
+lbm.boundary_velocity_nee          0.008  =
+lbm.boundary_pressure_nee          0.008  =
+lbm.boundary_nebb                  0.014  ==
+lbm.boundary_velocity_nebb         0.011  =
+lbm.boundary_pressure_nebb         0.069  ==========
+lbm.boundary_equilibrium           0.005  
+lbm.boundary_bounce_back           0.118  =================
+lbm.boundary_specular_reflection   0.124  ==================
+lbm.obstacle_bounce_back           0.001  
+lbm.boundary_characteristic        0.001  
+ib.get_area                        0.001  
+ib.get_ds_closed                   0.001  
+ib.get_ds_open                     0.001  
+ib.kernel_peskin_3pt               0.004  
+ib.kernel_peskin_4pt               0.003  
+ib.kernel_cosine_4pt               0.004  
+ib.get_ib_stencil                  0.001  
+ib.interpolate                     0.001  
+ib.spread                          0.001  
+ib.multi_direct_forcing            0.001  
 ```
 
 ## Getting Started
