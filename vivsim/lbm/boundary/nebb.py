@@ -6,10 +6,14 @@ When body forces are present, pass the corrected wall velocity obtained from
 ``get_corrected_wall_velocity`` (from this package) before calling these functions.
 """
 
-
-
 from ..basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
 import jax.numpy as jnp
+from ._slices import (
+    WALL_SLICE, NEIGHBOR_SLICE,
+    SPATIAL_WALL_SLICE, SPATIAL_NEIGHBOR_SLICE,
+    BOUNDARY_SIZE_AXIS,
+    NEBB_CONFIG, DENSITY_RECOVERY, validate_loc,
+)
 
 
 def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
@@ -34,28 +38,49 @@ def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
         f (jax.Array of shape (9, NX, NY)): The DDF
             after enforcing the boundary condition.
     """
+    validate_loc(loc)
+    cfg = NEBB_CONFIG[loc]
+    sws = SPATIAL_WALL_SLICE[loc]
+    i0, i1, i2 = cfg["incoming"]
+    s0, s1, s2 = cfg["source"]
+    t0, t1 = cfg["tangential"]
+    sn = cfg["normal_sign"]
+    un = ux_wall if cfg["normal_axis"] == 0 else uy_wall
+    ut = uy_wall if cfg["normal_axis"] == 0 else ux_wall
 
-    if loc == "left":
-        f = f.at[1, 0].set(f[3, 0] + 2 / 3 * ux_wall * rho_wall)
-        f = f.at[5, 0].set(f[7, 0] - 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux_wall + 0.5 * uy_wall) * rho_wall)
-        f = f.at[8, 0].set(f[6, 0] + 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux_wall - 0.5 * uy_wall) * rho_wall)
-
-    elif loc == "right":
-        f = f.at[3, -1].set(f[1, -1] - 2 / 3 * ux_wall * rho_wall)
-        f = f.at[7, -1].set(f[5, -1] + 0.5 * (f[2, -1] - f[4, -1]) + (-1 / 6 * ux_wall - 0.5 * uy_wall) * rho_wall)
-        f = f.at[6, -1].set(f[8, -1] - 0.5 * (f[2, -1] - f[4, -1]) + (-1 / 6 * ux_wall + 0.5 * uy_wall) * rho_wall)
-
-    elif loc == "top":
-        f = f.at[4, :, -1].set(f[2, :, -1] - 2 / 3 * uy_wall * rho_wall) 
-        f = f.at[7, :, -1].set(f[5, :, -1] + 0.5 * (f[1, :, -1] - f[3, :, -1]) + (-1 / 6 * uy_wall - 0.5 * ux_wall) * rho_wall)
-        f = f.at[8, :, -1].set(f[6, :, -1] - 0.5 * (f[1, :, -1] - f[3, :, -1]) + (-1 / 6 * uy_wall + 0.5 * ux_wall) * rho_wall) 
-
-    elif loc == "bottom":
-        f = f.at[2, :, 0].set(f[4, :, 0] + 2 / 3 * uy_wall * rho_wall) 
-        f = f.at[5, :, 0].set(f[7, :, 0] - 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy_wall + 0.5 * ux_wall) * rho_wall)
-        f = f.at[6, :, 0].set(f[8, :, 0] + 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy_wall - 0.5 * ux_wall) * rho_wall) 
-
+    f = f.at[(i0,) + sws].set(
+        f[(s0,) + sws] + sn * 2 / 3 * un * rho_wall
+    )
+    f = f.at[(i1,) + sws].set(
+        f[(s1,) + sws]
+        - sn * 0.5 * (f[(t0,) + sws] - f[(t1,) + sws])
+        + sn * (1 / 6 * un + 0.5 * ut) * rho_wall
+    )
+    f = f.at[(i2,) + sws].set(
+        f[(s2,) + sws]
+        + sn * 0.5 * (f[(t0,) + sws] - f[(t1,) + sws])
+        + sn * (1 / 6 * un - 0.5 * ut) * rho_wall
+    )
     return f
+
+
+def _compute_wall_density(f, loc, ux_wall=0, uy_wall=0):
+    """Compute wall density from known outgoing populations (for velocity BCs)."""
+    cfg = DENSITY_RECOVERY[loc]
+    sws = SPATIAL_WALL_SLICE[loc]
+    un = ux_wall if cfg["normal_axis"] == 0 else uy_wall
+    zero_sum = sum(f[(d,) + sws] for d in cfg["zero"])
+    out_sum = sum(f[(d,) + sws] for d in cfg["outgoing"])
+    return (zero_sum + 2 * out_sum) / (1 + cfg["sign"] * un)
+
+
+def _compute_wall_normal_velocity(f, loc, rho_wall):
+    """Compute normal wall velocity from known populations (for pressure BCs)."""
+    cfg = DENSITY_RECOVERY[loc]
+    sws = SPATIAL_WALL_SLICE[loc]
+    zero_sum = sum(f[(d,) + sws] for d in cfg["zero"])
+    out_sum = sum(f[(d,) + sws] for d in cfg["outgoing"])
+    return (zero_sum + 2 * out_sum) / rho_wall - 1
 
 
 def boundary_velocity_nebb(f, loc: str, ux_wall=0, uy_wall=0):
@@ -76,23 +101,8 @@ def boundary_velocity_nebb(f, loc: str, ux_wall=0, uy_wall=0):
         f (jax.Array of shape (9, NX, NY)): The DDF
             after enforcing the boundary condition.
     """
-    if loc not in ["left", "right", "top", "bottom"]:
-        raise ValueError(
-            "Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'."
-        )
-
-    if loc == "left":
-        rho_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / (1 - ux_wall)
-
-    elif loc == "right":
-        rho_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / (1 + ux_wall)
-
-    elif loc == "top":
-        rho_wall = (f[0, :, -1] + f[1, :, -1] + f[3, :, -1] + 2 * (f[2, :, -1] + f[5, :, -1] + f[6, :, -1])) / (1 + uy_wall)
-
-    elif loc == "bottom":
-        rho_wall = (f[0, :, 0] + f[1, :, 0] + f[3, :, 0] + 2 * (f[4, :, 0] + f[7, :, 0] + f[8, :, 0])) / (1 - uy_wall)
-
+    validate_loc(loc)
+    rho_wall = _compute_wall_density(f, loc, ux_wall, uy_wall)
     return boundary_nebb(f, loc, ux_wall=ux_wall, uy_wall=uy_wall, rho_wall=rho_wall)
 
 
@@ -114,31 +124,19 @@ def boundary_pressure_nebb(f, loc: str, rho_wall=1):
         f (jax.Array of shape (9, NX, NY)): The DDF
             after enforcing the boundary condition.
     """
+    validate_loc(loc)
+    cfg = DENSITY_RECOVERY[loc]
+    sns = SPATIAL_NEIGHBOR_SLICE[loc]
 
-    if loc not in ["left", "right", "top", "bottom"]:
-        raise ValueError(
-            "Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'."
-        )
+    un_wall = _compute_wall_normal_velocity(f, loc, rho_wall)
 
-    if loc == "left":
-        ux_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, 1], axis=0)
-        uy_wall = (jnp.sum(f[UP_DIRS, 1], axis=0) - jnp.sum(f[DOWN_DIRS, 1], axis=0)) / rho_next
-
-    elif loc == "right":
-        ux_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, -2], axis=0)
-        uy_wall = (jnp.sum(f[UP_DIRS, -2], axis=0) - jnp.sum(f[DOWN_DIRS, -2], axis=0)) / rho_next
-
-    elif loc == "top":
-        uy_wall = (f[0, :, -1] + f[1, :, -1] + f[3, :, -1] + 2 * (f[2, :, -1] + f[5, :, -1] + f[6, :, -1])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, :, -2], axis=0)
-        ux_wall = (jnp.sum(f[RIGHT_DIRS, :, -2], axis=0) - jnp.sum(f[LEFT_DIRS, :, -2], axis=0)) / rho_next
-
-    elif loc == "bottom":
-        uy_wall = (f[0, :, 0] + f[1, :, 0] + f[3, :, 0] + 2 * (f[4, :, 0] + f[7, :, 0] + f[8, :, 0])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, :, 1], axis=0)
-        ux_wall = (jnp.sum(f[RIGHT_DIRS, :, 1], axis=0) - jnp.sum(f[LEFT_DIRS, :, 1], axis=0)) / rho_next
-
-
-    return boundary_nebb(f, loc, ux_wall=ux_wall, uy_wall=uy_wall, rho_wall=rho_wall)
+    # Tangential velocity from neighbor node
+    rho_next = jnp.sum(f[(slice(None),) + sns], axis=0)
+    if cfg["normal_axis"] == 0:
+        ut_wall = (jnp.sum(f[(UP_DIRS,) + sns], axis=0)
+                   - jnp.sum(f[(DOWN_DIRS,) + sns], axis=0)) / rho_next
+        return boundary_nebb(f, loc, ux_wall=un_wall, uy_wall=ut_wall, rho_wall=rho_wall)
+    else:
+        ut_wall = (jnp.sum(f[(RIGHT_DIRS,) + sns], axis=0)
+                   - jnp.sum(f[(LEFT_DIRS,) + sns], axis=0)) / rho_next
+        return boundary_nebb(f, loc, ux_wall=ut_wall, uy_wall=un_wall, rho_wall=rho_wall)

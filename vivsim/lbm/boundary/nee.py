@@ -6,11 +6,14 @@ When body forces are present, pass the corrected wall velocity obtained from
 ``get_corrected_wall_velocity`` (from this package) before calling these functions.
 """
 
-
-
 from ..basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
 import jax.numpy as jnp
 from .. import get_equilibrium, get_macroscopic
+from ._slices import (
+    WALL_SLICE, NEIGHBOR_SLICE,
+    SPATIAL_NEIGHBOR_SLICE,
+    BOUNDARY_SIZE_AXIS, DENSITY_RECOVERY, validate_loc,
+)
 
 
 def boundary_nee(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
@@ -36,42 +39,33 @@ def boundary_nee(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
         f (jax.Array of shape (9, NX, NY)): The DDF
             after enforcing the boundary condition.
     """
+    validate_loc(loc)
 
-    # Determine boundary size and convert scalars to arrays if needed
-    size = f.shape[2] if loc in ['left', 'right'] else f.shape[1]
-    
+    size = f.shape[BOUNDARY_SIZE_AXIS[loc]]
+
     if jnp.isscalar(rho_wall):
         rho_wall = jnp.full(size, rho_wall)
     if jnp.isscalar(ux_wall):
         ux_wall = jnp.full(size, ux_wall)
     if jnp.isscalar(uy_wall):
         uy_wall = jnp.full(size, uy_wall)
-    
+
     u_wall = jnp.array([ux_wall, uy_wall])
     feq_wall = get_equilibrium(rho_wall, u_wall)
 
-    if loc == "left":
-        rho_next, u_next = get_macroscopic(f[:, 1])
-        fneq_next = f[:, 1] - get_equilibrium(rho_next, u_next)
-        f = f.at[:, 0].set(feq_wall + fneq_next)
+    ws = WALL_SLICE[loc]
+    ns = NEIGHBOR_SLICE[loc]
 
-    elif loc == "right":
+    if loc == "right":
+        # Special case: average two interior layers for improved stability.
         rho_next, u_next = get_macroscopic(f[:, -3:-1])
         fneq_next = f[:, -3:-1] - get_equilibrium(rho_next, u_next)
-        # f = f.at[:, -1].set(feq_wall + fneq_next[:,-1])
         fneq_wall = jnp.mean(fneq_next, axis=1)
-        f = f.at[:, -1].set(feq_wall + fneq_wall)
+    else:
+        rho_next, u_next = get_macroscopic(f[ns])
+        fneq_wall = f[ns] - get_equilibrium(rho_next, u_next)
 
-    elif loc == "top":
-        rho_next, u_next = get_macroscopic(f[:, :, -2])
-        fneq_next = f[:, :, -2] - get_equilibrium(rho_next, u_next)
-        f = f.at[:, :, -1].set(feq_wall + fneq_next)
-
-    elif loc == "bottom":
-        rho_next, u_next = get_macroscopic(f[:, :, 1])
-        fneq_next = f[:, :, 1] - get_equilibrium(rho_next, u_next)
-        f = f.at[:, :, 0].set(feq_wall + fneq_next)
-
+    f = f.at[ws].set(feq_wall + fneq_wall)
     return f
 
 
@@ -93,24 +87,10 @@ def boundary_velocity_nee(f, loc: str, ux_wall=0, uy_wall=0):
         f (jax.Array of shape (9, NX, NY)): The DDF
             after enforcing the boundary condition.
     """
-
-    if loc not in ["left", "right", "top", "bottom"]:
-        raise ValueError(
-            "Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'."
-        )
-
-    if loc == "left":
-        rho_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / (1 - ux_wall)
-
-    elif loc == "right":
-        rho_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / (1 + ux_wall)
-
-    elif loc == "top":
-        rho_wall = (f[0, :, -1] + f[1, :, -1] + f[3, :, -1] + 2 * (f[2, :, -1] + f[5, :, -1] + f[6, :, -1])) / (1 + uy_wall)
-
-    elif loc == "bottom":
-        rho_wall = (f[0, :, 0] + f[1, :, 0] + f[3, :, 0] + 2 * (f[4, :, 0] + f[7, :, 0] + f[8, :, 0])) / (1 - uy_wall)
-
+    validate_loc(loc)
+    # Density recovery uses the same formula as NEBB.
+    from .nebb import _compute_wall_density
+    rho_wall = _compute_wall_density(f, loc, ux_wall, uy_wall)
     return boundary_nee(f, loc, rho_wall=rho_wall, ux_wall=ux_wall, uy_wall=uy_wall)
 
 
@@ -132,31 +112,20 @@ def boundary_pressure_nee(f, loc: str, rho_wall=1):
         f (jax.Array of shape (9, NX, NY)): The DDF
             after enforcing the boundary condition.
     """
+    validate_loc(loc)
+    cfg = DENSITY_RECOVERY[loc]
+    sns = SPATIAL_NEIGHBOR_SLICE[loc]
 
-    if loc not in ["left", "right", "top", "bottom"]:
-        raise ValueError(
-            "Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'."
-        )
+    from .nebb import _compute_wall_normal_velocity
+    un_wall = _compute_wall_normal_velocity(f, loc, rho_wall)
 
-    if loc == "left":
-        ux_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, 1], axis=0)
-        uy_wall = (jnp.sum(f[UP_DIRS, 1], axis=0) - jnp.sum(f[DOWN_DIRS, 1], axis=0)) / rho_next
-
-    elif loc == "right":
-        ux_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, -2], axis=0)
-        uy_wall = (jnp.sum(f[UP_DIRS, -2], axis=0) - jnp.sum(f[DOWN_DIRS, -2], axis=0)) / rho_next
-
-    elif loc == "top":
-        uy_wall = (f[0, :, -1] + f[1, :, -1] + f[3, :, -1] + 2 * (f[2, :, -1] + f[5, :, -1] + f[6, :, -1])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, :, -2], axis=0)
-        ux_wall = (jnp.sum(f[RIGHT_DIRS, :, -2], axis=0) - jnp.sum(f[LEFT_DIRS, :, -2], axis=0)) / rho_next
-
-    elif loc == "bottom":
-        uy_wall = (f[0, :, 0] + f[1, :, 0] + f[3, :, 0] + 2 * (f[4, :, 0] + f[7, :, 0] + f[8, :, 0])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, :, 1], axis=0)
-        ux_wall = (jnp.sum(f[RIGHT_DIRS, :, 1], axis=0) - jnp.sum(f[LEFT_DIRS, :, 1], axis=0)) / rho_next
-
-    return boundary_nee(f, loc, rho_wall=rho_wall, ux_wall=ux_wall, uy_wall=uy_wall)
-
+    # Tangential velocity from neighbor node
+    rho_next = jnp.sum(f[(slice(None),) + sns], axis=0)
+    if cfg["normal_axis"] == 0:
+        ut_wall = (jnp.sum(f[(UP_DIRS,) + sns], axis=0)
+                   - jnp.sum(f[(DOWN_DIRS,) + sns], axis=0)) / rho_next
+        return boundary_nee(f, loc, rho_wall=rho_wall, ux_wall=un_wall, uy_wall=ut_wall)
+    else:
+        ut_wall = (jnp.sum(f[(RIGHT_DIRS,) + sns], axis=0)
+                   - jnp.sum(f[(LEFT_DIRS,) + sns], axis=0)) / rho_next
+        return boundary_nee(f, loc, rho_wall=rho_wall, ux_wall=ut_wall, uy_wall=un_wall)
