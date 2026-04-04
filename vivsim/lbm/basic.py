@@ -25,6 +25,8 @@ Key Variables:
 
 """
 
+import chex
+import jax
 import jax.numpy as jnp
 
 
@@ -50,25 +52,30 @@ ALL_DIRS = jnp.array([0, 1, 2, 3, 4, 5, 6, 7, 8])
 OPP_DIRS = jnp.array([0, 3, 4, 1, 2, 7, 8, 5, 6])
 
 
+def _stream_single(fi, velocity):
+    """Stream a single population along its lattice velocity."""
+    return jnp.roll(jnp.roll(fi, velocity[0], axis=0), velocity[1], axis=1)
+
+
 def streaming(f):
     """Perform the streaming step of the Lattice Boltzmann Method.
-    
+
     This function shifts the distribution functions along their respective velocity
     directions using periodic boundary conditions. Each population is propagated to
     its neighboring node according to the D2Q9 lattice velocities.
-    
+
+    Uses jax.vmap to vectorize the roll operation across all 9 directions in a
+    single pass, avoiding sequential .at[].set() intermediate copies.
+
     Args:
         f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
-        
+
     Returns:
         f (jax.Array of shape (9, NX, NY)): The DDF after streaming.
     """
-    
-    f = f.at[RIGHT_DIRS].set(jnp.roll(f[RIGHT_DIRS], 1, axis=1))
-    f = f.at[LEFT_DIRS].set(jnp.roll(f[LEFT_DIRS], -1, axis=1))
-    f = f.at[UP_DIRS].set(jnp.roll(f[UP_DIRS], 1, axis=2))
-    f = f.at[DOWN_DIRS].set(jnp.roll(f[DOWN_DIRS], -1, axis=2))
-    return f
+    chex.assert_rank(f, 3)
+    chex.assert_shape(f, (9, None, None))
+    return jax.vmap(_stream_single)(f, VELOCITIES)
 
 
 def get_macroscopic(f):
@@ -91,9 +98,9 @@ def get_macroscopic(f):
     """
     
     rho = jnp.sum(f, axis=0)
-    u = jnp.zeros((2, *rho.shape))
-    u = u.at[0].set((jnp.sum(f[RIGHT_DIRS], axis=0) - jnp.sum(f[LEFT_DIRS], axis=0)) / rho)
-    u = u.at[1].set((jnp.sum(f[UP_DIRS], axis=0) - jnp.sum(f[DOWN_DIRS], axis=0)) / rho)
+    ux = (jnp.sum(f[RIGHT_DIRS], axis=0) - jnp.sum(f[LEFT_DIRS], axis=0)) / rho
+    uy = (jnp.sum(f[UP_DIRS], axis=0) - jnp.sum(f[DOWN_DIRS], axis=0)) / rho
+    u = jnp.stack([ux, uy])
     return rho, u
 
 
@@ -123,21 +130,22 @@ def get_equilibrium(rho, u):
 
 def collision_bgk(f, feq, omega):
     """Perform the collision step using the Bhatnagar-Gross-Krook (BGK) model.
-    
+
     Also known as the Single-Relaxation-Time (SRT) model, this collision operator
     relaxes the distribution function toward its equilibrium state. The relaxation
     parameter omega controls the rate of relaxation and is related to the fluid
     viscosity.
-    
+
     Args:
         f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
         feq (jax.Array of shape (9, NX, NY)): The equilibrium DDF.
         omega (scalar): The relaxation parameter, omega = 1 / tau, where tau is
             the relaxation time. Related to viscosity by: nu = (1/omega - 0.5) / 3.
-    
+
     Returns:
         f (jax.Array of shape (9, NX, NY)): The DDF after collision.
     """
+    chex.assert_equal_shape([f, feq])
 
     return (1 - omega) * f + omega * feq
 

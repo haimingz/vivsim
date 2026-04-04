@@ -17,7 +17,7 @@ import jax.numpy as jnp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-from jax.experimental.shard_map import shard_map
+from jax.shard_map import shard_map
 from jax.sharding import Mesh, PartitionSpec
 from tqdm import tqdm
 

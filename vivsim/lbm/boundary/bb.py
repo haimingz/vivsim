@@ -129,9 +129,12 @@ def boundary_specular_reflection(f_before_stream, f, loc, ux_wall=0, uy_wall=0):
 def obstacle_bounce_back(f, mask):
     """Enforce a no-slip boundary using the Bounce Back scheme
     at any obstacles defined by a 2D mask, where True indicates
-    the presence of an obstacle. 
-    
-    This can also be used to enforce no-slip boundarys at domain boundaries.
+    the presence of an obstacle.
+
+    This can also be used to enforce no-slip boundaries at domain boundaries.
+
+    Uses ``jnp.where`` instead of boolean fancy-indexing so that array shapes
+    are static, enabling full JIT compilation on all backends.
 
     Args:
         f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
@@ -141,5 +144,7 @@ def obstacle_bounce_back(f, mask):
         f (jax.Array of shape (9, NX, NY)): The DDF
             after enforcing the boundary condition.
     """
+    import jax.numpy as jnp
 
-    return f.at[:, mask].set(f[:, mask][OPP_DIRS])
+    f_reversed = f[OPP_DIRS]
+    return jnp.where(mask[jnp.newaxis, :, :], f_reversed, f)

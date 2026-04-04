@@ -115,9 +115,7 @@ def get_markers_velocity_3dof(x_markers, y_markers, x_center_init, y_center_init
     x_rel = x_markers - x_center_init - d[0]
     y_rel = y_markers - y_center_init - d[1]
     
-    v_markers = jnp.zeros((x_markers.shape[0], 2))
-    v_markers = v_markers.at[:, 0].set(v[0] - v[2] * y_rel)
-    v_markers = v_markers.at[:, 1].set(v[1] + v[2] * x_rel)
+    v_markers = jnp.stack([v[0] - v[2] * y_rel, v[1] + v[2] * x_rel], axis=-1)
     return v_markers
 
 

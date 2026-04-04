@@ -3,6 +3,7 @@ This file implements the multiple relaxation time (MRT) collision operator.
 MRT improves numerical stability by relaxing different moments at different rates.
 """
 
+import chex
 import jax.numpy as jnp
 
 
@@ -85,4 +86,6 @@ def collision_mrt(f, feq, mrt_collision_matrix):
         and passed as an argument to avoid recomputing it at each time step.
     """
     
+    chex.assert_equal_shape([f, feq])
+    chex.assert_shape(mrt_collision_matrix, (9, 9))
     return f + jnp.einsum('ij,jxy->ixy', mrt_collision_matrix, feq - f)

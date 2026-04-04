@@ -7,20 +7,21 @@ name = "vivsim"
 version = "1.2.0"
 description = "Accelerated immersed boundary-lattice Boltzmann simulations built on JAX"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 authors = [{ name = "Haiming Zhu", email = "zhuhaiming@tju.edu.cn" }]
 dependencies = [
-    "jax>=0.4",
+    "jax>=0.9",
+    "chex>=0.1.87",
     "matplotlib",
-    "numpy",
+    "numpy>=2.0",
     "tqdm",
 ]
 
 [project.optional-dependencies]
-cpu = ["jax>=0.4"]
-cuda12 = ['jax[cuda12]>=0.4; platform_system == "Linux"']
-cuda13 = ['jax[cuda13]>=0.4; platform_system == "Linux"']
-tpu = ['jax[tpu]>=0.4; platform_system == "Linux"']
+cpu = ["jax>=0.9"]
+cuda12 = ['jax[cuda12]>=0.9; platform_system == "Linux"']
+cuda13 = ['jax[cuda13]>=0.9; platform_system == "Linux"']
+tpu = ['jax[tpu]>=0.9; platform_system == "Linux"']
 
 [project.urls]
 "Homepage" = "https://github.com/haimingz/vivsim"

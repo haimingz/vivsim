@@ -4,6 +4,7 @@ The KBC model is based on the entropic principle to ensure numerical stability.
 """
 
 
+import chex
 import jax.numpy as jnp
 
 
@@ -22,6 +23,8 @@ def collision_kbc(f: jnp.ndarray, feq: jnp.ndarray, omega: float) -> jnp.ndarray
         
     """
 
+    chex.assert_equal_shape([f, feq])
+
     # Nonequilibrium distribution
     fneq = f - feq
 
@@ -39,9 +42,11 @@ def collision_kbc(f: jnp.ndarray, feq: jnp.ndarray, omega: float) -> jnp.ndarray
     
     # Step 2: calculate the shear part of the fneq
     signs = jnp.array([1, -1, 1, -1])[:, None, None]
-    shear_part = jnp.zeros_like(fneq)
-    shear_part = shear_part.at[1:5, ...].set(signs * normal_stress_diff / 4.0)
-    shear_part = shear_part.at[5:9, ...].set(signs * shear_stress / 4.0)    
+    shear_part = jnp.concatenate([
+        jnp.zeros_like(fneq[:1]),
+        signs * normal_stress_diff[None] / 4.0,
+        signs * shear_stress[None] / 4.0,
+    ])
 
     # Higher-order (non-hydrodynamic) component of the fneq
     high_order_part = fneq - shear_part

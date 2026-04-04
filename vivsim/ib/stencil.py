@@ -1,3 +1,4 @@
+import chex
 import jax
 import jax.numpy as jnp
 
@@ -73,6 +74,8 @@ def interpolate(
     Returns:
         Marker values, shape `(n_markers, n_components)`.
     """
+    chex.assert_rank(grid_values, 3)
+    chex.assert_equal_shape([stencil_weights, stencil_indices])
     flat_grid_values = grid_values.reshape(grid_values.shape[0], -1)
     stencil_values = flat_grid_values[:, stencil_indices]
     return jnp.einsum("ms,cms->mc", stencil_weights, stencil_values)
@@ -101,6 +104,8 @@ def spread(
     Returns:
         Updated grid field with the same shape as `grid_values`.
     """
+    chex.assert_rank(grid_values, 3)
+    chex.assert_equal_shape([stencil_weights, stencil_indices])
     grid_shape = grid_values.shape[1:]
     flat_grid_values = grid_values.reshape(grid_values.shape[0], -1)
     stencil_values = jnp.einsum("mc,ms->cms", marker_values, stencil_weights)
