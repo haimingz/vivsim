@@ -110,6 +110,16 @@ for t in range(TM):
 
 ```
 
+Included example scripts:
+- `python examples/lid_driven_cavity.py` for the canonical recirculating cavity benchmark.
+- `python examples/poiseuille_channel.py` for pressure/body-force-driven channel flow with an analytical parabolic profile.
+- `python examples/couette_flow.py` for wall-driven shear flow with a linear analytical profile.
+- `python examples/taylor_green_vortex.py` for periodic vortex decay against an analytical solution.
+- `python examples/double_shear_layer.py` for periodic Kelvin-Helmholtz roll-up from two perturbed shear layers.
+- `python examples/flow_pass_cylinder.py` for fixed-cylinder wake validation with IB-LBM.
+- `python examples/vortex_induced_vibration.py` for the coupled cylinder FSI problem the project was built around.
+- `python examples/flow_through_text.py` for a lightweight obstacle/boundary-condition demo.
+
 ## Implemented Methods
 
 Lattice Models
