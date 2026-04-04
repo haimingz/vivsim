@@ -12,11 +12,49 @@ VIVSIM is a Python library for fluid-structure interaction (FSI) simulations bas
 
 Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to achieve *hardware acceleration* and *automatic differentiation*. The project follows the **Functional Programming** paradigm to facilitate XLA compilation while making the codebase easier to understand and maintain.
 
+_Lid-driven cavity at Re = 2e4 on a 1000x1000 lattice grid_
+
+<!-- <img src="assets/cavity.gif" alt="Lid-driven cavity flow" width="300">  
+
+_Flow passes some texts on a 1000x1000 lattice grid_
+
+<img src="assets/text.gif" alt="Flow past text" width="300">  
+
+_VIV of a cylinder with U_r = 5 and Re = 1e2_
+
+<img src="assets/viv_100.gif" alt="VIV at Re = 1e2" width="300">  
+
+_VIV of a cylinder with U_r = 5 and Re = 1e4_
+
+<img src="assets/viv_10000.gif" alt="VIV at Re = 1e4" width="300">   -->
+
+## Getting Started
+
+To locally install VIVSIM for development:
+
+```bash
+git clone https://github.com/haimingz/vivsim.git
+cd vivsim
+pip install -e ".[cpu]"
+```
+
+JAX installation depends on the operating system and accelerator backend. VIVSIM now exposes the most common JAX choices as optional extras:
+
+```bash
+# CPU-only development on Linux/macOS/Windows
+pip install -e ".[cpu]"
+
+# NVIDIA GPU on Linux
+pip install -e ".[cuda12]"
+pip install -e ".[cuda13]"
+
+# Google Cloud TPU VM
+pip install -e ".[tpu]"
+```
+
 ## Usage
 
-VIVSIM provides a collection of **pure functions** for IB-LBM computations. Users can construct custom simulation models for different tasks. Start with the included demo examples to see how easy that is! 
-
-Below is a minimum workable example for lid-driven cavity simulation:
+VIVSIM provides a collection of **pure functions** for IB-LBM computations. Users can construct custom simulation models for different tasks. Start with the included demo examples to see how easy that is! Below is a minimum workable example for lid-driven cavity simulation:
 
 ```python
 import jax
@@ -24,6 +62,9 @@ import jax.numpy as jnp
 from vivsim import lbm
 
 # define constants
+NX = 100  # grid size in x direction
+NY = 100  # grid size in y direction
+TM = 1000  # number of time steps
 U0 = 0.5  # velocity of lid
 NU = 0.1  # kinematic viscosity
 
@@ -54,35 +95,17 @@ def update(f):
     f = lbm.boundary_nee(f, loc='bottom')
     f = lbm.boundary_nee(f, loc='top', ux_wall=U0)
     
-    return f, rho, u
+    return f
 
 # start simulation
 for t in range(TM):   
-    f, rho, u  = update(f)
+    f  = update(f)
 
     # export data & visualization ...
 
 ```
 
-## Examples
-
-_Lid-driven cavity at Re = 2e4 on a 1000x1000 lattice grid_
-
-<img src="assets/cavity.gif" alt="Lid-driven cavity flow" width="300">  
-
-_Flow passes some texts on a 1000x1000 lattice grid_
-
-<img src="assets/text.gif" alt="Flow past text" width="300">  
-
-_VIV of a cylinder with U_r = 5 and Re = 1e2_
-
-<img src="assets/viv_100.gif" alt="VIV at Re = 1e2" width="300">  
-
-_VIV of a cylinder with U_r = 5 and Re = 1e4_
-
-<img src="assets/viv_10000.gif" alt="VIV at Re = 1e4" width="300">  
-
-## Capabilities
+## Implemented Methods
 
 Lattice Models
 - D2Q9
@@ -104,18 +127,13 @@ Boundary Conditions:
 - Periodic boundary
 
 Forcing Schemes:
-- Guo's Forcing sheme
+- Guo's Forcing scheme
 - Modified Exact Difference Method (EDM)
 
-Fluid-Structure Interaction
-- Multi-Direct-Forcing (MDF) Immersed Boundary method.
-
-Acceleration techniques
-- Multi-GPU simulation (using JAX)
-- Gird refinement (shown below)
-- Dynamic IB region (shown below)
-
-<img src="assets/grid_refinement.png" width=500 />
+Immersed Boundary Methods:
+- Peskin's 2-, 3- and 4-point kernels
+- 4-point cosine kernel
+- Multi-Direct-Forcing (MDF) method.
 
 ## Benchmark 
 
@@ -124,65 +142,43 @@ Here is a performance snippet showing the average execution time (ms) for core J
 ```
 Benchmarking on cuda:0 | grid: 1000x1000 | repeats: 100
 
-Function                       Time (ms)  Bar
--------------------------------------------------------------------------------------
-lbm.get_macroscopic                0.002  
-lbm.get_equilibrium                0.001  
-lbm.streaming                      0.066  =========
-lbm.collision_bgk                  0.030  ====
-lbm.collision_kbc                  0.156  =======================
-lbm.collision_mrt                  0.264  ========================================
-lbm.collision_regularized          0.087  =============
-lbm.forcing_edm                    0.105  ===============
-lbm.forcing_guo_bgk                0.060  =========
-lbm.forcing_guo_mrt                0.219  =================================
-lbm.get_guo_forcing_term           0.001  
-lbm.boundary_nee                   0.007  =
-lbm.boundary_velocity_nee          0.008  =
-lbm.boundary_pressure_nee          0.008  =
-lbm.boundary_nebb                  0.014  ==
-lbm.boundary_velocity_nebb         0.011  =
-lbm.boundary_pressure_nebb         0.069  ==========
-lbm.boundary_equilibrium           0.005  
-lbm.boundary_bounce_back           0.118  =================
-lbm.boundary_specular_reflection   0.124  ==================
-lbm.obstacle_bounce_back           0.001  
-lbm.boundary_characteristic        0.001  
-ib.get_area                        0.001  
-ib.get_ds_closed                   0.001  
-ib.get_ds_open                     0.001  
-ib.kernel_peskin_3pt               0.004  
-ib.kernel_peskin_4pt               0.003  
-ib.kernel_cosine_4pt               0.004  
-ib.get_ib_stencil                  0.001  
-ib.interpolate                     0.001  
-ib.spread                          0.001  
-ib.multi_direct_forcing            0.001  
+Function                      Time (ms)  Bar
+-----------------------------------------------------------------------------------
+lbm.get_macroscopic               0.002  
+lbm.get_equilibrium               0.001  
+lbm.streaming                     0.066  =========
+lbm.collision_bgk                 0.030  ====
+lbm.collision_kbc                 0.156  =======================
+lbm.collision_mrt                 0.264  ========================================
+lbm.collision_regularized         0.087  =============
+lbm.forcing_edm                   0.105  ===============
+lbm.forcing_guo_bgk               0.060  =========
+lbm.forcing_guo_mrt               0.219  =================================
+lbm.get_guo_forcing_term          0.001  
+lbm.boundary_nee                  0.007  =
+lbm.boundary_velocity_nee         0.008  =
+lbm.boundary_pressure_nee         0.008  =
+lbm.boundary_nebb                 0.014  ==
+lbm.boundary_velocity_nebb        0.011  =
+lbm.boundary_pressure_nebb        0.069  ==========
+lbm.boundary_equilibrium          0.005  
+lbm.boundary_bounce_back          0.118  =================
+lbm.boundary_specular_reflection  0.124  ==================
+lbm.obstacle_bounce_back          0.001  
+lbm.boundary_characteristic       0.001  
+ib.get_area                       0.001  
+ib.get_ds_closed                  0.001  
+ib.get_ds_open                    0.001  
+ib.kernel_peskin_3pt              0.004  
+ib.kernel_peskin_4pt              0.003  
+ib.kernel_cosine_4pt              0.004  
+ib.get_ib_stencil                 0.001  
+ib.interpolate                    0.001  
+ib.spread                         0.001  
+ib.multi_direct_forcing           0.001  
 ```
+If you have suggestions for improving the performance of any function, please feel free to open an issue or submit a pull request!
 
-## Getting Started
-
-To locally install VIVSIM for development:
-
-```bash
-git clone https://github.com/haimingz/vivsim.git
-cd vivsim
-pip install -e ".[cpu]"
-```
-
-JAX installation depends on the operating system and accelerator backend. VIVSIM now exposes the most common JAX choices as optional extras:
-
-```bash
-# CPU-only development on Linux/macOS/Windows
-pip install -e ".[cpu]"
-
-# NVIDIA GPU on Linux
-pip install -e ".[cuda12]"
-pip install -e ".[cuda13]"
-
-# Google Cloud TPU VM
-pip install -e ".[tpu]"
-```
 
 ## Cite VIVSIM
 

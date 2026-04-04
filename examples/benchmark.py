@@ -150,8 +150,8 @@ timings["ib.multi_direct_forcing"] = measure(ib.multi_direct_forcing, u, ib_sten
 
 # ====================== Report results ======================
 
-col_w = 40
-bar_width = 40  # higher resolution bars
+col_w = 35
+bar_width = 20  # higher resolution bars
 max_t = max(timings.values())
 scale = max_t / bar_width if max_t > 0 else 1.0
 
