@@ -1,4 +1,4 @@
-""" 
+r"""
 This file implements the basic functions for 2-dimensional fluid simulations using
 the lattice Boltzmann method (LBM). The implementation includes:
 
@@ -25,6 +25,7 @@ Key Variables:
 
 """
 
+import jax
 import jax.numpy as jnp
 
 
@@ -64,11 +65,10 @@ def streaming(f):
         f (jax.Array of shape (9, NX, NY)): The DDF after streaming.
     """
     
-    f = f.at[RIGHT_DIRS].set(jnp.roll(f[RIGHT_DIRS], 1, axis=1))
-    f = f.at[LEFT_DIRS].set(jnp.roll(f[LEFT_DIRS], -1, axis=1))
-    f = f.at[UP_DIRS].set(jnp.roll(f[UP_DIRS], 1, axis=2))
-    f = f.at[DOWN_DIRS].set(jnp.roll(f[DOWN_DIRS], -1, axis=2))
-    return f
+    def shift_fn(f_ch, shift):
+        return jnp.roll(f_ch, shift=shift, axis=(0, 1))
+
+    return jax.vmap(shift_fn)(f, VELOCITIES)
 
 
 def get_macroscopic(f):
@@ -178,4 +178,3 @@ def get_velocity_correction(g, rho=1):
     """
 
     return g * 0.5 / rho
-
