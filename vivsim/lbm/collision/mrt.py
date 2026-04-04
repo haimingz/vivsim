@@ -4,26 +4,27 @@ MRT improves numerical stability by relaxing different moments at different rate
 """
 
 import chex
+import numpy as np
 import jax.numpy as jnp
 
 
-# Transformation matrix (Gram-Schmidt method) 
-M = jnp.array(
-        [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [-4, -1, -1, -1, -1, 2, 2, 2, 2],
-            [4, -2, -2, -2, -2, 1, 1, 1, 1],
-            [0, 1, 0, -1, 0, 1, -1, -1, 1],
-            [0, -2, 0, 2, 0, 1, -1, -1, 1],
-            [0, 0, 1, 0, -1, 1, 1, -1, -1],
-            [0, 0, -2, 0, 2, 1, 1, -1, -1],
-            [0, 1, -1, 1, -1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 1, -1, 1, -1],
-        ]
-    )
+# Transformation matrix (Gram-Schmidt method).
+# Defined as plain NumPy so that the inverse is computed eagerly at import
+# time without triggering JAX compilation (which can fail on some backends).
+_M_np = np.array([
+    [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [-4, -1, -1, -1, -1, 2, 2, 2, 2],
+    [4, -2, -2, -2, -2, 1, 1, 1, 1],
+    [0, 1, 0, -1, 0, 1, -1, -1, 1],
+    [0, -2, 0, 2, 0, 1, -1, -1, 1],
+    [0, 0, 1, 0, -1, 1, 1, -1, -1],
+    [0, 0, -2, 0, 2, 1, 1, -1, -1],
+    [0, 1, -1, 1, -1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 1, -1, 1, -1],
+], dtype=np.float64)
 
-# Inverse of the transformation matrix (precomputed for efficiency)
-M_INV = jnp.linalg.inv(M)
+M = jnp.array(_M_np)
+M_INV = jnp.array(np.linalg.inv(_M_np))
 
 
 def get_mrt_relaxation_matrix(omega):

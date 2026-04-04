@@ -1,3 +1,4 @@
+import chex
 import jax.numpy as jnp
 from ..basic import VELOCITIES, WEIGHTS
 from ..collision.mrt import M, M_INV, get_mrt_relaxation_matrix
@@ -5,31 +6,32 @@ from ..collision.mrt import M, M_INV, get_mrt_relaxation_matrix
 
 def get_guo_forcing_term(g, u):
     """Compute the forcing term using Guo's forcing scheme.
-    
+
     This function discretizes the external force density into the lattice Boltzmann
-    framework using Guo's forcing scheme. 
-    
+    framework using Guo's forcing scheme.
+
     Args:
         g (jax.Array): External force density with shape (2, NX, NY), where the first
             dimension represents force components in x and y directions.
         u (jax.Array): Fluid velocity field with shape (2, NX, NY), where the first
             dimension represents velocity components in x and y directions.
-    
+
     Returns:
         jax.Array: Lattice forcing term with shape (9, NX, NY), where 9 is the number
             of discrete velocity directions in the D2Q9 lattice.
     """
-    uc = (u[0, :, :] * VELOCITIES[:, 0, jnp.newaxis, jnp.newaxis] + 
-          u[1, :, :] * VELOCITIES[:, 1, jnp.newaxis, jnp.newaxis])
-    
-    g_lattice = WEIGHTS[..., jnp.newaxis, jnp.newaxis] * (
-        g[0] * (
-            3 * (VELOCITIES[:, 0, jnp.newaxis, jnp.newaxis] - u[jnp.newaxis, 0,...]) 
-            + 9 * (uc * VELOCITIES[:,0, jnp.newaxis, jnp.newaxis])) 
-        + g[1] * (
-            3 * (VELOCITIES[:, 1, jnp.newaxis, jnp.newaxis] - u[jnp.newaxis, 1,...]) 
-            + 9 * (uc * VELOCITIES[:, 1, jnp.newaxis, jnp.newaxis])))
-    
+    chex.assert_equal_shape([g, u])
+
+    # c_i . u  ->  shape (9, NX, NY)
+    uc = jnp.einsum("ia,axy->ixy", VELOCITIES, u)
+    # c_i . g  ->  shape (9, NX, NY)
+    gc = jnp.einsum("ia,axy->ixy", VELOCITIES, g)
+
+    # Guo forcing:  w_i * [ 3*(c_i - u) . g  +  9*(c_i . u)(c_i . g) ]
+    #             = w_i * [ 3*(gc - u.g)  +  9 * uc * gc ]
+    ug = jnp.sum(u * g, axis=0)  # u . g  ->  shape (NX, NY)
+    g_lattice = WEIGHTS[:, None, None] * (3.0 * (gc - ug) + 9.0 * uc * gc)
+
     return g_lattice
 
 

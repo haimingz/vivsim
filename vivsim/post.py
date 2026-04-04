@@ -1,53 +1,53 @@
-import jax 
 import jax.numpy as jnp
 
 
-@jax.jit
 def calculate_curl(u):
+    """Compute the curl (z-component) of a 2D velocity field.
+
+    Args:
+        u (jax.Array of shape (2, NX, NY)): Velocity field.
+
+    Returns:
+        jax.Array of shape (NX, NY): The curl of the velocity field.
+    """
     ux_y = jnp.gradient(u[0], axis=1)
     uy_x = jnp.gradient(u[1], axis=0)
-    curl = ux_y - uy_x
-    return curl
+    return ux_y - uy_x
 
-@jax.jit
+
 def calculate_vorticity(u):
-    """
-    Calculate the vorticity of a velocity field.
-    
+    """Calculate the vorticity of a 2D velocity field.
+
     Args:
-        u (ndarray): The velocity field of the fluid.
-        
+        u (jax.Array of shape (2, NX, NY)): Velocity field.
+
     Returns:
-        ndarray: The vorticity of the fluid.    
+        jax.Array of shape (NX, NY): The vorticity.
     """
     return calculate_curl(u)
 
-@jax.jit
+
 def calculate_vorticity_dimensionless(u, l, u0):
-    """
-    Calculate the dimensionless vorticity of a velocity field.
-    
+    """Calculate the dimensionless vorticity of a velocity field.
+
     Args:
-        u (ndarray): The velocity field of the fluid.
+        u (jax.Array of shape (2, NX, NY)): Velocity field.
         l (float): The characteristic length.
-        u0 (float): The flow  velocity.
-    
+        u0 (float): The free-stream velocity.
+
     Returns:
-        ndarray: The dimensionless vorticity of the fluid.
+        jax.Array of shape (NX, NY): The dimensionless vorticity.
     """
-    curl = calculate_curl(u)
-    return curl * l / u0
+    return calculate_curl(u) * l / u0
 
 
-@jax.jit 
 def calculate_velocity_magnitude(u):
-    """
-    Calculate the magnitude of the velocity field.
-    
+    """Calculate the magnitude of a velocity field.
+
     Args:
-        u (ndarray): The velocity field of the fluid.
-        
+        u (jax.Array of shape (2, NX, NY)): Velocity field.
+
     Returns:
-        ndarray: The magnitude of the velocity field.
+        jax.Array of shape (NX, NY): The velocity magnitude.
     """
-    return jnp.sqrt(u[0]**2 + u[1]**2)
+    return jnp.linalg.norm(u, axis=0)
