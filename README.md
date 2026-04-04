@@ -12,23 +12,28 @@ VIVSIM is a Python library for fluid-structure interaction (FSI) simulations bas
 
 Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to achieve *hardware acceleration* and *automatic differentiation*. The project follows the **Functional Programming** paradigm to facilitate XLA compilation while making the codebase easier to understand and maintain.
 
-_Lid-driven cavity at Re = 2e4 on a 1000x1000 lattice grid_
+<div align="center">
+  <table style="border: none; text-align: center;">
+    <tr>
+      <td><i>Lid-driven cavity at Re = 2e4 </i></td>
+      <td><i>Flow passes some texts </i></td>
+    </tr>
+    <tr>
+      <td><img src="assets/cavity.gif" alt="Lid-driven cavity flow" width="250"></td>
+      <td><img src="assets/text.gif" alt="Flow past text" width="250"></td>
+    </tr>
+    <tr>
+      <td><i>VIV of a cylinder with U_r = 5 and Re = 1e2</i></td>
+      <td><i>VIV of a cylinder with U_r = 5 and Re = 1e4</i></td>
+    </tr>
+    <tr>
+      <td><img src="assets/viv_100.gif" alt="VIV at Re = 1e2" width="300"></td>
+      <td><img src="assets/viv_10000.gif" alt="VIV at Re = 1e4" width="270"></td>
+    </tr>
+  </table>
+</div>
 
-<!-- <img src="assets/cavity.gif" alt="Lid-driven cavity flow" width="300">  
-
-_Flow passes some texts on a 1000x1000 lattice grid_
-
-<img src="assets/text.gif" alt="Flow past text" width="300">  
-
-_VIV of a cylinder with U_r = 5 and Re = 1e2_
-
-<img src="assets/viv_100.gif" alt="VIV at Re = 1e2" width="300">  
-
-_VIV of a cylinder with U_r = 5 and Re = 1e4_
-
-<img src="assets/viv_10000.gif" alt="VIV at Re = 1e4" width="300">   -->
-
-## Getting Started
+## Installation
 
 To locally install VIVSIM for development:
 
@@ -48,7 +53,7 @@ pip install -e ".[cpu]"
 pip install -e ".[cuda12]"
 pip install -e ".[cuda13]"
 
-# Google Cloud TPU VM
+# Google Cloud TPU
 pip install -e ".[tpu]"
 ```
 
