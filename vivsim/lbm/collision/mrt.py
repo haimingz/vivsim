@@ -2,12 +2,12 @@
 This file implements the multiple relaxation time (MRT) collision operator.
 MRT improves numerical stability by relaxing different moments at different rates.
 """
-
+import numpy as np
 import jax.numpy as jnp
 
 
 # Transformation matrix (Gram-Schmidt method) 
-M = jnp.array(
+M = np.array(
         [
             [1, 1, 1, 1, 1, 1, 1, 1, 1],
             [-4, -1, -1, -1, -1, 2, 2, 2, 2],
@@ -22,7 +22,7 @@ M = jnp.array(
     )
 
 # Inverse of the transformation matrix (precomputed for efficiency)
-M_INV = jnp.linalg.inv(M)
+M_INV = np.linalg.inv(M)
 
 
 def get_mrt_relaxation_matrix(omega):
