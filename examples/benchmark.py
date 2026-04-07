@@ -25,7 +25,7 @@ NX = 1024           # grid size in x direction
 NY = 1024           # grid size in y direction
 N_MARKER = 512      # number of IB markers (for IB-related benchmarks)
 N_WARMUP = 10       # number of warm-up iterations (for JIT compilation)
-N_REPEAT = 100      # number of timed iterations for each function
+N_REPEAT = 200      # number of timed iterations for each function
 
 # ====================== Initialize with meaningless values ======================
 
@@ -83,7 +83,7 @@ def measure(fn, *args):
     jax.block_until_ready(_)
     elapsed = time.perf_counter() - start
     
-    return elapsed / N_REPEAT * 1000  # ms per call
+    return elapsed / N_REPEAT * 1e6  # us per call
 
 
 # ====================== Benchmark functions ======================
@@ -101,7 +101,7 @@ timings["lbm.streaming"]          = measure(lbm.streaming, f)
 timings["lbm.collision_bgk"]         = measure(lbm.collision_bgk, f, feq, omega)
 timings["lbm.collision_kbc"]         = measure(lbm.collision_kbc, f, feq, omega)
 timings["lbm.collision_mrt"]         = measure(lbm.collision_mrt, f, feq, mrt_op)
-timings["lbm.collision_regularized"] = measure(lbm.collision_regularized, f, feq, omega)
+timings["lbm.collision_reg"] = measure(lbm.collision_reg, f, feq, omega)
 
 # ------ Forcing ------
 timings["lbm.forcing_edm"]           = measure(lbm.forcing_edm, f, g, u, rho)
@@ -128,7 +128,7 @@ timings["lbm.boundary_specular_reflection"] = measure(partial(lbm.boundary_specu
 timings["lbm.obstacle_bounce_back"]       = measure(partial(lbm.obstacle_bounce_back, mask=mask), f)
 
 # ------ Boundary: Characteristic ------
-timings["lbm.boundary_characteristic"] = measure(partial(lbm.boundary_characteristic, dir="right"), rho, u)
+timings["lbm.boundary_characteristic"] = measure(partial(lbm.boundary_characteristic, loc="right"), rho, u)
 
 # ------ IB: geometry ------
 timings["ib.get_area"]      = measure(ib.get_area, marker_coords) 
@@ -155,7 +155,7 @@ bar_width = 20  # higher resolution bars
 max_t = max(timings.values())
 scale = max_t / bar_width if max_t > 0 else 1.0
 
-print(f"{'Function':<{col_w}} {'Time (ms)':>10}  Bar")
+print(f"{'Function':<{col_w}} {'Time (us)':>10}  Bar")
 print("-" * (col_w + 45))
 for name, t in timings.items():
     bar = "=" * int(t / scale)

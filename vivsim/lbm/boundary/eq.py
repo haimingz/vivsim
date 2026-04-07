@@ -12,54 +12,50 @@ When body forces are present, pass the corrected wall velocity obtained from
 ``get_corrected_wall_velocity`` (from this package) before calling these functions.
 """
 
-
-
-import jax.numpy as jnp
 from ..basic import get_equilibrium
+from ._helpers import (
+    BOUNDARY_SPEC,
+    wrap_force_corrected,
+    wrap_pressure,
+    wrap_velocity,
+    broadcast_wall_values,
+)
 
 
-def boundary_equilibrium(f, loc:str, rho_wall=1, ux_wall=0, uy_wall=0):
-    """Enforce given density rho_wall and velocity ux_wall, uy_wall
-    at the specified boundary using the equilibrium scheme.
-    
+def boundary_equilibrium(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
+    """Apply the equilibrium boundary scheme with prescribed wall state.
+
     This is a simple boundary condition that sets the distribution functions
     at the boundary to their equilibrium values based on the specified
     density and velocity. This method is less accurate than the NEBB or NEE
-    schemes but more stable. 
-    
+    schemes but more stable.
+
     Args:
         f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
-        loc (str): The boundary where the condition is enforced, 
-            can be 'left', 'right', 'top', or 'bottom'.
-        rho_wall (scalar or jax.Array of shape NX or NY): The density at the wall.
-        ux_wall (scalar or jax.Array of shape NX or NY): The x-component of velocity.
-        uy_wall (scalar or jax.Array of shape NX or NY): The y-component of velocity.
-        
+        loc (str): Boundary location, one of ``'left'``, ``'right'``, ``'top'``,
+            or ``'bottom'``.
+        rho_wall (scalar or jax.Array of shape N): Density prescribed on the wall.
+        ux_wall (scalar or jax.Array of shape N): X-velocity prescribed on the wall.
+        uy_wall (scalar or jax.Array of shape N): Y-velocity prescribed on the wall.
+
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The DDF
-            after enforcing the boundary condition.
+        jax.Array: Updated distribution function with shape ``(9, NX, NY)``.
     """
+
+    spec = BOUNDARY_SPEC[loc]
     
-    # Determine boundary size and convert scalars to arrays if needed
-    size = f.shape[2] if loc in ['left', 'right'] else f.shape[1]
-    
-    if jnp.isscalar(rho_wall):
-        rho_wall = jnp.full(size, rho_wall)
-    if jnp.isscalar(ux_wall):
-        ux_wall = jnp.full(size, ux_wall)
-    if jnp.isscalar(uy_wall):
-        uy_wall = jnp.full(size, uy_wall)
-    
-    u_wall = jnp.array([ux_wall, uy_wall])
+    # prepare the wall values, ensuring they are in the correct shape for broadcasting
+    rho_wall, u_wall = broadcast_wall_values(
+        f, loc, rho_wall=rho_wall, ux_wall=ux_wall, uy_wall=uy_wall)
+
+    # compute the equilibrium distribution at the wall
     feq_wall = get_equilibrium(rho_wall, u_wall)
-    
-    # Apply boundary condition
-    if loc == "left":
-        f = f.at[:, 0].set(feq_wall)
-    elif loc == "right":
-        f = f.at[:, -1].set(feq_wall)
-    elif loc == "top":
-        f = f.at[:, :, -1].set(feq_wall)
-    elif loc == "bottom":
-        f = f.at[:, :, 0].set(feq_wall)
-    return f
+
+    # set the distribution at the wall to be the equilibrium distribution
+    # ignoring the non-equilibrium part
+    return f.at[:, *spec.wall].set(feq_wall)
+
+
+boundary_velocity_equilibrium = wrap_velocity(boundary_equilibrium)
+boundary_pressure_equilibrium = wrap_pressure(boundary_equilibrium)
+boundary_force_corrected_equilibrium = wrap_force_corrected(boundary_equilibrium)

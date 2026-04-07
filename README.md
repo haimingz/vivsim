@@ -155,42 +155,43 @@ Immersed Boundary Methods:
 Here is a performance snippet showing the average execution time (ms) for core JAX-compiled pure functions on a Nvidia RTX4090 GPU. You can generate similar benchmarks on your hardware by running `python examples/benchmark.py`.
 
 ```
-Benchmarking on cuda:0 | grid: 1000x1000 | repeats: 100
+Benchmarking on cuda:0 | grid: 1024x1024 | markers: 512 | repeats: 200
 
-Function                      Time (ms)  Bar
------------------------------------------------------------------------------------
-lbm.get_macroscopic               0.002  
-lbm.get_equilibrium               0.001  
-lbm.streaming                     0.066  =========
-lbm.collision_bgk                 0.030  ====
-lbm.collision_kbc                 0.156  =======================
-lbm.collision_mrt                 0.264  ========================================
-lbm.collision_regularized         0.087  =============
-lbm.forcing_edm                   0.105  ===============
-lbm.forcing_guo_bgk               0.060  =========
-lbm.forcing_guo_mrt               0.219  =================================
-lbm.get_guo_forcing_term          0.001  
-lbm.boundary_nee                  0.007  =
-lbm.boundary_velocity_nee         0.008  =
-lbm.boundary_pressure_nee         0.008  =
-lbm.boundary_nebb                 0.014  ==
-lbm.boundary_velocity_nebb        0.011  =
-lbm.boundary_pressure_nebb        0.069  ==========
-lbm.boundary_equilibrium          0.005  
-lbm.boundary_bounce_back          0.118  =================
-lbm.boundary_specular_reflection  0.124  ==================
-lbm.obstacle_bounce_back          0.001  
-lbm.boundary_characteristic       0.001  
-ib.get_area                       0.001  
-ib.get_ds_closed                  0.001  
-ib.get_ds_open                    0.001  
-ib.kernel_peskin_3pt              0.004  
-ib.kernel_peskin_4pt              0.003  
-ib.kernel_cosine_4pt              0.004  
-ib.get_ib_stencil                 0.001  
-ib.interpolate                    0.001  
-ib.spread                         0.001  
-ib.multi_direct_forcing           0.001  
+Function                             Time (us)  Bar
+--------------------------------------------------------------------------------
+lbm.get_macroscopic                      0.619  
+lbm.get_equilibrium                      0.296  
+lbm.streaming                           71.214  ==
+lbm.collision_bgk                       36.594  =
+lbm.collision_kbc                      348.668  ==============
+lbm.collision_mrt                      476.972  ====================
+lbm.collision_reg                      196.233  ========
+lbm.forcing_edm                         79.364  ===
+lbm.forcing_guo_bgk                     56.261  ==
+lbm.forcing_guo_mrt                    204.868  ========
+lbm.get_guo_forcing_term                 0.706  
+lbm.boundary_nee                         7.238  
+lbm.boundary_velocity_nee                6.573  
+lbm.boundary_pressure_nee                6.961  
+lbm.boundary_nebb                        6.481  
+lbm.boundary_velocity_nebb               6.807  
+lbm.boundary_pressure_nebb               6.537  
+lbm.boundary_equilibrium                 3.361  
+lbm.boundary_bounce_back                38.752  =
+lbm.boundary_specular_reflection        39.087  =
+lbm.obstacle_bounce_back                 0.650  
+lbm.boundary_characteristic              0.292  
+ib.get_area                              0.721  
+ib.get_ds_closed                         0.807  
+ib.get_ds_open                           0.979  
+ib.kernel_peskin_3pt                     3.503  
+ib.kernel_peskin_4pt                     3.004  
+ib.kernel_cosine_4pt                     3.211  
+ib.get_ib_stencil                        0.635  
+ib.interpolate                           0.735  
+ib.spread                                1.002  
+ib.multi_direct_forcing                  0.923  
+--------------------------------------------------------------------------------
 ```
 If you have suggestions for improving the performance of any function, please feel free to open an issue or submit a pull request!
 

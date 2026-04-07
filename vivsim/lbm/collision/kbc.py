@@ -3,22 +3,22 @@ This module implements the Karlin–Bösch–Chikatamarla (KBC) collision operat
 The KBC model is based on the entropic principle to ensure numerical stability.
 """
 
-
+import jax 
 import jax.numpy as jnp
 
 
-def collision_kbc(f: jnp.ndarray, feq: jnp.ndarray, omega: float) -> jnp.ndarray:
+def collision_kbc(f: jax.Array, feq: jax.Array, omega: float) -> jax.Array:
     """
     Karlin–Bösch–Chikatamarla (KBC) collision operator for LBM.
     Based on the entropic principle to ensure numerical stability.
 
     Args:
-        f (jnp.ndarray): Current discrete distribution function (DDF).
-        feq (jnp.ndarray): Equilibrium DDF.
+        f (jax.Array): Current discrete distribution function (DDF).
+        feq (jax.Array): Equilibrium DDF.
         omega (float): Relaxation parameter (= 1 / relaxation time).
 
     Returns:
-        jnp.ndarray: Post-collision DDF (f_post).
+        jax.Array: Post-collision DDF (f_post).
         
     """
 

@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 
 
-def collision_regularized(f, feq, omega):
+def collision_reg(f, feq, omega):
     """
     Regularized BGK collision operator for the D2Q9 lattice.
 

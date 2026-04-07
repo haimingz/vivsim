@@ -30,4 +30,4 @@ def forcing_edm(f, g, u, rho):
 
     # Algebraically equivalent to 
     # get_equilibrium(rho, u + g / 2) - get_equilibrium(rho, u - g / 2)
-    return f + rho[jnp.newaxis, ...] * get_guo_forcing_term(g, u)
+    return f + rho[None, ...] * get_guo_forcing_term(g, u)
