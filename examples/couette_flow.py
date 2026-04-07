@@ -18,8 +18,8 @@ from vivsim import lbm
 
 # ====================== Configuration ======================
 
-NX = 96
-NY = 32
+NX = 16
+NY = 16
 TM = 12000
 
 U0 = 0.08
@@ -61,29 +61,17 @@ def main():
 
     rel_l2 = jnp.linalg.norm(ux - ux_true_2d) / jnp.linalg.norm(ux_true_2d)
 
-    fig, axes = plt.subplots(1, 2, figsize=(9, 3.8))
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
 
-    im = axes[0].imshow(
-        np.asarray(ux.T),
-        origin="lower",
-        aspect="auto",
-        cmap="viridis",
-        extent=[0, NX - 1, 0, NY - 1],
-    )
-    axes[0].set_title("Steady x-velocity")
-    axes[0].set_xlabel("x")
-    axes[0].set_ylabel("y")
-    fig.colorbar(im, ax=axes[0], label="$u_x$")
+    ax.plot(np.asarray(ux_true), np.asarray(y), label="Analytical", linewidth=1)
+    ax.plot(np.asarray(ux_mean), np.asarray(y), "o", ms=3, label="LBM")
+    ax.set_title(f"Profile error = {float(rel_l2):.2e}")
+    ax.set_xlabel("$u_x$")
+    ax.set_ylabel("y")
+    ax.grid(alpha=0.3, linestyle=":")
+    ax.legend(frameon=False)
 
-    axes[1].plot(np.asarray(ux_true), np.asarray(y), label="Analytical", linewidth=2)
-    axes[1].plot(np.asarray(ux_mean), np.asarray(y), "o", ms=3, label="LBM")
-    axes[1].set_title(f"Profile error = {float(rel_l2):.2e}")
-    axes[1].set_xlabel("$u_x$")
-    axes[1].set_ylabel("y")
-    axes[1].grid(alpha=0.3, linestyle=":")
-    axes[1].legend(frameon=False)
-
-    fig.suptitle("2D plane Couette flow")
+    fig.suptitle("Couette flow: velocity profile")
     fig.tight_layout()
     plt.show()
 
