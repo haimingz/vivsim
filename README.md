@@ -152,7 +152,7 @@ Immersed Boundary Methods:
 
 ## Benchmark 
 
-Here is a performance snippet showing the average execution time (ms) for core JAX-compiled pure functions on a Nvidia RTX4090 GPU. You can generate similar benchmarks on your hardware by running `python examples/benchmark.py`.
+Here is a performance snippet showing the average execution time for core JAX-compiled pure functions on a Nvidia RTX4090 GPU. You can generate similar benchmarks on your hardware by running `python examples/benchmark.py`.
 
 ```
 Benchmarking on cuda:0 | grid: 1024x1024 | markers: 512 | repeats: 200
