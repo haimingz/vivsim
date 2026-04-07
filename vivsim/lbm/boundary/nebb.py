@@ -6,16 +6,22 @@ When body forces are present, pass the corrected wall velocity obtained from
 ``get_corrected_wall_velocity`` (from this package) before calling these functions.
 """
 
-
-
-from ..basic import LEFT_DIRS, RIGHT_DIRS, UP_DIRS, DOWN_DIRS
 import jax.numpy as jnp
+
+from ._helpers import (
+    BOUNDARY_SPEC,
+    get_signed_wall_velocity,
+    wrap_force_corrected,
+    wrap_pressure,
+    wrap_velocity,
+)
 
 
 def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
     """Non-Equilibrium Bounce-Back (or Zou/He) scheme.
 
-    This is the core function for the nebb_velocity and nebb_pressure functions.
+    This is the core function for the velocity, pressure, and force-corrected
+    NEBB wrappers defined at the bottom of this module.
 
     It applies the Non-Equilibrium Bounce-Back (or Zou/He) scheme to the distribution function
     at the specified boundary location, enforcing the given wall velocity and density.
@@ -24,121 +30,33 @@ def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
 
     Args:
         f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
-        loc (str): The boundary where the velocity condition is enforced,
-            can be 'left', 'right', 'top', or 'bottom'.
-        ux_wall (scalar or jax.Array of shape NX or NY): The x-component of velocity.
-        uy_wall (scalar or jax.Array of shape NX or NY): The y-component of velocity.
-        rho_wall (scalar or jax.Array of shape NX or NY): The density at the wall.
+        loc (str): Boundary location, one of ``'left'``, ``'right'``, ``'top'``,
+            or ``'bottom'``.
+        ux_wall (scalar or jax.Array of shape N): The x-component of velocity.
+        uy_wall (scalar or jax.Array of shape N): The y-component of velocity.
+        rho_wall (scalar or jax.Array of shape N): The density at the wall.
 
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The DDF
-            after enforcing the boundary condition.
+        jax.Array: Updated distribution function with shape ``(9, NX, NY)``.
     """
 
-    if loc == "left":
-        f = f.at[1, 0].set(f[3, 0] + 2 / 3 * ux_wall * rho_wall)
-        f = f.at[5, 0].set(f[7, 0] - 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux_wall + 0.5 * uy_wall) * rho_wall)
-        f = f.at[8, 0].set(f[6, 0] + 0.5 * (f[2, 0] - f[4, 0]) + (1 / 6 * ux_wall - 0.5 * uy_wall) * rho_wall)
+    spec = BOUNDARY_SPEC[loc]
+    un, ut = get_signed_wall_velocity(loc, ux_wall=ux_wall, uy_wall=uy_wall)
 
-    elif loc == "right":
-        f = f.at[3, -1].set(f[1, -1] - 2 / 3 * ux_wall * rho_wall)
-        f = f.at[7, -1].set(f[5, -1] + 0.5 * (f[2, -1] - f[4, -1]) + (-1 / 6 * ux_wall - 0.5 * uy_wall) * rho_wall)
-        f = f.at[6, -1].set(f[8, -1] - 0.5 * (f[2, -1] - f[4, -1]) + (-1 / 6 * ux_wall + 0.5 * uy_wall) * rho_wall)
+    wall = f[:, *spec.wall]  # shape (9, N) – cheap slice view
 
-    elif loc == "top":
-        f = f.at[4, :, -1].set(f[2, :, -1] - 2 / 3 * uy_wall * rho_wall) 
-        f = f.at[7, :, -1].set(f[5, :, -1] + 0.5 * (f[1, :, -1] - f[3, :, -1]) + (-1 / 6 * uy_wall - 0.5 * ux_wall) * rho_wall)
-        f = f.at[8, :, -1].set(f[6, :, -1] - 0.5 * (f[1, :, -1] - f[3, :, -1]) + (-1 / 6 * uy_wall + 0.5 * ux_wall) * rho_wall) 
+    shear_term = 0.5 * (wall[spec.tan_dirs[0]] - wall[spec.tan_dirs[1]]) * spec.normal_sign
+    normal_term = 1 / 6 * un * rho_wall
+    tangential_term = 0.5 * ut * rho_wall
 
-    elif loc == "bottom":
-        f = f.at[2, :, 0].set(f[4, :, 0] + 2 / 3 * uy_wall * rho_wall) 
-        f = f.at[5, :, 0].set(f[7, :, 0] - 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy_wall + 0.5 * ux_wall) * rho_wall)
-        f = f.at[6, :, 0].set(f[8, :, 0] + 0.5 * (f[1, :, 0] - f[3, :, 0]) + (1 / 6 * uy_wall - 0.5 * ux_wall) * rho_wall) 
+    new_vals = jnp.stack([
+        wall[spec.out_dirs[0]] + 2 / 3 * un * rho_wall,
+        wall[spec.out_dirs[1]] - shear_term + normal_term + tangential_term,
+        wall[spec.out_dirs[2]] + shear_term + normal_term - tangential_term,
+    ])  # (3, N)
+    new_wall = wall.at[jnp.array(spec.in_dirs)].set(new_vals)  # update 3 rows in (9, N)
+    return f.at[:, *spec.wall].set(new_wall)  # single full-buffer copy
 
-    return f
-
-
-def boundary_velocity_nebb(f, loc: str, ux_wall=0, uy_wall=0):
-    """Enforce given velocity ux_wall, uy_wall at the specified boundary using the
-    Non-Equilibrium Bounce-Back (or Zou/He) scheme.
-
-    This function should be called after the streaming step. In this function,
-    the density at the wall is computed based on the known outgoing distribution functions.
-
-    Args:
-        f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
-        loc (str): The boundary where the velocity condition is enforced,
-            can be 'left', 'right', 'top', or 'bottom'.
-        ux_wall (scalar or jax.Array of shape NX or NY): The x-component of velocity.
-        uy_wall (scalar or jax.Array of shape NX or NY): The y-component of velocity.
-
-    Returns:
-        f (jax.Array of shape (9, NX, NY)): The DDF
-            after enforcing the boundary condition.
-    """
-    if loc not in ["left", "right", "top", "bottom"]:
-        raise ValueError(
-            "Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'."
-        )
-
-    if loc == "left":
-        rho_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / (1 - ux_wall)
-
-    elif loc == "right":
-        rho_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / (1 + ux_wall)
-
-    elif loc == "top":
-        rho_wall = (f[0, :, -1] + f[1, :, -1] + f[3, :, -1] + 2 * (f[2, :, -1] + f[5, :, -1] + f[6, :, -1])) / (1 + uy_wall)
-
-    elif loc == "bottom":
-        rho_wall = (f[0, :, 0] + f[1, :, 0] + f[3, :, 0] + 2 * (f[4, :, 0] + f[7, :, 0] + f[8, :, 0])) / (1 - uy_wall)
-
-    return boundary_nebb(f, loc, ux_wall=ux_wall, uy_wall=uy_wall, rho_wall=rho_wall)
-
-
-def boundary_pressure_nebb(f, loc: str, rho_wall=1):
-    """Enforce given pressure (density) rho_wall at the specified boundary using the
-    Non-Equilibrium Bounce-Back (or Zou/He) scheme.
-
-    This function should be called after the streaming step. In this function,
-    the velocity normal to the boundary is computed based on the known outgoing distribution functions.
-    The velocity tangential to the boundary are taken from the fluid nodes next to the boundary.
-
-    Args:
-        f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
-        loc (str): The boundary where the pressure condition is enforced,
-            can be 'left', 'right', 'top', or 'bottom'.
-        rho_wall (scalar or jax.Array of shape NX or NY): The density at the wall.
-
-    Returns:
-        f (jax.Array of shape (9, NX, NY)): The DDF
-            after enforcing the boundary condition.
-    """
-
-    if loc not in ["left", "right", "top", "bottom"]:
-        raise ValueError(
-            "Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'."
-        )
-
-    if loc == "left":
-        ux_wall = (f[0, 0] + f[2, 0] + f[4, 0] + 2 * (f[3, 0] + f[6, 0] + f[7, 0])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, 1], axis=0)
-        uy_wall = (jnp.sum(f[UP_DIRS, 1], axis=0) - jnp.sum(f[DOWN_DIRS, 1], axis=0)) / rho_next
-
-    elif loc == "right":
-        ux_wall = (f[0, -1] + f[2, -1] + f[4, -1] + 2 * (f[1, -1] + f[5, -1] + f[8, -1])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, -2], axis=0)
-        uy_wall = (jnp.sum(f[UP_DIRS, -2], axis=0) - jnp.sum(f[DOWN_DIRS, -2], axis=0)) / rho_next
-
-    elif loc == "top":
-        uy_wall = (f[0, :, -1] + f[1, :, -1] + f[3, :, -1] + 2 * (f[2, :, -1] + f[5, :, -1] + f[6, :, -1])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, :, -2], axis=0)
-        ux_wall = (jnp.sum(f[RIGHT_DIRS, :, -2], axis=0) - jnp.sum(f[LEFT_DIRS, :, -2], axis=0)) / rho_next
-
-    elif loc == "bottom":
-        uy_wall = (f[0, :, 0] + f[1, :, 0] + f[3, :, 0] + 2 * (f[4, :, 0] + f[7, :, 0] + f[8, :, 0])) / rho_wall - 1
-        rho_next = jnp.sum(f[:, :, 1], axis=0)
-        ux_wall = (jnp.sum(f[RIGHT_DIRS, :, 1], axis=0) - jnp.sum(f[LEFT_DIRS, :, 1], axis=0)) / rho_next
-
-
-    return boundary_nebb(f, loc, ux_wall=ux_wall, uy_wall=uy_wall, rho_wall=rho_wall)
+boundary_velocity_nebb = wrap_velocity(boundary_nebb)
+boundary_pressure_nebb = wrap_pressure(boundary_nebb)
+boundary_force_corrected_nebb = wrap_force_corrected(boundary_nebb)

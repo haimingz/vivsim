@@ -1,16 +1,15 @@
-"""
-This module implements boundary conditions using the bounce-back and specular reflection methods
-for the Lattice Boltzmann Method (LBM) in a 2D D2Q9 lattice. 
+"""Bounce-back and specular-reflection boundary conditions for D2Q9 LBM.
 
-Note that when using these boundary conditions, the distribution functions before streaming, i.e.,
-`f_before_stream`, must also be provided. This is different from other boundary conditions that work well
-with only the post-streaming distribution functions. This requirement arises because the bounce-back
-and specular reflection methods require the distribution functions that are going outside the domain
-in the streaming step. Thus, a pre-streaming distribution function is needed so that we can access the
-preserved information of the outgoing distribution functions.
+These kernels require both the pre-streaming and post-streaming distribution
+functions. Unlike the other boundary schemes in this package, they reconstruct
+the unknown incoming populations from information that would otherwise be lost
+during streaming.
 """
+
+import jax.numpy as jnp
 
 from ..basic import OPP_DIRS
+from ._helpers import BOUNDARY_SPEC, get_signed_wall_velocity
 
 
 def boundary_bounce_back(f_before_stream, f, loc, ux_wall=0, uy_wall=0):
@@ -33,41 +32,25 @@ def boundary_bounce_back(f_before_stream, f, loc, ux_wall=0, uy_wall=0):
     Args:
         f_before_stream (jax.Array): The DDF before streaming, shape (9, NX, NY).
         f (jax.Array): The DDF after streaming, shape (9, NX, NY).
-        loc (str): The location of the boundary where the bounce-back is applied.
-                   Should be one of 'left', 'right', 'top', or 'bottom'.
-        ux_wall (scalar or jax.Array of shape NX): The x-component of the wall velocity.
-        uy_wall (scalar or jax.Array of shape NY): The y-component of the wall velocity.
+        loc (str): Boundary location, one of ``'left'``, ``'right'``, ``'top'``,
+            or ``'bottom'``.
+        ux_wall (scalar or jax.Array of shape N): The x-component of wall velocity.
+        uy_wall (scalar or jax.Array of shape N): The y-component of wall velocity.
 
     Returns:
-        f (jax.Array): The DDF after applying the bounce-back boundary condition, shape (9, NX, NY).
+        jax.Array: Updated distribution function with shape ``(9, NX, NY)``.
     """
+    spec = BOUNDARY_SPEC[loc]
+    un, ut = get_signed_wall_velocity(loc, ux_wall=ux_wall, uy_wall=uy_wall)
 
-    if loc not in ["left", "right", "top", "bottom"]:
-        raise ValueError(
-            "Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'."
-        )
-
-    if loc == "left":
-        f = f.at[1, 0].set(f_before_stream[3, 0] + 2 / 3 * ux_wall)
-        f = f.at[5, 0].set(f_before_stream[7, 0] - 1 / 6 * (-ux_wall - uy_wall))
-        f = f.at[8, 0].set(f_before_stream[6, 0] - 1 / 6 * (-ux_wall + uy_wall))
-
-    elif loc == "right":
-        f = f.at[3, -1].set(f_before_stream[1, -1] - 2 / 3 * ux_wall)
-        f = f.at[7, -1].set(f_before_stream[5, -1] - 1 / 6 * (ux_wall + uy_wall))
-        f = f.at[6, -1].set(f_before_stream[8, -1] - 1 / 6 * (ux_wall - uy_wall))
-
-    elif loc == "top":
-        f = f.at[4, :, -1].set(f_before_stream[2, :, -1] - 2 / 3 * uy_wall)
-        f = f.at[7, :, -1].set(f_before_stream[5, :, -1] - 1 / 6 * (ux_wall + uy_wall))
-        f = f.at[8, :, -1].set(f_before_stream[6, :, -1] - 1 / 6 * (-ux_wall + uy_wall))
-
-    elif loc == "bottom":
-        f = f.at[2, :, 0].set(f_before_stream[4, :, 0] + 2 / 3 * uy_wall)
-        f = f.at[5, :, 0].set(f_before_stream[7, :, 0] - 1 / 6 * (-ux_wall - uy_wall))
-        f = f.at[6, :, 0].set(f_before_stream[8, :, 0] - 1 / 6 * (ux_wall - uy_wall))
-
-    return f
+    wall_pre = f_before_stream[:, *spec.wall]  # (9, N) – small slice
+    new_vals = jnp.stack([
+        wall_pre[spec.out_dirs[0]] + 2 / 3 * un,
+        wall_pre[spec.out_dirs[1]] + 1 / 6 * (un + ut),
+        wall_pre[spec.out_dirs[2]] + 1 / 6 * (un - ut),
+    ])  # (3, N)
+    new_wall = f[:, *spec.wall].at[jnp.array(spec.in_dirs)].set(new_vals)
+    return f.at[:, *spec.wall].set(new_wall)
 
 
 def boundary_specular_reflection(f_before_stream, f, loc, ux_wall=0, uy_wall=0):
@@ -87,59 +70,41 @@ def boundary_specular_reflection(f_before_stream, f, loc, ux_wall=0, uy_wall=0):
     the directions of the hit-wall particles are not reversed, but reflected like a mirror.
 
     Args:
-        f (jax.Array): The DDF after streaming, shape (9, NX, NY).
-        f_before_stream (jax.Array): The DDF before streaming, shape (9, NX, NY).
-        loc (str): The location of the boundary where the bounce-back is applied.
-                   Should be one of 'left', 'right', 'top', or 'bottom'.
-        ux_wall (scalar or jax.Array of shape NX): The x-component of the wall velocity.
-        uy_wall (scalar or jax.Array of shape NY): The y-component of the wall velocity.
+        f_before_stream (jax.Array): The DDF before streaming, shape ``(9, NX, NY)``.
+        f (jax.Array): The DDF after streaming, shape ``(9, NX, NY)``.
+        loc (str): Boundary location, one of ``'left'``, ``'right'``, ``'top'``,
+            or ``'bottom'``.
+        ux_wall (scalar or jax.Array of shape N): The x-component of wall velocity.
+        uy_wall (scalar or jax.Array of shape N): The y-component of wall velocity.
 
     Returns:
-        f (jax.Array): The DDF after applying the bounce-back boundary condition, shape (9, NX, NY).
+        jax.Array: Updated distribution function with shape ``(9, NX, NY)``.
     """
+    spec = BOUNDARY_SPEC[loc]
+    un, ut = get_signed_wall_velocity(loc, ux_wall=ux_wall, uy_wall=uy_wall)
 
-    if loc not in ["left", "right", "top", "bottom"]:
-        raise ValueError(
-            "Boundary location `loc` should be 'left', 'right', 'top', or 'bottom'."
-        )
-
-    if loc == "left":
-        f = f.at[1, 0].set(f_before_stream[3, 0] + 2 / 3 * ux_wall)
-        f = f.at[8, 0].set(f_before_stream[7, 0] - 1 / 6 * (-ux_wall - uy_wall))
-        f = f.at[5, 0].set(f_before_stream[6, 0] - 1 / 6 * (-ux_wall + uy_wall))
-
-    elif loc == "right":
-        f = f.at[3, -1].set(f_before_stream[1, -1] - 2 / 3 * ux_wall)
-        f = f.at[6, -1].set(f_before_stream[5, -1] - 1 / 6 * (ux_wall + uy_wall))
-        f = f.at[7, -1].set(f_before_stream[8, -1] - 1 / 6 * (ux_wall - uy_wall))
-
-    elif loc == "top":
-        f = f.at[4, :, -1].set(f_before_stream[2, :, -1] - 2 / 3 * uy_wall)
-        f = f.at[8, :, -1].set(f_before_stream[5, :, -1] - 1 / 6 * (ux_wall + uy_wall))
-        f = f.at[7, :, -1].set(f_before_stream[6, :, -1] - 1 / 6 * (-ux_wall + uy_wall))
-
-    elif loc == "bottom":
-        f = f.at[2, :, 0].set(f_before_stream[4, :, 0] + 2 / 3 * uy_wall)
-        f = f.at[6, :, 0].set(f_before_stream[7, :, 0] - 1 / 6 * (-ux_wall - uy_wall))
-        f = f.at[5, :, 0].set(f_before_stream[8, :, 0] - 1 / 6 * (ux_wall - uy_wall))
-
-    return f
+    wall_pre = f_before_stream[:, *spec.wall]  # (9, N) – small slice
+    new_vals = jnp.stack([
+        wall_pre[spec.out_dirs[0]] + 2 / 3 * un,
+        wall_pre[spec.out_dirs[1]] + 1 / 6 * (un + ut),
+        wall_pre[spec.out_dirs[2]] + 1 / 6 * (un - ut),
+    ])  # (3, N)
+    # specular reflection: diagonal dirs swap (in_dirs[1] ↔ in_dirs[2]) relative to bounce-back
+    scatter_dirs = jnp.array([spec.in_dirs[0], spec.in_dirs[2], spec.in_dirs[1]])
+    new_wall = f[:, *spec.wall].at[scatter_dirs].set(new_vals)
+    return f.at[:, *spec.wall].set(new_wall)
 
 
 def obstacle_bounce_back(f, mask):
-    """Enforce a no-slip boundary using the Bounce Back scheme
-    at any obstacles defined by a 2D mask, where True indicates
-    the presence of an obstacle. 
-    
-    This can also be used to enforce no-slip boundarys at domain boundaries.
+    """Enforce no-slip bounce-back on obstacle cells selected by a boolean mask.
+
+    This helper can also be used on domain boundaries represented as mask cells.
 
     Args:
         f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
-        mask (jax.Array of shape (NX, NY)): The mask indicating the obstacle.
+        mask (jax.Array of shape (NX, NY)): Boolean mask indicating obstacle cells.
 
     Returns:
-        f (jax.Array of shape (9, NX, NY)): The DDF
-            after enforcing the boundary condition.
+        jax.Array: Updated distribution function with shape ``(9, NX, NY)``.
     """
-
     return f.at[:, mask].set(f[:, mask][OPP_DIRS])
