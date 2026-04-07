@@ -115,7 +115,7 @@ def get_equilibrium(rho, u):
     """
     
     ndim = len(rho.shape)
-    uc = jnp.sum(u[jnp.newaxis, ...] *  VELOCITIES.reshape((9, 2) + (1,) * ndim), axis=1)
+    uc = jnp.sum(u[None, ...] *  VELOCITIES.reshape((9, 2) + (1,) * ndim), axis=1)
     feq = (rho * WEIGHTS.reshape((9,) + (1,) * ndim) * 
           (1 + 3 * uc + 4.5 * uc ** 2 - 1.5 * jnp.sum(u ** 2, axis=0)))
     return feq 
