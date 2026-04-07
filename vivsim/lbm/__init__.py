@@ -9,7 +9,7 @@ from .boundary.nee import boundary_nee, boundary_velocity_nee, boundary_pressure
 
 from .collision.kbc import collision_kbc 
 from .collision.mrt import get_mrt_collision_operator, collision_mrt
-from .collision.reg import collision_regularized
+from .collision.reg import collision_reg
 
 from .forcing.edm import forcing_edm
 from .forcing.guo import get_guo_forcing_term, forcing_guo_bgk, get_mrt_forcing_operator, forcing_guo_mrt

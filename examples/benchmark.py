@@ -101,7 +101,7 @@ timings["lbm.streaming"]          = measure(lbm.streaming, f)
 timings["lbm.collision_bgk"]         = measure(lbm.collision_bgk, f, feq, omega)
 timings["lbm.collision_kbc"]         = measure(lbm.collision_kbc, f, feq, omega)
 timings["lbm.collision_mrt"]         = measure(lbm.collision_mrt, f, feq, mrt_op)
-timings["lbm.collision_regularized"] = measure(lbm.collision_regularized, f, feq, omega)
+timings["lbm.collision_reg"] = measure(lbm.collision_reg, f, feq, omega)
 
 # ------ Forcing ------
 timings["lbm.forcing_edm"]           = measure(lbm.forcing_edm, f, g, u, rho)

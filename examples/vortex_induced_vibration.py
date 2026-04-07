@@ -96,7 +96,7 @@ def update(f, d, v, a):
     # Collision
     rho, u = lbm.get_macroscopic(f)
     feq = lbm.get_equilibrium(rho, u)
-    f = lbm.collision_regularized(f, feq, OMEGA)
+    f = lbm.collision_reg(f, feq, OMEGA)
 
     # Dynamic IB region coordinates
     ib_x0 = (IB_X0 + d[0]).astype(jnp.int32)
