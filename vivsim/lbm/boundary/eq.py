@@ -12,7 +12,6 @@ When body forces are present, pass the corrected wall velocity obtained from
 ``get_corrected_wall_velocity`` (from this package) before calling these functions.
 """
 
-import jax.numpy as jnp
 from ..basic import get_equilibrium
 from ._helpers import (
     BOUNDARY_SPEC,
