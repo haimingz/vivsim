@@ -120,7 +120,9 @@ Included example scripts:
 - `python examples/vortex_induced_vibration.py` for the coupled cylinder FSI problem the project was built around.
 - `python examples/flow_through_text.py` for a lightweight obstacle/boundary-condition demo.
 - `python examples/multiphase_droplet.py` for simulating phase separation of a single component fluid using the Shan-Chen multiphase LBM.
-- `python examples/capillary_wave.py` for simulating capillary wave decay and comparing it with theoretical analytical solutions.
+- `python examples/gravity_wave.py` for simulating standing gravity wave decay, real-time plotting, and comparing with the deep water dispersion relation.
+- `python examples/dam_break.py` for a classic 2D dam break simulation utilizing the Shan-Chen multiphase model and real-time visualization.
+- `python examples/wedge_entry.py` for an advanced 2D fluid-structure interaction simulation coupling IBM (moving wedge) and the Shan-Chen multiphase model with real-time visualization.
 
 ## Implemented Methods
 

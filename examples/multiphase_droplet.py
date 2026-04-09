@@ -6,8 +6,14 @@ A droplet is formed from an initially random density distribution.
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import os
+from tqdm import tqdm
 from vivsim import lbm
+
+# ========================== VISUALIZATION PARAMETERS ====================
+PLOT = True   # Enable chunked live plotting
+CHUNK_STEPS = 50
 
 # Set up parameters
 NX = 100
@@ -49,12 +55,64 @@ def main():
         f = lbm.streaming(f)
         return f
 
-    # Run simulation
-    for t in range(TM):
-        f = update(f)
-        if (t + 1) % 500 == 0:
-            rho, _ = lbm.get_macroscopic(f)
-            print(f"Step {t + 1}, min rho: {jnp.min(rho):.4f}, max rho: {jnp.max(rho):.4f}")
+    @jax.jit
+    def get_density_image(f):
+        rho, _ = lbm.get_macroscopic(f)
+        return rho.T
+
+    # ========================== CHUNK RUNNER ==========================
+    def run_chunk(carry, n_steps):
+        def step(carry, _):
+            f = carry
+            f_next = update(f)
+            return f_next, None
+        return jax.lax.scan(step, carry, None, length=n_steps)
+
+    run_chunk_jit = jax.jit(run_chunk, static_argnums=1)
+
+    # ======================= VISUALIZATION SETUP ====================
+    mpl.rcParams["figure.raise_window"] = False
+
+    if PLOT:
+        plt.ion()
+        fig, ax = plt.subplots(figsize=(6, 5))
+        im = ax.imshow(
+            get_density_image(f),
+            extent=[0, NX, 0, NY],
+            cmap="viridis", origin="lower",
+        )
+        plt.colorbar(im, label="Density")
+        ax.set_title("Shan-Chen Phase Separation")
+        plt.tight_layout()
+
+    # ========================== SIMULATION LOOP ==========================
+    chunk_sizes = [CHUNK_STEPS] * (TM // CHUNK_STEPS)
+    if TM % CHUNK_STEPS:
+        chunk_sizes.append(TM % CHUNK_STEPS)
+
+    print("Starting simulation loop...")
+
+    with tqdm(total=TM, unit="step") as pbar:
+        carry = f
+        for n_steps in chunk_sizes:
+            carry, _ = run_chunk_jit(carry, n_steps)
+            jax.block_until_ready(carry)
+
+            pbar.update(n_steps)
+
+            if PLOT:
+                f_current = carry
+                rho_current = get_density_image(f_current)
+                im.set_data(rho_current)
+                # Note: vmin/vmax update for dynamic range of separation
+                im.set_clim(vmin=jnp.min(rho_current), vmax=jnp.max(rho_current))
+                plt.pause(0.001)
+
+    if PLOT:
+        plt.ioff()
+        plt.close(fig)
+
+    f = carry
 
     # Visualize the final density field
     rho, u = lbm.get_macroscopic(f)
