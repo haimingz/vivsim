@@ -1,0 +1,7 @@
+{
+  "name": "demo_webgpu",
+  "version": "1.0.0",
+  "description": "VIVSIM WebGPU Demo",
+  "main": "main.js",
+  "type": "module"
+}
