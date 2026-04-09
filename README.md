@@ -119,6 +119,7 @@ Included example scripts:
 - `python examples/flow_pass_cylinder.py` for fixed-cylinder wake validation with IB-LBM.
 - `python examples/vortex_induced_vibration.py` for the coupled cylinder FSI problem the project was built around.
 - `python examples/flow_through_text.py` for a lightweight obstacle/boundary-condition demo.
+- `python examples/multiphase_droplet.py` for simulating phase separation of a single component fluid using the Shan-Chen multiphase LBM.
 
 ## Implemented Methods
 
@@ -149,6 +150,9 @@ Immersed Boundary Methods:
 - Peskin's 2-, 3- and 4-point kernels
 - 4-point cosine kernel
 - Multi-Direct-Forcing (MDF) method.
+
+Multiphase Models:
+- Shan-Chen multiphase interaction force (pseudopotential method)
 
 ## Benchmark 
 

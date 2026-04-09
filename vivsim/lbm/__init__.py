@@ -40,3 +40,4 @@ from .boundary.nee import (
     boundary_pressure_nee,
     boundary_velocity_nee,
 )
+from .multiphase.shan_chen import get_shan_chen_force
