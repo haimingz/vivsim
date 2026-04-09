@@ -15,8 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from vivsim import dyn, ib, lbm
-
+from vivsim import dyn, ib, lbm, utils
 
 # ========================== GEOMETRY =======================
 
@@ -42,6 +41,7 @@ RE = 200  # Reynolds number
 
 NU = U0 * D / RE  # Kinematic viscosity
 TM = int(30 * 5 / U0 * D)  # Total simulation timesteps
+T_START = int(2.0 / U0 * D)  # Time steps to reach full velocity smoothly
 
 
 # ========================== IB-LBM PARAMETERS ==========================
@@ -59,7 +59,8 @@ IB_SIZE = D + 2 * IB_PAD  # Size of the IBM region
 MARKER_X_IB = MARKER_X - IB_X0
 MARKER_Y_IB = MARKER_Y - IB_Y0
 STENCIL_WEIGHTS, STENCIL_INDICES = ib.get_ib_stencil(
-    MARKER_X_IB, MARKER_Y_IB,
+    MARKER_X_IB,
+    MARKER_Y_IB,
     IB_SIZE,
     kernel=ib.kernel_peskin_4pt,
 )
@@ -79,17 +80,19 @@ CL_REF = 0.718  # Maximum lift coefficient amplitude
 
 rho = jnp.ones((NX, NY))  # Fluid density
 u = jnp.zeros((2, NX, NY))  # Fluid velocity
-u = u.at[0].set(U0)  # Set initial x-velocity to U0 for a uniform inlet flow
+# u = u.at[0].set(U0)  # Removed for smooth start
 f = lbm.get_equilibrium(rho, u)  # Initial LBM distribution function
 
 h = jnp.zeros(2)  # Hydrodynamic force on the cylinder
-marker_v = jnp.zeros((N_MARKER, 2))  # Target marker velocity for a fixed cylinder
+# Target marker velocity for a fixed cylinder
+marker_v = jnp.zeros((N_MARKER, 2))
 
 
 # ======================= SIMULATION ROUTINE =====================
 
+
 @jax.jit
-def update(f):
+def update(f, t):
 
     # Collision
     rho, u = lbm.get_macroscopic(f)
@@ -117,10 +120,13 @@ def update(f):
     ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
     f = jax.lax.dynamic_update_slice(f, ib_f, (0, IB_X0, IB_Y0))
 
+    # Smooth start of inlet velocity to avoid impulsive acoustic waves
+    u_inlet = U0 * utils.smooth_step(t, T_START)
+
     # Streaming and boundary conditions
     f = lbm.streaming(f)
-    f = lbm.boundary_nebb(f, loc="left", ux_wall=U0)
-    f = lbm.boundary_equilibrium(f, loc="right", ux_wall=U0)
+    f = lbm.boundary_nebb(f, loc="left", ux_wall=u_inlet)
+    f = lbm.boundary_equilibrium(f, loc="right", ux_wall=u_inlet)
 
     return f, h
 
@@ -135,17 +141,17 @@ h_hist = np.zeros((2, TM), dtype=np.float32)
 # ========================== RUN SIMULATION ==========================
 
 for t in tqdm(range(TM)):
-    f, h = update(f)
+    f, h = update(f, t)
     h_hist[:, t] = np.asarray(h)
 
 
 # ======================= POST-PROCESSING ==========================
 
-cd = h_hist[0] * 2 / (D * U0 ** 2)
-cl = h_hist[1] * 2 / (D * U0 ** 2)
+cd = h_hist[0] * 2 / (D * U0**2)
+cl = h_hist[1] * 2 / (D * U0**2)
 
-cd_mean = np.mean(cd[TM // 2 :])
-cl_max = np.max(np.abs(cl[TM // 2 :]))
+cd_mean = np.mean(cd[TM // 2:])
+cl_max = np.max(np.abs(cl[TM // 2:]))
 cd_err = abs(cd_mean - CD_REF) / CD_REF * 100
 cl_err = abs(cl_max - CL_REF) / CL_REF * 100
 
