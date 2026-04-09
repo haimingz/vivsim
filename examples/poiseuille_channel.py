@@ -40,11 +40,6 @@ f = lbm.get_equilibrium(rho, u - g / 2)
 # This correction is due to the redefinition of the distribution function for second-order accuracy.
 # Thus, it is independent of the collision operator and forcing scheme used.
 
-# Since the external force is also present at the wall, the velocity correction should also be
-# considered in the boundary condition step. Pre-compute the corrected (no-slip) wall velocity
-# once and pass it to every boundary call.
-UX_WALL, _ = lbm.get_corrected_wall_velocity(0, 0, gx_wall=GX)
-
 
 @jax.jit
 def main_bgk_edm(f):
@@ -66,8 +61,8 @@ def main_bgk_edm(f):
     u = u + lbm.get_velocity_correction(g, rho)
     
     f = lbm.streaming(f)
-    f = lbm.boundary_nebb(f, loc='top', ux_wall=UX_WALL)
-    f = lbm.boundary_nebb(f, loc='bottom', ux_wall=UX_WALL)
+    f = lbm.boundary_force_corrected_nebb(f, loc='top', gx_wall=GX)
+    f = lbm.boundary_force_corrected_nebb(f, loc='bottom', gx_wall=GX)
 
     return f, rho, u
 
@@ -91,8 +86,8 @@ def main_bgk_guo(f):
     f = lbm.forcing_guo_bgk(f, g, u, OMEGA)
 
     f = lbm.streaming(f)
-    f = lbm.boundary_nebb(f, loc='top', ux_wall=UX_WALL)
-    f = lbm.boundary_nebb(f, loc='bottom', ux_wall=UX_WALL)
+    f = lbm.boundary_force_corrected_nebb(f, loc='top', gx_wall=GX)
+    f = lbm.boundary_force_corrected_nebb(f, loc='bottom', gx_wall=GX)
 
     return f, rho, u
 
@@ -120,8 +115,8 @@ def main_mrt_guo(f):
     f = lbm.forcing_guo_mrt(f, g, u, MRT_FORCING)
     
     f = lbm.streaming(f)
-    f = lbm.boundary_nebb(f, loc='top', ux_wall=UX_WALL)
-    f = lbm.boundary_nebb(f, loc='bottom', ux_wall=UX_WALL)
+    f = lbm.boundary_force_corrected_nebb(f, loc='top', gx_wall=GX)
+    f = lbm.boundary_force_corrected_nebb(f, loc='bottom', gx_wall=GX)
     
     return f, rho, u
 
@@ -146,8 +141,8 @@ def main_kbc_edm(f):
     u += lbm.get_velocity_correction(g, rho)
     
     f = lbm.streaming(f)
-    f = lbm.boundary_nebb(f, loc='top', ux_wall=UX_WALL)
-    f = lbm.boundary_nebb(f, loc='bottom', ux_wall=UX_WALL)
+    f = lbm.boundary_force_corrected_nebb(f, loc='top', gx_wall=GX)
+    f = lbm.boundary_force_corrected_nebb(f, loc='bottom', gx_wall=GX)
     
     return f, rho, u
 
