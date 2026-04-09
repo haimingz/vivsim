@@ -120,6 +120,7 @@ Included example scripts:
 - `python examples/vortex_induced_vibration.py` for the coupled cylinder FSI problem the project was built around.
 - `python examples/flow_through_text.py` for a lightweight obstacle/boundary-condition demo.
 - `python examples/multiphase_droplet.py` for simulating phase separation of a single component fluid using the Shan-Chen multiphase LBM.
+- `python examples/capillary_wave.py` for simulating capillary wave decay and comparing it with theoretical analytical solutions.
 
 ## Implemented Methods
 
