@@ -1,0 +1,6 @@
+body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f0f0; margin: 0; padding: 20px; }
+h1 { margin-top: 0; }
+.controls { margin-bottom: 20px; }
+button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 0 10px; }
+.canvas-container { background-color: white; border: 1px solid #ccc; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 10px; }
+canvas { image-rendering: pixelated; width: 400px; height: 400px; display: block; }
