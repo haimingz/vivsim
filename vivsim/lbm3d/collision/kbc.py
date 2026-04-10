@@ -14,7 +14,7 @@ def _get_second_order_projection(fneq):
     dim = c.shape[1]
     ndim = fneq.ndim - 1
 
-    pi_neq = jnp.einsum("q...,qa,qb->ab...", fneq, c, c)
+    pi_neq = jnp.einsum("q...,qa,qb->ab...", fneq, c, c, precision='highest')
     identity = jnp.eye(dim, dtype=fneq.dtype)
     q_tensor = (
         c[:, :, None] * c[:, None, :] - CS2 * identity[None, :, :]

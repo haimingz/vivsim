@@ -104,4 +104,4 @@ def forcing_guo_mrt(f, g, u, mrt_forcing_operator):
         and passed as an argument to avoid recomputing it at each time step.
     """
     g_lattice = get_guo_forcing_term(g, u)   
-    return f + jnp.tensordot(mrt_forcing_operator, g_lattice, axes=([1], [0]))
+    return f + jnp.tensordot(mrt_forcing_operator, g_lattice, axes=([1], [0]), precision='highest')

@@ -124,7 +124,7 @@ def get_macroscopic(f):
     """
 
     rho = jnp.sum(f, axis=0)
-    momentum = jnp.einsum("qd,q...->d...", VELOCITIES, f)
+    momentum = jnp.einsum("qd,q...->d...", VELOCITIES, f, precision='highest')
     rho_safe = jnp.where(rho == 0, 1, rho)
     u = momentum / rho_safe[None, ...]
     u = jnp.where(rho[None, ...] > 0, u, 0)
@@ -143,7 +143,7 @@ def get_equilibrium(rho, u):
     """
 
     ndim = rho.ndim
-    uc = jnp.einsum("qd,d...->q...", VELOCITIES, u)
+    uc = jnp.einsum("qd,d...->q...", VELOCITIES, u, precision='highest')
     u_sq = jnp.sum(u**2, axis=0)
     weights = WEIGHTS.reshape((Q,) + (1,) * ndim)
 

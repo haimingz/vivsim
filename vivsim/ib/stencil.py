@@ -75,7 +75,7 @@ def interpolate(
     """
     flat_grid_values = grid_values.reshape(grid_values.shape[0], -1)
     stencil_values = flat_grid_values[:, stencil_indices]
-    return jnp.einsum("ms,cms->mc", stencil_weights, stencil_values)
+    return jnp.einsum("ms,cms->mc", stencil_weights, stencil_values, precision='highest')
 
 
 def spread(
@@ -103,7 +103,7 @@ def spread(
     """
     grid_shape = grid_values.shape[1:]
     flat_grid_values = grid_values.reshape(grid_values.shape[0], -1)
-    stencil_values = jnp.einsum("mc,ms->cms", marker_values, stencil_weights)
+    stencil_values = jnp.einsum("mc,ms->cms", marker_values, stencil_weights, precision='highest')
     flat_grid_values = flat_grid_values.at[:, stencil_indices].add(
         stencil_values
     )

@@ -30,7 +30,7 @@ def collision_reg(f, feq, omega):
 
     # Second-order non-equilibrium moment tensor:
     # Pi_neq[a, b] = sum_i fneq_i * c_i[a] * c_i[b]
-    pi_neq = jnp.einsum("q...,qa,qb->ab...", fneq, c, c)
+    pi_neq = jnp.einsum("q...,qa,qb->ab...", fneq, c, c, precision='highest')
 
     identity = jnp.eye(dim, dtype=f.dtype)
     q_tensor = (

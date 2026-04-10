@@ -127,4 +127,4 @@ def collision_mrt(f, feq, mrt_collision_matrix):
         jax.Array: Post-collision distribution function.
     """
 
-    return f + jnp.einsum("ij,j...->i...", mrt_collision_matrix, feq - f)
+    return f + jnp.einsum("ij,j...->i...", mrt_collision_matrix, feq - f, precision='highest')

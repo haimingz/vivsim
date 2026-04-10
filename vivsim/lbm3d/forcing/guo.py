@@ -20,7 +20,7 @@ def get_guo_forcing_term(g, u):
     velocity_set = VELOCITIES.reshape((Q, 3) + (1,) * ndim)
     weights = WEIGHTS.reshape((Q,) + (1,) * ndim)
 
-    cu = jnp.einsum("qd,d...->q...", VELOCITIES, u)
+    cu = jnp.einsum("qd,d...->q...", VELOCITIES, u, precision='highest')
     forcing_vector = (
         (velocity_set - u[None, ...]) / CS2
         + velocity_set * (cu[:, None, ...] / (CS2**2))
@@ -91,4 +91,4 @@ def forcing_guo_mrt(f, g, u, mrt_forcing_operator):
         )
 
     g_lattice = get_guo_forcing_term(g, u)
-    return f + jnp.tensordot(mrt_forcing_operator, g_lattice, axes=([1], [0]))
+    return f + jnp.tensordot(mrt_forcing_operator, g_lattice, axes=([1], [0]), precision='highest')

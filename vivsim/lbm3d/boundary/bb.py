@@ -10,7 +10,7 @@ def _moving_wall_correction(in_dirs, rho_wall, u_wall, dtype):
     c_in = VELOCITIES[in_dirs].astype(dtype)
     weights = WEIGHTS[in_dirs].astype(dtype)
     ndim = u_wall.ndim - 1
-    cu_wall = jnp.einsum("id,d...->i...", c_in, u_wall.astype(dtype))
+    cu_wall = jnp.einsum("id,d...->i...", c_in, u_wall.astype(dtype), precision='highest')
     weights = weights.reshape((len(in_dirs),) + (1,) * ndim)
     return 2.0 * weights * rho_wall[None, ...] * cu_wall / CS2
 
