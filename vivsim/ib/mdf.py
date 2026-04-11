@@ -4,9 +4,7 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from ..lbm import get_velocity_correction
 from .stencil import interpolate, spread
-
 
 
 def multi_direct_forcing(
@@ -19,18 +17,20 @@ def multi_direct_forcing(
 ) -> tuple[jax.Array, jax.Array]:
     """Run multi-direct forcing and return fluid and marker forces.
 
+    Works for both 2D and 3D grids. The dimensionality is inferred from
+    ``grid_u`` (e.g. shape ``(2, nx, ny)`` or ``(3, nx, ny, nz)``).
+
     Args:
-        grid_u: Fluid velocity at grid points, shape `(2, nx, ny)`.
-        stencil_weights: Stencil weights, shape `(n_markers, n_stencil)`.
+        grid_u: Fluid velocity at grid points.
+        stencil_weights: Stencil weights, shape ``(n_markers, n_stencil)``.
         stencil_indices: Flattened stencil indices, same shape as
-            `stencil_weights`.
-        marker_u_target: Target fluid velocity at marker positions, shape `(n_markers, 2)`.
-        marker_ds: Marker segment length, scalar or shape `(n_markers,)`.
+            ``stencil_weights``.
+        marker_u_target: Target fluid velocity at marker positions.
+        marker_ds: Marker spacing weights, scalar or shape ``(n_markers,)``.
         n_iter: Number of MDF correction iterations.
 
     Returns:
-        Tuple `(grid_force, marker_reaction_force)` with shapes
-        `(2, nx, ny)` and `(n_markers, 2)`.
+        Tuple ``(grid_force, marker_reaction_force)``.
     """
     marker_ds = jnp.asarray(marker_ds).reshape(-1, 1)
     grid_force_base = jnp.zeros_like(grid_u)
@@ -47,7 +47,7 @@ def multi_direct_forcing(
         grid_force_step = spread(
             marker_force_step, grid_force_base, stencil_weights, stencil_indices
         )
-        grid_u_step = get_velocity_correction(grid_force_step)
+        grid_u_step = grid_force_step * 0.5  # inline velocity correction
         marker_u += interpolate(grid_u_step, stencil_weights, stencil_indices)
 
         return marker_u, marker_force_total
