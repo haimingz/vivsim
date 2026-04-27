@@ -17,7 +17,7 @@ from ._helpers import (
 )
 
 
-def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
+def boundary_force_corrected_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
     """Non-Equilibrium Bounce-Back (or Zou/He) scheme.
 
     This is the core function for the velocity, pressure, and force-corrected
@@ -57,6 +57,6 @@ def boundary_nebb(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
     new_wall = wall.at[jnp.array(spec.in_dirs)].set(new_vals)  # update 3 rows in (9, N)
     return f.at[:, *spec.wall].set(new_wall)  # single full-buffer copy
 
-boundary_velocity_nebb = wrap_velocity(boundary_nebb)
-boundary_pressure_nebb = wrap_pressure(boundary_nebb)
-boundary_force_corrected_nebb = wrap_force_corrected(boundary_nebb)
+boundary_velocity_nebb = wrap_velocity(boundary_force_corrected_nebb)
+boundary_pressure_nebb = wrap_pressure(boundary_force_corrected_nebb)
+boundary_force_corrected_nebb = wrap_force_corrected(boundary_force_corrected_nebb)

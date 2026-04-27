@@ -23,74 +23,23 @@ The spatial axes follow the array order (x, y, z).
 import jax
 import jax.numpy as jnp
 
+from ._lattice import D3Q19
 
-DIM = 3
-Q = 19
-CS2 = 1.0 / 3.0
+DIM = D3Q19.dim
+Q = D3Q19.q
+CS2 = D3Q19.cs2
 
+WEIGHTS = jnp.asarray(D3Q19.weights)
+VELOCITIES = jnp.asarray(D3Q19.velocities, dtype=jnp.int32)
 
-WEIGHTS = jnp.array(
-    [
-        1 / 3,
-        1 / 18,
-        1 / 18,
-        1 / 18,
-        1 / 18,
-        1 / 18,
-        1 / 18,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-        1 / 36,
-    ]
-)
-
-
-VELOCITIES = jnp.array(
-    [
-        [0, 0, 0],
-        [1, 0, 0],
-        [-1, 0, 0],
-        [0, 1, 0],
-        [0, -1, 0],
-        [0, 0, 1],
-        [0, 0, -1],
-        [1, 1, 0],
-        [-1, 1, 0],
-        [1, -1, 0],
-        [-1, -1, 0],
-        [1, 0, 1],
-        [-1, 0, 1],
-        [1, 0, -1],
-        [-1, 0, -1],
-        [0, 1, 1],
-        [0, -1, 1],
-        [0, 1, -1],
-        [0, -1, -1],
-    ],
-    dtype=jnp.int32,
-)
-
-
-RIGHT_DIRS = jnp.where(VELOCITIES[:, 0] == 1)[0]
-LEFT_DIRS = jnp.where(VELOCITIES[:, 0] == -1)[0]
-UP_DIRS = jnp.where(VELOCITIES[:, 1] == 1)[0]
-DOWN_DIRS = jnp.where(VELOCITIES[:, 1] == -1)[0]
-FRONT_DIRS = jnp.where(VELOCITIES[:, 2] == 1)[0]
-BACK_DIRS = jnp.where(VELOCITIES[:, 2] == -1)[0]
+RIGHT_DIRS = jnp.asarray(D3Q19.right_dirs)
+LEFT_DIRS = jnp.asarray(D3Q19.left_dirs)
+UP_DIRS = jnp.asarray(D3Q19.up_dirs)
+DOWN_DIRS = jnp.asarray(D3Q19.down_dirs)
+FRONT_DIRS = jnp.asarray(D3Q19.front_dirs)
+BACK_DIRS = jnp.asarray(D3Q19.back_dirs)
 ALL_DIRS = jnp.arange(Q)
-OPP_DIRS = jnp.array(
-    [0, 2, 1, 4, 3, 6, 5, 10, 9, 8, 7, 14, 13, 12, 11, 18, 17, 16, 15],
-    dtype=jnp.int32,
-)
+OPP_DIRS = jnp.asarray(D3Q19.opp_dirs, dtype=jnp.int32)
 
 
 def streaming(f):
