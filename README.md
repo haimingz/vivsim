@@ -12,23 +12,42 @@ VIVSIM is a Python library for fluid-structure interaction (FSI) simulations bas
 
 Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to achieve *hardware acceleration* and *automatic differentiation*. The project follows the **Functional Programming** paradigm to facilitate XLA compilation while making the codebase easier to understand and maintain.
 
+## 2D Visuals
+
 <div align="center">
   <table style="border: none; text-align: center;">
+    <tr>
+      <td><img src="assets/cavity.gif" alt="Lid-driven cavity flow" width="250"></td>
+      <td><img src="assets/text.gif" alt="Flow through text-shaped obstacles" width="250"></td>
+    </tr>
     <tr>
       <td><i>Lid-driven cavity at Re = 2e4 </i></td>
       <td><i>Flow passes some texts </i></td>
     </tr>
     <tr>
-      <td><img src="assets/cavity.gif" alt="Lid-driven cavity flow" width="250"></td>
-      <td><img src="assets/text.gif" alt="Flow past text" width="250"></td>
+      <td><img src="assets/viv_100.gif" alt="VIV of a cylinder at Re = 1e2" width="250"></td>
+      <td><img src="assets/viv_10000.gif" alt="VIV of a cylinder at Re = 1e4" width="250"></td>
     </tr>
     <tr>
-      <td><i>VIV of a cylinder with U_r = 5 and Re = 1e2</i></td>
-      <td><i>VIV of a cylinder with U_r = 5 and Re = 1e4</i></td>
+      <td><i>VIV of a cylinder, U_r = 5, Re = 1e2</i></td>
+      <td><i>VIV of a cylinder, U_r = 5, Re = 1e4</i></td>
     </tr>
+  </table>
+</div>
+
+## 3D Visuals
+
+<div align="center">
+  <table style="border: none; text-align: center;">
     <tr>
-      <td><img src="assets/viv_100.gif" alt="VIV at Re = 1e2" width="300"></td>
-      <td><img src="assets/viv_10000.gif" alt="VIV at Re = 1e4" width="270"></td>
+      <td><img src="assets/3dcylinder.png" alt="Three-dimensional flow past an oscillating cylinder" width="320"></td>
+      <td>
+        <video src="assets/3dsphere.mp4" controls width="360" aria-label="Three-dimensional flow past an immersed sphere"></video>
+      </td>
+    <tr>
+      <td><i>VIV of a cylinder</i></td>
+      <td><i>Flow past an immersed sphere</i></td>
+    </tr>
     </tr>
   </table>
 </div>
@@ -110,20 +129,11 @@ for t in range(TM):
 
 ```
 
-Included example scripts:
-- `python examples/lid_driven_cavity.py` for the canonical recirculating cavity benchmark.
-- `python examples/poiseuille_channel.py` for pressure/body-force-driven channel flow with an analytical parabolic profile.
-- `python examples/couette_flow.py` for wall-driven shear flow with a linear analytical profile.
-- `python examples/taylor_green_vortex.py` for periodic vortex decay against an analytical solution.
-- `python examples/double_shear_layer.py` for periodic Kelvin-Helmholtz roll-up from two perturbed shear layers.
-- `python examples/flow_pass_cylinder.py` for fixed-cylinder wake validation with IB-LBM.
-- `python examples/vortex_induced_vibration.py` for the coupled cylinder FSI problem the project was built around.
-- `python examples/flow_through_text.py` for a lightweight obstacle/boundary-condition demo.
-
 ## Implemented Methods
 
 Lattice Models
 - D2Q9
+- D3Q19
   
 Collision Models
 - Bhatnagar-Gross-Krook (BGK) collision operator
