@@ -85,4 +85,4 @@ def collision_mrt(f, feq, mrt_collision_matrix):
         and passed as an argument to avoid recomputing it at each time step.
     """
     
-    return f + jnp.einsum('ij,jxy->ixy', mrt_collision_matrix, feq - f)
+    return f + jnp.einsum('ij,jxy->ixy', mrt_collision_matrix, feq - f, precision='highest')

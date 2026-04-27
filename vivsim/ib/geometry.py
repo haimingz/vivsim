@@ -1,3 +1,5 @@
+"""Geometry helpers for immersed-boundary methods (2D)."""
+
 import jax.numpy as jnp
 
 

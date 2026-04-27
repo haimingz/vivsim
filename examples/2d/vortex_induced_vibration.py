@@ -1,11 +1,14 @@
-"""
+r"""
 Vortex-Induced Vibration (VIV) of a circular cylinder using IB-LBM
 
 This example simulates the vortex-induced vibration of a circular cylinder
 in a 2D flow using the Immersed Boundary Method (IBM) coupled with the
 Lattice Boltzmann Method (LBM). The cylinder is free to oscillate in both
 cross-flow and in-line directions with spring-mass-damper constraints.
+
 """
+
+from functools import partial
 
 import math
 
@@ -22,12 +25,12 @@ from vivsim import dyn, ib, lbm, post
 # ========================== VISUALIZATION PARAMETERS ====================
 
 PLOT = True   # Enable chunked live plotting (host sync on plot updates)
-CHUNK_STEPS = 300
+CHUNK_STEPS = 500
 
 
 # ========================== GEOMETRY =======================
 
-D = 32          # Cylinder diameter
+D = 64          # Cylinder diameter
 NX = 20 * D     # Domain width
 NY = 10 * D     # Domain height
 CYL_X = 5 * D   # Cylinder center x-position
@@ -90,8 +93,7 @@ v = v.at[1].set(1e-2 * U0)
 
 # ======================= SIMULATION ROUTINE =====================
 
-@jax.jit
-def update(f, d, v, a):
+def update_step(f, d, v, a):
 
     # Collision
     rho, u = lbm.get_macroscopic(f)
@@ -104,8 +106,8 @@ def update(f, d, v, a):
 
     # Extract IBM region data for efficient computation
     ib_rho = jax.lax.dynamic_slice(rho, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
-    ib_u = jax.lax.dynamic_slice(u, (0, ib_x0, ib_y0), (2, IB_SIZE, IB_SIZE))
-    ib_f = jax.lax.dynamic_slice(f, (0, ib_x0, ib_y0), (9, IB_SIZE, IB_SIZE))
+    ib_u = jax.lax.dynamic_slice(u, (jnp.int32(0), ib_x0, ib_y0), (2, IB_SIZE, IB_SIZE))
+    ib_f = jax.lax.dynamic_slice(f, (jnp.int32(0), ib_x0, ib_y0), (9, IB_SIZE, IB_SIZE))
     
     # Run multi-direct forcing to get IBM forces based on current marker positions
     a_old, v_old, d_old = a, v, d
@@ -137,19 +139,29 @@ def update(f, d, v, a):
 
     # apply IBM forcing to the fluid in the local IBM region
     ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
-    f = jax.lax.dynamic_update_slice(f, ib_f, (0, ib_x0, ib_y0))
+    f = jax.lax.dynamic_update_slice(f, ib_f, (jnp.int32(0), ib_x0, ib_y0))
 
     # streaming and boundary conditions
     f = lbm.streaming(f)
-    f = lbm.boundary_nebb(f, loc="left", ux_wall=U0)
+    f = lbm.boundary_force_corrected_nebb(f, loc="left", ux_wall=U0)
     f = lbm.boundary_equilibrium(f, loc="right", ux_wall=U0)
 
     return f, d, v, a, h
 
+
+@partial(jax.jit, static_argnums=1, donate_argnums=0)
+def update_chunk(carry, n_steps):
+    def step(carry, _):
+        f, d, v, a = carry
+        f, d, v, a, h = update_step(f, d, v, a)
+        return (f, d, v, a), (d, h)
+    return jax.lax.scan(step, carry, None, length=n_steps)
+
+
 @jax.jit
-def get_vorticity_image(f):
+def get_plot_image(f):
     _, u = lbm.get_macroscopic(f)
-    return post.calculate_vorticity_dimensionless(u, D, U0).T
+    return (post.vorticity(u) * D / U0).T
 
 
 # ======================= VISUALIZATION SETUP ====================
@@ -157,16 +169,16 @@ def get_vorticity_image(f):
 mpl.rcParams["figure.raise_window"] = False
 
 if PLOT:
-    plt.figure(figsize=(8, 3))
+    plt.figure(figsize=(6, 3))
 
     im = plt.imshow(
-        get_vorticity_image(f),
+        get_plot_image(f),
         extent=[0, NX / D, 0, NY / D],
         cmap="bwr", aspect="equal", origin="lower",
         vmax=10, vmin=-10,
     )
 
-    plt.colorbar(label="Vorticity * D / U0")
+    plt.colorbar(label="Vorticity * D / U0",shrink=0.8)
     plt.xlabel("x / D")
     plt.ylabel("y / D")
 
@@ -179,16 +191,6 @@ if PLOT:
 
 # ========================== RUN SIMULATION ==========================
 
-def run_chunk(carry, n_steps):
-    def step(carry, _):
-        f, d, v, a = carry
-        f, d, v, a, h = update(f, d, v, a)
-        return (f, d, v, a), (d, h)
-    return jax.lax.scan(step, carry, None, length=n_steps)
-
-run_chunk = jax.jit(run_chunk, static_argnums=1)
-
-
 d_chunks = []
 h_chunks = []
 
@@ -198,22 +200,21 @@ if TM % CHUNK_STEPS:
 
 with tqdm(total=TM, unit="step") as pbar:
     for n_steps in chunk_sizes:
-        (f, d, v, a), (d_chunk, h_chunk) = run_chunk((f, d, v, a), n_steps)
+        (f, d, v, a), (d_chunk, h_chunk) = update_chunk((f, d, v, a), n_steps)
         jax.block_until_ready(d_chunk)
-
         d_chunks.append(d_chunk)
         h_chunks.append(h_chunk)
-
         pbar.update(n_steps)
 
         if PLOT:
-            im.set_data(get_vorticity_image(f))
+            im.set_data(get_plot_image(f))
             plt.pause(0.001)
+
+
+# ========================= POST-PROCESSING ==========================
 
 d_hist = jnp.swapaxes(jnp.concatenate(d_chunks, axis=0), 0, 1)
 h_hist = jnp.swapaxes(jnp.concatenate(h_chunks, axis=0), 0, 1)
-
-# ======================= POST-PROCESSING ==========================
 
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
 
@@ -237,3 +238,4 @@ ax2.set_ylim(-2, 4)
 
 fig.tight_layout()
 plt.show()
+

@@ -115,7 +115,7 @@ timings["lbm.boundary_velocity_nee"] = measure(partial(lbm.boundary_velocity_nee
 timings["lbm.boundary_pressure_nee"] = measure(partial(lbm.boundary_pressure_nee, loc="left"), f)
 
 # ------ Boundary: NEBB ------
-timings["lbm.boundary_nebb"]          = measure(partial(lbm.boundary_nebb, loc="left"), f)
+timings["lbm.boundary_nebb"]          = measure(partial(lbm.boundary_force_corrected_nebb, loc="left"), f)
 timings["lbm.boundary_velocity_nebb"] = measure(partial(lbm.boundary_velocity_nebb, loc="left"), f)
 timings["lbm.boundary_pressure_nebb"] = measure(partial(lbm.boundary_pressure_nebb, loc="left"), f)
 

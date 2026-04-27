@@ -29,7 +29,7 @@ from .boundary.eq import (
     boundary_velocity_equilibrium,
 )
 from .boundary.nebb import (
-    boundary_nebb,
+    boundary_force_corrected_nebb,
     boundary_force_corrected_nebb,
     boundary_pressure_nebb,
     boundary_velocity_nebb,
