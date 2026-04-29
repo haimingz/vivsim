@@ -12,7 +12,7 @@ VIVSIM is a Python library for fluid-structure interaction (FSI) simulations bas
 
 Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to achieve *hardware acceleration* and *automatic differentiation*. The project follows the **Functional Programming** paradigm to facilitate XLA compilation while making the codebase easier to understand and maintain.
 
-## 2D Visuals
+## 2D Examples
 
 <div align="center">
   <table style="border: none; text-align: center;">
@@ -35,19 +35,19 @@ Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB]
   </table>
 </div>
 
-## 3D Visuals
+## 3D Examples
 
 <div align="center">
   <table style="border: none; text-align: center;">
     <tr>
-      <td><img src="assets/3dcylinder.png" alt="Three-dimensional flow past an oscillating cylinder" width="320"></td>
+      <td><img src="assets/3dcylinder.png" alt="Three-dimensional flow past an oscillating cylinder" width="250"></td>
       <td>
-        <video src="assets/3dsphere.mp4" controls width="360" aria-label="Three-dimensional flow past an immersed sphere"></video>
+        <img src="assets/3dsphere.gif" width="360"></img>
       </td>
+    </tr>
     <tr>
       <td><i>VIV of a cylinder</i></td>
       <td><i>Flow past an immersed sphere</i></td>
-    </tr>
     </tr>
   </table>
 </div>
