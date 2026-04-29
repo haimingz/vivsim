@@ -12,7 +12,7 @@ VIVSIM is a Python library for fluid-structure interaction (FSI) simulations bas
 
 Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to achieve *hardware acceleration* and *automatic differentiation*. The project follows the **Functional Programming** paradigm to facilitate XLA compilation while making the codebase easier to understand and maintain.
 
-## 2D Examples
+## Examples
 
 <div align="center">
   <table style="border: none; text-align: center;">
@@ -26,23 +26,16 @@ Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB]
     </tr>
     <tr>
       <td><img src="assets/viv_100.gif" alt="VIV of a cylinder at Re = 1e2" width="250"></td>
-      <td><img src="assets/viv_10000.gif" alt="VIV of a cylinder at Re = 1e4" width="250"></td>
+      <td><img src="assets/viv_10000.gif" alt="VIV of a cylinder at Re = 1e4" width="230"></td>
     </tr>
     <tr>
       <td><i>VIV of a cylinder, U_r = 5, Re = 1e2</i></td>
       <td><i>VIV of a cylinder, U_r = 5, Re = 1e4</i></td>
     </tr>
-  </table>
-</div>
-
-## 3D Examples
-
-<div align="center">
-  <table style="border: none; text-align: center;">
     <tr>
-      <td><img src="assets/3dcylinder.png" alt="Three-dimensional flow past an oscillating cylinder" width="250"></td>
+      <td><img src="assets/3dcylinder.png" alt="Three-dimensional flow past an oscillating cylinder" width="220"></td>
       <td>
-        <img src="assets/3dsphere.gif" width="360"></img>
+        <img src="assets/3dsphere.gif" width="250"></img>
       </td>
     </tr>
     <tr>
@@ -169,47 +162,90 @@ Immersed Boundary Methods:
 
 ## Benchmark 
 
-Here is a performance snippet showing the average execution time for core JAX-compiled pure functions on a Nvidia RTX4090 GPU. You can generate similar benchmarks on your hardware by running `python examples/benchmark.py`.
+Here is a performance snippet showing the average execution time for core JAX-compiled pure functions on a Nvidia RTX4090 GPU. You can generate similar benchmarks on your hardware by running `python examples/benchmark.py` and `python examples/benchmark3d.py`.
 
 ```
 Benchmarking on cuda:0 | grid: 1024x1024 | markers: 512 | repeats: 200
 
 Function                             Time (us)  Bar
 --------------------------------------------------------------------------------
-lbm.get_macroscopic                      0.619  
-lbm.get_equilibrium                      0.296  
-lbm.streaming                           71.214  ==
-lbm.collision_bgk                       36.594  =
-lbm.collision_kbc                      348.668  ==============
-lbm.collision_mrt                      476.972  ====================
-lbm.collision_reg                      196.233  ========
-lbm.forcing_edm                         79.364  ===
-lbm.forcing_guo_bgk                     56.261  ==
-lbm.forcing_guo_mrt                    204.868  ========
-lbm.get_guo_forcing_term                 0.706  
-lbm.boundary_nee                         7.238  
-lbm.boundary_velocity_nee                6.573  
-lbm.boundary_pressure_nee                6.961  
-lbm.boundary_nebb                        6.481  
-lbm.boundary_velocity_nebb               6.807  
-lbm.boundary_pressure_nebb               6.537  
-lbm.boundary_equilibrium                 3.361  
-lbm.boundary_bounce_back                38.752  =
-lbm.boundary_specular_reflection        39.087  =
-lbm.obstacle_bounce_back                 0.650  
-lbm.boundary_characteristic              0.292  
-ib.get_area                              0.721  
-ib.get_ds_closed                         0.807  
-ib.get_ds_open                           0.979  
-ib.kernel_peskin_3pt                     3.503  
-ib.kernel_peskin_4pt                     3.004  
-ib.kernel_cosine_4pt                     3.211  
-ib.get_ib_stencil                        0.635  
-ib.interpolate                           0.735  
-ib.spread                                1.002  
-ib.multi_direct_forcing                  0.923  
+lbm.get_macroscopic                      1.015  
+lbm.get_equilibrium                      0.552  
+lbm.streaming                           81.769  ======
+lbm.collision_bgk                       50.056  ====
+lbm.collision_kbc                      180.848  ==============
+lbm.collision_mrt                      248.053  ====================
+lbm.collision_reg                      116.998  =========
+lbm.forcing_edm                         63.164  =====
+lbm.forcing_guo_bgk                     51.672  ====
+lbm.forcing_guo_mrt                    151.423  ============
+lbm.get_guo_forcing_term                 0.967  
+lbm.boundary_nee                         6.655  
+lbm.boundary_velocity_nee                7.544  
+lbm.boundary_pressure_nee                7.244  
+lbm.boundary_nebb                        6.288  
+lbm.boundary_velocity_nebb               6.630  
+lbm.boundary_pressure_nebb               6.431  
+lbm.boundary_equilibrium                 3.426  
+lbm.boundary_bounce_back                37.797  ===
+lbm.boundary_specular_reflection        37.011  ==
+lbm.obstacle_bounce_back                 0.621  
+lbm.boundary_characteristic              0.401  
+ib.get_area                              0.335  
+ib.get_ds_closed                         0.321  
+ib.get_ds_open                           0.259  
+ib.kernel_peskin_3pt                     3.256  
+ib.kernel_peskin_4pt                     3.136  
+ib.kernel_cosine_4pt                     3.206  
+ib.get_ib_stencil                        0.224  
+ib.interpolate                           0.274  
+ib.spread                                3.369  
+ib.multi_direct_forcing                  0.687  
 --------------------------------------------------------------------------------
+Functions count                             32
 ```
+
+```
+Benchmarking on cuda:0 | grid: 128x128x128 | markers: 642 | repeats: 50
+
+Function                                Time (us)  Bar
+-----------------------------------------------------------------------------------
+lbm3d.get_macroscopic                      10.310  
+lbm3d.get_equilibrium                       6.730  
+lbm3d.streaming                           824.258  ===
+lbm3d.collision_bgk                       591.432  ==
+lbm3d.collision_kbc                      4763.787  ====================
+lbm3d.collision_mrt                      1227.149  =====
+lbm3d.collision_reg                      2993.891  ============
+lbm3d.forcing_edm                         901.352  ===
+lbm3d.forcing_guo_bgk                     960.575  ====
+lbm3d.forcing_guo_mrt                    1336.376  =====
+lbm3d.get_guo_forcing_term                  4.154  
+lbm3d.boundary_nee                         27.091  
+lbm3d.boundary_velocity_nee                33.061  
+lbm3d.boundary_pressure_nee                35.727  
+lbm3d.boundary_nebb                        16.529  
+lbm3d.boundary_velocity_nebb               15.076  
+lbm3d.boundary_pressure_nebb               36.544  
+lbm3d.boundary_equilibrium                 11.326  
+lbm3d.boundary_bounce_back                420.604  =
+lbm3d.boundary_specular_reflection        422.528  =
+lbm3d.obstacle_bounce_back                  9.443  
+lbm3d.boundary_characteristic               4.335  
+ib3d.get_triangle_areas                    23.575  
+ib3d.get_surface_area                       0.965  
+ib3d.get_vertex_dA                          1.052  
+ib3d.kernel_peskin_3pt                      3.995  
+ib3d.kernel_peskin_4pt                      3.874  
+ib3d.kernel_cosine_4pt                      4.123  
+ib3d.get_ib_stencil                         0.890  
+ib3d.interpolate                            1.819  
+ib3d.spread                                 2.127  
+ib3d.multi_direct_forcing                   1.760  
+-----------------------------------------------------------------------------------
+Functions count                                32
+```
+
 If you have suggestions for improving the performance of any function, please feel free to open an issue or submit a pull request!
 
 
