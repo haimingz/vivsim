@@ -217,7 +217,7 @@ def main():
     timings["lbm3d.collision_reg"] = measure(lbm3d.collision_reg, (f, feq, omega), repeat)
 
     # ------ Forcing ------
-    timings["lbm3d.forcing_edm"] = measure(lbm3d.forcing_edm, (f, g, u, rho), repeat)
+    timings["lbm3d.forcing_edm"] = measure(lbm3d.forcing_edm, (f, g, u), repeat)
     timings["lbm3d.forcing_guo_bgk"] = measure(
         lbm3d.forcing_guo_bgk, (f, g, u, omega), repeat
     )

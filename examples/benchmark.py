@@ -104,7 +104,7 @@ timings["lbm.collision_mrt"]         = measure(lbm.collision_mrt, f, feq, mrt_op
 timings["lbm.collision_reg"] = measure(lbm.collision_reg, f, feq, omega)
 
 # ------ Forcing ------
-timings["lbm.forcing_edm"]           = measure(lbm.forcing_edm, f, g, u, rho)
+timings["lbm.forcing_edm"]           = measure(lbm.forcing_edm, f, g, u)
 timings["lbm.forcing_guo_bgk"]       = measure(lbm.forcing_guo_bgk, f, g, u, omega)
 timings["lbm.forcing_guo_mrt"]       = measure(lbm.forcing_guo_mrt, f, g, u, mrt_fop)
 timings["lbm.get_guo_forcing_term"]  = measure(lbm.get_guo_forcing_term, g, u)

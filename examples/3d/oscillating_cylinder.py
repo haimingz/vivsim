@@ -270,7 +270,7 @@ def update_chunk(carry, n_steps):
         h += a * CYL_VOL  # Add displaced mass logic
         a, v, d = dyn.newmark_2dof(a_old, v_old, d_old, h, M, K, C)
 
-        ib_f = lbm3d.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
+        ib_f = lbm3d.forcing_edm(ib_f, ib_g, ib_u)
         f_post = jax.lax.dynamic_update_slice(f_post, ib_f, (0, ib_x0, ib_y0, ib_z0))
 
         # Streaming

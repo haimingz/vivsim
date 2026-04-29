@@ -121,7 +121,7 @@ def update_step(f):
     h = dyn.get_force_to_obj(marker_h)
 
     # Apply IBM forcing to the fluid in the local IBM region
-    ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
+    ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u)
     f = jax.lax.dynamic_update_slice(f, ib_f, (0, IB_X0, IB_Y0))
 
     # Streaming and boundary conditions

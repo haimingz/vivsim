@@ -105,7 +105,6 @@ def update_step(f, d, v, a):
     ib_y0 = (IB_Y0 + d[1]).astype(jnp.int32)
 
     # Extract IBM region data for efficient computation
-    ib_rho = jax.lax.dynamic_slice(rho, (ib_x0, ib_y0), (IB_SIZE, IB_SIZE))
     ib_u = jax.lax.dynamic_slice(u, (jnp.int32(0), ib_x0, ib_y0), (2, IB_SIZE, IB_SIZE))
     ib_f = jax.lax.dynamic_slice(f, (jnp.int32(0), ib_x0, ib_y0), (9, IB_SIZE, IB_SIZE))
     
@@ -138,7 +137,7 @@ def update_step(f, d, v, a):
         a, v, d = dyn.newmark_2dof(a_old, v_old, d_old, h, M, K, C)
 
     # apply IBM forcing to the fluid in the local IBM region
-    ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
+    ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u)
     f = jax.lax.dynamic_update_slice(f, ib_f, (jnp.int32(0), ib_x0, ib_y0))
 
     # streaming and boundary conditions
@@ -238,4 +237,3 @@ ax2.set_ylim(-2, 4)
 
 fig.tight_layout()
 plt.show()
-
