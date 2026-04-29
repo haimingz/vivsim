@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from ..basic import VELOCITIES, WEIGHTS
+from ..lattice import D2Q9
 from ..collision.mrt import M, M_INV, get_mrt_relaxation_matrix
 
 
@@ -19,16 +19,16 @@ def get_guo_forcing_term(g, u):
         jax.Array: Lattice forcing term with shape (9, NX, NY), where 9 is the number
             of discrete velocity directions in the D2Q9 lattice.
     """
-    uc = (u[0, :, :] * VELOCITIES[:, 0, None, None] + 
-          u[1, :, :] * VELOCITIES[:, 1, None, None])
+    uc = (u[0, :, :] * D2Q9.c[:, 0, None, None] + 
+          u[1, :, :] * D2Q9.c[:, 1, None, None])
     
-    g_lattice = WEIGHTS[..., None, None] * (
+    g_lattice = D2Q9.w[..., None, None] * (
         g[0] * (
-            3 * (VELOCITIES[:, 0, None, None] - u[None, 0,...]) 
-            + 9 * (uc * VELOCITIES[:,0, None, None])) 
+            3 * (D2Q9.c[:, 0, None, None] - u[None, 0,...]) 
+            + 9 * (uc * D2Q9.c[:,0, None, None])) 
         + g[1] * (
-            3 * (VELOCITIES[:, 1, None, None] - u[None, 1,...]) 
-            + 9 * (uc * VELOCITIES[:, 1, None, None])))
+            3 * (D2Q9.c[:, 1, None, None] - u[None, 1,...]) 
+            + 9 * (uc * D2Q9.c[:, 1, None, None])))
     
     return g_lattice
 
@@ -103,5 +103,5 @@ def forcing_guo_mrt(f, g, u, mrt_forcing_operator):
         The MRT forcing operator should be pre-computed using `get_mrt_forcing_operator`
         and passed as an argument to avoid recomputing it at each time step.
     """
-    g_lattice = get_guo_forcing_term(g, u)   
+    g_lattice = get_guo_forcing_term(g, u)
     return f + jnp.tensordot(mrt_forcing_operator, g_lattice, axes=([1], [0]), precision='highest')

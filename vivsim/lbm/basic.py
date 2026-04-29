@@ -28,41 +28,35 @@ Key Variables:
 import jax
 import jax.numpy as jnp
 
+from .lattice import D2Q9
 
-WEIGHTS = jnp.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
 
-VELOCITIES = jnp.array([
-    [0, 0],
-    [1, 0],
-    [0, 1],
-    [-1, 0],
-    [0, -1],
-    [1, 1],
-    [-1, 1],
-    [-1, -1],
-    [1, -1]
-])
-
-RIGHT_DIRS = jnp.array([1, 5, 8])
-LEFT_DIRS = jnp.array([3, 7, 6])
-UP_DIRS = jnp.array([2, 5, 6])
-DOWN_DIRS = jnp.array([4, 7, 8])
-ALL_DIRS = jnp.array([0, 1, 2, 3, 4, 5, 6, 7, 8])
-OPP_DIRS = jnp.array([0, 3, 4, 1, 2, 7, 8, 5, 6])
+WEIGHTS = jnp.asarray(D2Q9.w)
+VELOCITIES = jnp.asarray(D2Q9.c)
+RIGHT_DIRS = jnp.asarray(D2Q9.right_dirs)
+LEFT_DIRS = jnp.asarray(D2Q9.left_dirs)
+UP_DIRS = jnp.asarray(D2Q9.up_dirs)
+DOWN_DIRS = jnp.asarray(D2Q9.down_dirs)
+ALL_DIRS = jnp.asarray(D2Q9.all_dirs)
+OPP_DIRS = jnp.asarray(D2Q9.opp_dirs)
 
 
 def shift_x_pos(x):
     return jnp.concatenate((x[:, -1:, :], x[:, :-1, :]), axis=1)
 
+
 def shift_x_neg(x):
     return jnp.concatenate((x[:, 1:, :], x[:, :1, :]), axis=1)
+
 
 def shift_y_pos(x):
     return jnp.concatenate((x[:, :, -1:], x[:, :, :-1]), axis=2)
 
+
 def shift_y_neg(x):
     return jnp.concatenate((x[:, :, 1:], x[:, :, :1]), axis=2)
-    
+
+
 def streaming(f):
     """Perform the D2Q9 streaming step with periodic wrap-around.
 

@@ -35,73 +35,13 @@ Meaning:
     - ``normal_sign`` points from the wall into the fluid
 """
 
-from typing import NamedTuple
-
 import jax.numpy as jnp
 
+from ..lattice import D2Q9
 from ..basic import get_velocity_correction
 
 
-class BoundarySpec(NamedTuple):
-    """Geometry and direction metadata for a single domain boundary."""
-
-    wall: tuple
-    neighbor: tuple
-    in_dirs: tuple[int, int, int]
-    out_dirs: tuple[int, int, int]
-    tan_dirs: tuple[int, int]
-    pos_side_dirs: tuple[int, int, int]
-    neg_side_dirs: tuple[int, int, int]
-    normal_sign: int
-    normal_axis: int
-
-    
-BOUNDARY_SPEC = {
-    "left": BoundarySpec(
-        wall=(0,),
-        neighbor=(1,),
-        in_dirs=(1, 5, 8),
-        out_dirs=(3, 7, 6),
-        tan_dirs=(2, 4),
-        pos_side_dirs=(2, 5, 6),
-        neg_side_dirs=(4, 7, 8),
-        normal_sign=1,
-        normal_axis=0,
-    ),
-    "right": BoundarySpec(
-        wall=(-1,),
-        neighbor=(-2,),
-        in_dirs=(3, 7, 6),
-        out_dirs=(1, 5, 8),
-        tan_dirs=(2, 4),
-        pos_side_dirs=(2, 5, 6),
-        neg_side_dirs=(4, 7, 8),
-        normal_sign=-1,
-        normal_axis=0,
-    ),
-    "top": BoundarySpec(
-        wall=(slice(None), -1),
-        neighbor=(slice(None), -2),
-        in_dirs=(4, 7, 8),
-        out_dirs=(2, 5, 6),
-        tan_dirs=(1, 3),
-        pos_side_dirs=(1, 5, 8),
-        neg_side_dirs=(3, 7, 6),
-        normal_sign=-1,
-        normal_axis=1,
-    ),
-    "bottom": BoundarySpec(
-        wall=(slice(None), 0),
-        neighbor=(slice(None), 1),
-        in_dirs=(2, 5, 6),
-        out_dirs=(4, 7, 8),
-        tan_dirs=(1, 3),
-        pos_side_dirs=(1, 5, 8),
-        neg_side_dirs=(3, 7, 6),
-        normal_sign=1,
-        normal_axis=1,
-    ),
-}
+BOUNDARY_SPEC = D2Q9.boundary_spec
 
 
 def get_boundary_shape(f, loc: str):
