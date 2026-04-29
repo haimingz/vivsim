@@ -54,15 +54,22 @@ Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB]
 
 ## Installation
 
-To locally install VIVSIM for development:
+To locally install VIVSIM for development without selecting a JAX backend:
 
 ```bash
 git clone https://github.com/haimingz/vivsim.git
 cd vivsim
-pip install -e ".[cpu]"
+pip install -e .
 ```
 
-JAX installation depends on the operating system and accelerator backend. VIVSIM now exposes the most common JAX choices as optional extras:
+Installing with no extra flag (`pip install -e .`) installs VIVSIM and its
+non-JAX dependencies only. It does not install, upgrade, downgrade, or otherwise
+modify JAX. This is the recommended option when JAX is already installed in the
+environment, for example when using a cluster-managed JAX module, a custom CUDA
+wheel, or another project that controls the JAX version.
+
+JAX installation depends on the operating system and accelerator backend. If you
+want VIVSIM to install JAX for you, use one of the optional extras:
 
 ```bash
 # CPU-only development on Linux/macOS/Windows

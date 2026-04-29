@@ -10,7 +10,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Haiming Zhu", email = "zhuhaiming@tju.edu.cn" }]
 dependencies = [
-    "jax>=0.8",
     "matplotlib",
     "numpy",
     "tqdm",
