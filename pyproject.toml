@@ -13,6 +13,7 @@ dependencies = [
     "matplotlib",
     "numpy",
     "tqdm",
+    "pyvista",
 ]
 
 [project.optional-dependencies]
