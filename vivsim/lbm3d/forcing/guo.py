@@ -6,30 +6,36 @@ from ..lattice import D3Q19
 from ..collision.mrt import M, M_INV, get_mrt_relaxation_matrix
 
 
+D3Q19_INV_CS2 = 3.0
+D3Q19_INV_CS4 = 9.0
+
+
 def get_guo_forcing_term(g, u):
     """Compute the D3Q19 lattice forcing term using Guo's scheme."""
 
-    uc = (
-        u[0] * D3Q19.c[:, 0, None, None, None]
-        + u[1] * D3Q19.c[:, 1, None, None, None]
-        + u[2] * D3Q19.c[:, 2, None, None, None]
-    )
+    ux, uy, uz = u
+    gx, gy, gz = g
 
-    g_lattice = D3Q19.w[:, None, None, None] * (
-        g[0] * (
-            (D3Q19.c[:, 0, None, None, None] - u[None, 0]) / D3Q19.cs2
-            + D3Q19.c[:, 0, None, None, None] * uc / (D3Q19.cs2**2)
-        )
-        + g[1] * (
-            (D3Q19.c[:, 1, None, None, None] - u[None, 1]) / D3Q19.cs2
-            + D3Q19.c[:, 1, None, None, None] * uc / (D3Q19.cs2**2)
-        )
-        + g[2] * (
-            (D3Q19.c[:, 2, None, None, None] - u[None, 2]) / D3Q19.cs2
-            + D3Q19.c[:, 2, None, None, None] * uc / (D3Q19.cs2**2)
-        )
+    velocity_projection = jnp.stack([
+        jnp.zeros_like(ux),
+        ux, -ux, uy, -uy, uz, -uz,
+        ux + uy, -ux + uy, ux - uy, -ux - uy,
+        ux + uz, -ux + uz, ux - uz, -ux - uz,
+        uy + uz, -uy + uz, uy - uz, -uy - uz,
+    ])
+    force_projection = jnp.stack([
+        jnp.zeros_like(gx),
+        gx, -gx, gy, -gy, gz, -gz,
+        gx + gy, -gx + gy, gx - gy, -gx - gy,
+        gx + gz, -gx + gz, gx - gz, -gx - gz,
+        gy + gz, -gy + gz, gy - gz, -gy - gz,
+    ])
+    force_velocity = jnp.sum(g * u, axis=0)
+
+    return D3Q19.w[:, None, None, None] * (
+        D3Q19_INV_CS2 * (force_projection - force_velocity[None, ...])
+        + D3Q19_INV_CS4 * force_projection * velocity_projection
     )
-    return g_lattice
 
 
 def forcing_guo_bgk(f, g, u, omega):
