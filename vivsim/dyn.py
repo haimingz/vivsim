@@ -152,3 +152,84 @@ def get_torque_to_obj(x_markers, y_markers, x_center_init, y_center_init, d, h_m
     y_rel = y_markers - (y_center_init + d[1])
     
     return jnp.sum(x_rel * h_markers[:, 1] - y_rel * h_markers[:, 0])
+# ----------------- Flexible Object Dynamics -----------------
+
+def vfife_beam(x, v, theta, omega, f_ext, m_ext, m, J, EA, EI, l0, dt, damping=0.0):
+    """Vector Form Intrinsic Finite Element (VFIFE) method for 2D flexible beams.
+
+    This function computes one time step of the explicit dynamics for a 2D beam
+    using the VFIFE method, which is well-suited for large deformations and JAX
+    parallelization.
+
+    Args:
+        x (ndarray of shape (N, 2)): Nodal positions at time t.
+        v (ndarray of shape (N, 2)): Nodal velocities at time t.
+        theta (ndarray of shape (N,)): Nodal rotations at time t.
+        omega (ndarray of shape (N,)): Nodal angular velocities at time t.
+        f_ext (ndarray of shape (N, 2)): External forces on nodes (e.g., fluid forces).
+        m_ext (ndarray of shape (N,)): External moments on nodes.
+        m (ndarray of shape (N,)): Node masses.
+        J (ndarray of shape (N,)): Node moments of inertia.
+        EA (float or ndarray of shape (N-1,)): Axial stiffness of elements.
+        EI (float or ndarray of shape (N-1,)): Bending stiffness of elements.
+        l0 (ndarray of shape (N-1,)): Initial length of elements.
+        dt (float): Time step size.
+        damping (float): Nodal damping coefficient.
+
+    Returns:
+        x_next (ndarray of shape (N, 2)): Nodal positions at time t+dt.
+        v_next (ndarray of shape (N, 2)): Nodal velocities at time t+dt.
+        theta_next (ndarray of shape (N,)): Nodal rotations at time t+dt.
+        omega_next (ndarray of shape (N,)): Nodal angular velocities at time t+dt.
+    """
+
+    # Elements vector and length
+    dx = x[1:] - x[:-1]
+    L = jnp.linalg.norm(dx, axis=-1)
+
+    # Rigid body rotation of the element
+    alpha = jnp.arctan2(dx[:, 1], dx[:, 0])
+
+    # Pure deformations
+    delta_d = L - l0
+    theta_1d = theta[:-1] - alpha
+    theta_2d = theta[1:] - alpha
+
+    # Ensure angles are in [-pi, pi]
+    theta_1d = jnp.mod(theta_1d + jnp.pi, 2 * jnp.pi) - jnp.pi
+    theta_2d = jnp.mod(theta_2d + jnp.pi, 2 * jnp.pi) - jnp.pi
+
+    # Internal forces in local frame
+    fx = EA * delta_d / l0
+    m1 = (EI / l0) * (4 * theta_1d + 2 * theta_2d)
+    m2 = (EI / l0) * (2 * theta_1d + 4 * theta_2d)
+    fy = (m1 + m2) / L
+
+    # Transform internal forces to global frame
+    cos_a = dx[:, 0] / L
+    sin_a = dx[:, 1] / L
+
+    f1x = -fx * cos_a - fy * sin_a
+    f1y = -fx * sin_a + fy * cos_a
+    f2x = fx * cos_a + fy * sin_a
+    f2y = fx * sin_a - fy * cos_a
+
+    # Assemble global internal forces on nodes
+    f_int_x = jnp.pad(f1x, (0, 1)) + jnp.pad(f2x, (1, 0))
+    f_int_y = jnp.pad(f1y, (0, 1)) + jnp.pad(f2y, (1, 0))
+    m_int = jnp.pad(m1, (0, 1)) + jnp.pad(m2, (1, 0))
+
+    f_int = jnp.stack([f_int_x, f_int_y], axis=-1)
+
+    # Equations of motion
+    a = (f_ext - f_int - damping * v) / m[:, None]
+    alpha_acc = (m_ext - m_int - damping * omega) / J
+
+    # Update velocities and positions (Semi-implicit Euler)
+    v_next = v + a * dt
+    omega_next = omega + alpha_acc * dt
+
+    x_next = x + v_next * dt
+    theta_next = theta + omega_next * dt
+
+    return x_next, v_next, theta_next, omega_next
