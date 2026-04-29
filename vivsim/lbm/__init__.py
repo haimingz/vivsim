@@ -30,7 +30,7 @@ from .boundary.eq import (
 )
 from .boundary.nebb import (
     boundary_force_corrected_nebb,
-    boundary_force_corrected_nebb,
+    boundary_nebb,
     boundary_pressure_nebb,
     boundary_velocity_nebb,
 )
