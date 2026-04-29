@@ -177,7 +177,8 @@ def get_wall_velocity_from_pressure(f, loc: str, rho_wall=1):
     ns0, ns1, ns2 = spec.neg_side_dirs
 
     rho_neighbor = jnp.sum(f[:, *neighbor], axis=0)
-    normal_velocity = _get_rho_wall_numerator(f, loc) / rho_wall - 1
+    normal_velocity_signed = 1 - _get_rho_wall_numerator(f, loc) / rho_wall
+    normal_velocity = spec.normal_sign * normal_velocity_signed
 
     tangential_velocity = (
         f[ps0, *neighbor] - f[ns0, *neighbor]
