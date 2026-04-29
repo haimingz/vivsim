@@ -164,6 +164,15 @@ cython_debug/
 # Local History for Visual Studio Code
 .history/
 
+# AI coding agent local files
+.codex
+.codex/
+.claude/
+.cursor/
+.continue/
+.windsurf/
+.aider*
+
 # output files
 *.npy
 *.npz
