@@ -40,7 +40,7 @@ MARKER_THETA = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
 MARKER_X = CYL_X + 0.5 * D * jnp.cos(MARKER_THETA)  # Marker x-coordinates
 MARKER_Y = CYL_Y + 0.5 * D * jnp.sin(MARKER_THETA)  # Marker y-coordinates
 MARKER_COORDS = jnp.stack((MARKER_X, MARKER_Y), axis=1)
-MARKER_DS = ib.get_ds_closed(MARKER_COORDS)  # Marker segment length
+MARKER_DS = ib.get_ds(MARKER_COORDS)  # Marker segment length
 
 
 # ========================== PHYSICAL PARAMETERS =====================

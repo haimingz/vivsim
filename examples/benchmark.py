@@ -50,7 +50,7 @@ theta = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
 marker_x = NX / 2 + 50 * jnp.cos(theta)
 marker_y = NY / 2 + 50 * jnp.sin(theta)
 marker_coords = jnp.stack([marker_x, marker_y], axis=1)
-marker_ds = ib.get_ds_closed(marker_coords)
+marker_ds = ib.get_ds(marker_coords)
 marker_u_zero = jnp.zeros((N_MARKER, 2))
 r_vals = jnp.linspace(0, 2.5, N_MARKER)
 ib_stencil_weights, ib_stencil_indices = ib.get_ib_stencil(marker_x, marker_y, NY)
@@ -132,8 +132,8 @@ timings["lbm.boundary_characteristic"] = measure(partial(lbm.boundary_characteri
 
 # ------ IB: geometry ------
 timings["ib.get_area"]      = measure(ib.get_area, marker_coords) 
-timings["ib.get_ds_closed"] = measure(ib.get_ds_closed, marker_coords)
-timings["ib.get_ds_open"]   = measure(ib.get_ds_open, marker_coords)
+timings["ib.get_ds (closed)"] = measure(ib.get_ds, marker_coords)
+timings["ib.get_ds (open)"]   = measure(partial(ib.get_ds, closed=False), marker_coords)
 
 # ------ IB: kernels (input: 1-D distance array) ------
 timings["ib.kernel_peskin_3pt"] = measure(ib.kernel_peskin_3pt, r_vals)

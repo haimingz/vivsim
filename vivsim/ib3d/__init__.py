@@ -1,9 +1,10 @@
 """Immersed-boundary method for fluid-structure interaction (3D)."""
 
 from .geometry import (
-    get_ds_surface,
+    get_ds,
     get_surface_area,
     get_triangle_areas,
+    get_volume,
 )
 from .stencil import get_ib_stencil
 from vivsim.ib.kernels import kernel_cosine_4pt, kernel_peskin_3pt, kernel_peskin_4pt

@@ -170,7 +170,7 @@ MARKER_INITIAL_NP, MARKER_FACES = _make_uniform_cylinder_mesh(
 
 MARKER_INITIAL = jnp.array(MARKER_INITIAL_NP, dtype=jnp.float32)
 N_MARKER = MARKER_INITIAL.shape[0]
-MARKER_DS = ib3d.get_ds_surface(MARKER_INITIAL, jnp.array(MARKER_FACES))
+MARKER_DS = ib3d.get_ds(MARKER_INITIAL, jnp.array(MARKER_FACES))
 
 
 # ========================== PHYSICAL PARAMETERS =====================

@@ -192,8 +192,8 @@ lbm.boundary_specular_reflection        37.011  ==
 lbm.obstacle_bounce_back                 0.621  
 lbm.boundary_characteristic              0.401  
 ib.get_area                              0.335  
-ib.get_ds_closed                         0.321  
-ib.get_ds_open                           0.259  
+ib.get_ds (closed)                       0.321  
+ib.get_ds (open)                         0.259  
 ib.kernel_peskin_3pt                     3.256  
 ib.kernel_peskin_4pt                     3.136  
 ib.kernel_cosine_4pt                     3.206  
@@ -234,7 +234,7 @@ lbm3d.obstacle_bounce_back                  9.443
 lbm3d.boundary_characteristic               4.335  
 ib3d.get_triangle_areas                    23.575  
 ib3d.get_surface_area                       0.965  
-ib3d.get_ds_surface                         1.052  
+ib3d.get_ds                                 1.052  
 ib3d.kernel_peskin_3pt                      3.995  
 ib3d.kernel_peskin_4pt                      3.874  
 ib3d.kernel_cosine_4pt                      4.123  
