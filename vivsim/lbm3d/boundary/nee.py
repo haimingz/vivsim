@@ -1,8 +1,8 @@
 """Non-equilibrium extrapolation (NEE) face boundary for the D3Q19 lattice."""
 
+from ..lattice import D3Q19
 from ..basic import get_equilibrium, get_macroscopic
 from ._helpers import (
-    BOUNDARY_SPEC,
     broadcast_wall_values,
     wrap_force_corrected,
     wrap_pressure,
@@ -13,7 +13,7 @@ from ._helpers import (
 def boundary_nee(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0, uz_wall=0):
     """Apply the NEE face boundary condition on the selected 3D boundary."""
 
-    spec = BOUNDARY_SPEC[loc]
+    spec = D3Q19.boundary_spec[loc]
     rho_wall, u_wall = broadcast_wall_values(
         f,
         loc,

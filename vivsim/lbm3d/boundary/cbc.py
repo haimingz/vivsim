@@ -1,30 +1,32 @@
 """Characteristic face boundary condition for non-reflective D3Q19 boundaries."""
 
+import numpy as np
 import jax.numpy as jnp
 
-from ._helpers import BOUNDARY_SPEC
+from ..lattice import D3Q19
 
 
 def _take_boundary_line(field, axis: int, inward_sign: int):
     """Return the boundary node and the next two fluid nodes along the normal axis."""
 
-    indices = jnp.array([0, 1, 2]) if inward_sign > 0 else jnp.array([-1, -2, -3])
+    indices = np.array([0, 1, 2] if inward_sign > 0 else [-1, -2, -3], dtype=np.int32)
     return jnp.moveaxis(jnp.take(field, indices, axis=axis), axis, 0)
 
 
 def boundary_characteristic(rho, u, loc="right"):
     """Apply a one-dimensional characteristic update along the selected face normal."""
 
-    if loc not in BOUNDARY_SPEC:
+    boundary_spec = D3Q19.boundary_spec
+    if loc not in boundary_spec:
         raise ValueError(
             "loc must be one of: 'left', 'right', 'bottom', 'top', 'back', 'front'"
         )
 
-    spec = BOUNDARY_SPEC[loc]
+    spec = boundary_spec[loc]
     normal_axis = spec.normal_axis
     tangential_axes = spec.tangential_axes
     inward_sign = spec.normal_sign
-    cs = 1 / jnp.sqrt(3)
+    cs = jnp.sqrt(D3Q19.cs2)
 
     rho_b1, rho_b2, rho_b3 = _take_boundary_line(rho, normal_axis, inward_sign)
     un_b1, un_b2, un_b3 = _take_boundary_line(u[normal_axis], normal_axis, inward_sign)

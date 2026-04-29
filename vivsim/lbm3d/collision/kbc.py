@@ -2,26 +2,7 @@
 
 import jax
 import jax.numpy as jnp
-
-from ..basic import CS2, VELOCITIES, WEIGHTS
-
-
-def _get_second_order_projection(fneq):
-    """Project the non-equilibrium DDF onto its second-order Hermite subspace."""
-
-    c = VELOCITIES.astype(fneq.dtype)
-    weights = WEIGHTS.astype(fneq.dtype)
-    dim = c.shape[1]
-    ndim = fneq.ndim - 1
-
-    pi_neq = jnp.einsum("q...,qa,qb->ab...", fneq, c, c, precision='highest')
-    identity = jnp.eye(dim, dtype=fneq.dtype)
-    q_tensor = (
-        c[:, :, None] * c[:, None, :] - CS2 * identity[None, :, :]
-    ).reshape((c.shape[0], dim, dim) + (1,) * ndim)
-
-    coeff = weights.reshape((weights.shape[0],) + (1,) * ndim) / (2 * CS2**2)
-    return coeff * jnp.sum(q_tensor * pi_neq[None, ...], axis=(1, 2))
+from .reg import get_second_order_projection
 
 
 def collision_kbc(f: jax.Array, feq: jax.Array, omega: float) -> jax.Array:
@@ -47,7 +28,7 @@ def collision_kbc(f: jax.Array, feq: jax.Array, omega: float) -> jax.Array:
 
     fneq = f - feq
 
-    shear_part = _get_second_order_projection(fneq)
+    shear_part = get_second_order_projection(fneq)
     high_order_part = fneq - shear_part
 
     inv_feq = 1.0 / (feq + 1e-20)

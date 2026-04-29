@@ -104,7 +104,7 @@ BOUNDARY_SPEC = {
 }
 
 
-def get_boundary_size(f, loc: str):
+def get_boundary_shape(f, loc: str):
     """Return the number of nodes on the selected boundary."""
     spec = BOUNDARY_SPEC[loc]
     return f.shape[2] if spec.normal_axis == 0 else f.shape[1]
@@ -125,14 +125,14 @@ def broadcast_wall_values(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
         tuple: ``(rho_wall, u_wall)`` where ``rho_wall`` has shape ``(N,)`` and
         ``u_wall`` has shape ``(2, N)`` along the selected boundary.
     """
-    size = get_boundary_size(f, loc)
+    shape = get_boundary_shape(f, loc)
 
     if jnp.isscalar(rho_wall):
-        rho_wall = jnp.full(size, rho_wall)
+        rho_wall = jnp.full(shape, rho_wall)
     if jnp.isscalar(ux_wall):
-        ux_wall = jnp.full(size, ux_wall)
+        ux_wall = jnp.full(shape, ux_wall)
     if jnp.isscalar(uy_wall):
-        uy_wall = jnp.full(size, uy_wall)
+        uy_wall = jnp.full(shape, uy_wall)
 
     return rho_wall, jnp.array([ux_wall, uy_wall])
 

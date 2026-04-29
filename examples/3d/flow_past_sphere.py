@@ -144,8 +144,6 @@ def update_step(f):
     f = lbm3d.collision_kbc(f, feq, OMEGA)
 
     # Extract IBM region data for efficient computation
-    ib_rho = jax.lax.dynamic_slice(rho, (IB_X0, IB_Y0, IB_Z0),
-                                   (IB_SIZE, IB_SIZE, IB_SIZE))
     ib_u = jax.lax.dynamic_slice(u, (0, IB_X0, IB_Y0, IB_Z0),
                                  (3, IB_SIZE, IB_SIZE, IB_SIZE))
     ib_f = jax.lax.dynamic_slice(f, (0, IB_X0, IB_Y0, IB_Z0),

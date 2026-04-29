@@ -115,18 +115,33 @@ def pick_subdivisions(target_markers):
 # ====================== Timing helper ======================
 
 def measure(fn, args, repeat):
+    jitted_fn = jax.jit(fn)
+    warmup_result = jitted_fn(*args)
+    jax.block_until_ready(warmup_result)
+
+    can_feed_back = (
+        isinstance(warmup_result, jax.Array)
+        and isinstance(args[0], jax.Array)
+        and warmup_result.shape == args[0].shape
+    )
+
+    if not can_feed_back:
+        start = time.perf_counter()
+        for _ in range(repeat):
+            result = jitted_fn(*args)
+        jax.block_until_ready(result)
+        elapsed = time.perf_counter() - start
+
+        return elapsed / repeat * 1e6
+
     @jax.jit
     def benchmark_loop(args_tuple):
         def body(carry, _):
             result = fn(*carry)
 
-            # Feed compatible array results back into the loop so memory writes
-            # cannot be optimized away across repeated calls.
-            is_array = isinstance(result, jax.Array) and isinstance(carry[0], jax.Array)
-            if is_array and result.shape == carry[0].shape:
-                carry = (result,) + carry[1:]
-
-            return carry, result
+            # Feed same-shape array results back into the loop so repeated calls
+            # cannot be optimized away.
+            return (result,) + carry[1:], None
 
         final_carry, _ = jax.lax.scan(body, args_tuple, None, length=repeat)
         return final_carry

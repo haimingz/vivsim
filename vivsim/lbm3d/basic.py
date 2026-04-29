@@ -23,23 +23,7 @@ The spatial axes follow the array order (x, y, z).
 import jax
 import jax.numpy as jnp
 
-from ._lattice import D3Q19
-
-DIM = D3Q19.dim
-Q = D3Q19.q
-CS2 = D3Q19.cs2
-
-WEIGHTS = jnp.asarray(D3Q19.weights)
-VELOCITIES = jnp.asarray(D3Q19.velocities, dtype=jnp.int32)
-
-RIGHT_DIRS = jnp.asarray(D3Q19.right_dirs)
-LEFT_DIRS = jnp.asarray(D3Q19.left_dirs)
-UP_DIRS = jnp.asarray(D3Q19.up_dirs)
-DOWN_DIRS = jnp.asarray(D3Q19.down_dirs)
-FRONT_DIRS = jnp.asarray(D3Q19.front_dirs)
-BACK_DIRS = jnp.asarray(D3Q19.back_dirs)
-ALL_DIRS = jnp.arange(Q)
-OPP_DIRS = jnp.asarray(D3Q19.opp_dirs, dtype=jnp.int32)
+from .lattice import D3Q19
 
 
 def streaming(f):
@@ -56,7 +40,7 @@ def streaming(f):
     def shift_fn(f_ch, shift):
         return jnp.roll(f_ch, shift=shift, axis=(0, 1, 2))
 
-    return jax.vmap(shift_fn)(f, VELOCITIES)
+    return jax.vmap(shift_fn)(f, D3Q19.c)
 
 
 def get_macroscopic(f):
@@ -73,10 +57,8 @@ def get_macroscopic(f):
     """
 
     rho = jnp.sum(f, axis=0)
-    momentum = jnp.einsum("qd,q...->d...", VELOCITIES, f, precision='highest')
-    rho_safe = jnp.where(rho == 0, 1, rho)
-    u = momentum / rho_safe[None, ...]
-    u = jnp.where(rho[None, ...] > 0, u, 0)
+    momentum = jnp.einsum("qd,q...->d...", D3Q19.c, f, precision='highest')
+    u = momentum / rho[None, ...]
     return rho, u
 
 
@@ -92,13 +74,16 @@ def get_equilibrium(rho, u):
     """
 
     ndim = rho.ndim
-    uc = jnp.einsum("qd,d...->q...", VELOCITIES, u, precision='highest')
-    u_sq = jnp.sum(u**2, axis=0)
-    weights = WEIGHTS.reshape((Q,) + (1,) * ndim)
 
-    return rho[None, ...] * weights * (
-        1 + uc / CS2 + 0.5 * (uc**2) / (CS2**2) - 0.5 * u_sq[None, ...] / CS2
+    uc = jnp.einsum("qd,d...->q...", D3Q19.c, u, precision="highest")
+    weights = D3Q19.w.reshape((D3Q19.q,) + (1,) * ndim)
+    feq = rho[None, ...] * weights * (
+        1 + uc / D3Q19.cs2
+        + 0.5 * (uc**2) / (D3Q19.cs2**2)
+        - 0.5 * jnp.sum(u**2, axis=0)[None, ...] / D3Q19.cs2
     )
+
+    return feq
 
 
 def collision_bgk(f, feq, omega):

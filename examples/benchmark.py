@@ -58,18 +58,37 @@ ib_stencil_weights, ib_stencil_indices = ib.get_ib_stencil(marker_x, marker_y, N
 # ====================== Timing helper ======================
 
 def measure(fn, *args):   
+    jitted_fn = jax.jit(fn)
+    warmup_result = jitted_fn(*args)
+    jax.block_until_ready(warmup_result)
+
+    can_feed_back = (
+        isinstance(warmup_result, jax.Array)
+        and isinstance(args[0], jax.Array)
+        and warmup_result.shape == args[0].shape
+    )
+
+    if not can_feed_back:
+        for _ in range(N_WARMUP):
+            warmup_result = jitted_fn(*args)
+        jax.block_until_ready(warmup_result)
+
+        start = time.perf_counter()
+        for _ in range(N_REPEAT):
+            result = jitted_fn(*args)
+        jax.block_until_ready(result)
+        elapsed = time.perf_counter() - start
+
+        return elapsed / N_REPEAT * 1e6  # us per call
+
     @jax.jit
     def benchmark_loop(args_tuple):
         def body(carry, _):
             result = fn(*carry)
 
-            # Force memory operations by feeding the result back into the loop
-            # as the new input, provided it has the exact same shape.
-            is_array = isinstance(result, jax.Array) and isinstance(carry[0], jax.Array)
-            if is_array and result.shape == carry[0].shape:
-                carry = (result,) + carry[1:]
-                
-            return carry, result
+            # Feed same-shape array results back into the loop so repeated calls
+            # cannot be optimized away.
+            return (result,) + carry[1:], None
         
         final_carry, _ = jax.lax.scan(body, args_tuple, None, length=N_REPEAT)
         return final_carry
