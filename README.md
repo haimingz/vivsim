@@ -234,7 +234,7 @@ lbm3d.obstacle_bounce_back                  9.443
 lbm3d.boundary_characteristic               4.335  
 ib3d.get_triangle_areas                    23.575  
 ib3d.get_surface_area                       0.965  
-ib3d.get_vertex_dA                          1.052  
+ib3d.get_ds_surface                         1.052  
 ib3d.kernel_peskin_3pt                      3.995  
 ib3d.kernel_peskin_4pt                      3.874  
 ib3d.kernel_cosine_4pt                      4.123  

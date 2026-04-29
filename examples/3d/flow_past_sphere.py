@@ -90,7 +90,7 @@ def _icosphere(radius, center, subdivisions=2):
 MARKER_COORDS_NP, MARKER_FACES = _icosphere(D / 2, [SPH_X, SPH_Y, SPH_Z], subdivisions=4)
 MARKER_COORDS = jnp.array(MARKER_COORDS_NP, dtype=jnp.float32)
 N_MARKER = MARKER_COORDS.shape[0]
-MARKER_DS = ib3d.get_vertex_dA(MARKER_COORDS, jnp.array(MARKER_FACES))  # Surface area weights
+MARKER_DS = ib3d.get_ds_surface(MARKER_COORDS, jnp.array(MARKER_FACES))  # Surface area weights
 
 
 # ========================== PHYSICAL PARAMETERS =====================

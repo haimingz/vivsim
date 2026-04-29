@@ -189,7 +189,7 @@ def main():
     )
     marker_coords = jnp.asarray(marker_coords_np, dtype=jnp.float32)
     marker_faces = jnp.asarray(marker_faces_np, dtype=jnp.int32)
-    marker_dA = ib3d.get_vertex_dA(marker_coords, marker_faces)
+    marker_dA = ib3d.get_ds_surface(marker_coords, marker_faces)
     marker_u_zero = jnp.zeros((marker_coords.shape[0], 3), dtype=jnp.float32)
     r_vals = jnp.linspace(0, 2.5, marker_coords.shape[0], dtype=jnp.float32)
     ib_stencil_weights, ib_stencil_indices = ib3d.get_ib_stencil(
@@ -274,8 +274,8 @@ def main():
     timings["ib3d.get_surface_area"] = measure(
         ib3d.get_surface_area, (marker_coords, marker_faces), repeat
     )
-    timings["ib3d.get_vertex_dA"] = measure(
-        ib3d.get_vertex_dA, (marker_coords, marker_faces), repeat
+    timings["ib3d.get_ds_surface"] = measure(
+        ib3d.get_ds_surface, (marker_coords, marker_faces), repeat
     )
 
     # ------ IB3D: kernels ------

@@ -24,7 +24,7 @@ def get_surface_area(vertex_coords, faces):
     return jnp.sum(get_triangle_areas(vertex_coords, faces))
 
 
-def get_vertex_dA(vertex_coords, faces):
+def get_ds_surface(vertex_coords, faces):
     """Return lumped surface-area weights for mesh vertices.
 
     Each triangle area is distributed equally to its three vertices.
