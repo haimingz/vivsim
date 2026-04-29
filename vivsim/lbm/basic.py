@@ -51,24 +51,44 @@ ALL_DIRS = jnp.array([0, 1, 2, 3, 4, 5, 6, 7, 8])
 OPP_DIRS = jnp.array([0, 3, 4, 1, 2, 7, 8, 5, 6])
 
 
-def streaming(f):
-    """Perform the streaming step of the Lattice Boltzmann Method.
-    
-    This function shifts the distribution functions along their respective velocity
-    directions using periodic boundary conditions. Each population is propagated to
-    its neighboring node according to the D2Q9 lattice velocities.
-    
-    Args:
-        f (jax.Array of shape (9, NX, NY)): Discrete distribution function (DDF).
-        
-    Returns:
-        f (jax.Array of shape (9, NX, NY)): The DDF after streaming.
-    """
-    
-    def shift_fn(f_ch, shift):
-        return jnp.roll(f_ch, shift=shift, axis=(0, 1))
+def shift_x_pos(x):
+    return jnp.concatenate((x[:, -1:, :], x[:, :-1, :]), axis=1)
 
-    return jax.vmap(shift_fn)(f, VELOCITIES)
+def shift_x_neg(x):
+    return jnp.concatenate((x[:, 1:, :], x[:, :1, :]), axis=1)
+
+def shift_y_pos(x):
+    return jnp.concatenate((x[:, :, -1:], x[:, :, :-1]), axis=2)
+
+def shift_y_neg(x):
+    return jnp.concatenate((x[:, :, 1:], x[:, :, :1]), axis=2)
+    
+def streaming(f):
+    """Perform the D2Q9 streaming step with periodic wrap-around.
+
+    This implementation spells out the D2Q9 unit shifts with static slices.
+    It avoids the generic ``jnp.roll`` path and keeps the work visible to XLA as
+    simple concatenate operations.
+
+    Args:
+        f (jax.Array): Discrete distribution function with shape
+            ``(9, NX, NY)``.
+
+    Returns:
+        jax.Array: Streamed distribution function with the same shape as ``f``.
+    """
+
+    return jnp.concatenate((
+        f[0:1],
+        shift_x_pos(f[1:2]),
+        shift_y_pos(f[2:3]),
+        shift_x_neg(f[3:4]),
+        shift_y_neg(f[4:5]),
+        shift_x_pos(shift_y_pos(f[5:6])),
+        shift_x_neg(shift_y_pos(f[6:7])),
+        shift_x_neg(shift_y_neg(f[7:8])),
+        shift_x_pos(shift_y_neg(f[8:9])),
+    ), axis=0)
 
 
 def get_macroscopic(f):

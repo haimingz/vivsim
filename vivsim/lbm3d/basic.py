@@ -20,14 +20,41 @@ Key variables:
 The spatial axes follow the array order (x, y, z).
 """
 
-import jax
 import jax.numpy as jnp
 
 from .lattice import D3Q19
 
 
+def shift_x_pos(x):
+    return jnp.concatenate((x[:, -1:, :, :], x[:, :-1, :, :]), axis=1)
+
+
+def shift_x_neg(x):
+    return jnp.concatenate((x[:, 1:, :, :], x[:, :1, :, :]), axis=1)
+
+
+def shift_y_pos(x):
+    return jnp.concatenate((x[:, :, -1:, :], x[:, :, :-1, :]), axis=2)
+
+
+def shift_y_neg(x):
+    return jnp.concatenate((x[:, :, 1:, :], x[:, :, :1, :]), axis=2)
+
+
+def shift_z_pos(x):
+    return jnp.concatenate((x[:, :, :, -1:], x[:, :, :, :-1]), axis=3)
+
+
+def shift_z_neg(x):
+    return jnp.concatenate((x[:, :, :, 1:], x[:, :, :, :1]), axis=3)
+
+
 def streaming(f):
     """Perform the D3Q19 streaming step with periodic wrap-around.
+
+    This implementation spells out the D3Q19 unit shifts with static slices.
+    It avoids the generic ``jnp.roll`` path and keeps the work visible to XLA as
+    simple concatenate operations.
 
     Args:
         f (jax.Array): Discrete distribution function with shape
@@ -37,10 +64,27 @@ def streaming(f):
         jax.Array: Streamed distribution function with the same shape as ``f``.
     """
 
-    def shift_fn(f_ch, shift):
-        return jnp.roll(f_ch, shift=shift, axis=(0, 1, 2))
-
-    return jax.vmap(shift_fn)(f, D3Q19.c)
+    return jnp.concatenate((
+        f[0:1],
+        shift_x_pos(f[1:2]),
+        shift_x_neg(f[2:3]),
+        shift_y_pos(f[3:4]),
+        shift_y_neg(f[4:5]),
+        shift_z_pos(f[5:6]),
+        shift_z_neg(f[6:7]),
+        shift_x_pos(shift_y_pos(f[7:8])),
+        shift_x_neg(shift_y_pos(f[8:9])),
+        shift_x_pos(shift_y_neg(f[9:10])),
+        shift_x_neg(shift_y_neg(f[10:11])),
+        shift_x_pos(shift_z_pos(f[11:12])),
+        shift_x_neg(shift_z_pos(f[12:13])),
+        shift_x_pos(shift_z_neg(f[13:14])),
+        shift_x_neg(shift_z_neg(f[14:15])),
+        shift_y_pos(shift_z_pos(f[15:16])),
+        shift_y_neg(shift_z_pos(f[16:17])),
+        shift_y_pos(shift_z_neg(f[17:18])),
+        shift_y_neg(shift_z_neg(f[18:19])),
+    ), axis=0)
 
 
 def get_macroscopic(f):
