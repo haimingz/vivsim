@@ -177,7 +177,7 @@ if PLOT:
         vmax=10, vmin=-10,
     )
 
-    plt.colorbar(label="Vorticity * D / U0",shrink=0.8)
+    plt.colorbar(label="$\\omega_z D / U_0$", shrink=0.8)
     plt.xlabel("x / D")
     plt.ylabel("y / D")
 

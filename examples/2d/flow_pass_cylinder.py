@@ -104,7 +104,6 @@ def update_step(f):
     f = lbm.collision_kbc(f, feq, OMEGA)
 
     # Extract IBM region data for efficient computation
-    ib_rho = jax.lax.dynamic_slice(rho, (IB_X0, IB_Y0), (IB_SIZE, IB_SIZE))
     ib_u = jax.lax.dynamic_slice(u, (0, IB_X0, IB_Y0), (2, IB_SIZE, IB_SIZE))
     ib_f = jax.lax.dynamic_slice(f, (0, IB_X0, IB_Y0), (9, IB_SIZE, IB_SIZE))
 
@@ -159,7 +158,7 @@ if PLOT:
         cmap="bwr", aspect="equal", origin="lower",
         vmax=10, vmin=-10,
     )
-    plt.colorbar(label="Vorticity * D / U0", shrink=0.8)
+    plt.colorbar(label="$\\omega_z D / U_0$", shrink=0.8)
     plt.xlabel("x / D")
     plt.ylabel("y / D")
     plt.plot(CYL_X / D, CYL_Y / D,

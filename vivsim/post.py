@@ -41,8 +41,8 @@ def vorticity(u):
         jax.Array: Scalar field (2D) or vector field (3D).
     """
     if u.shape[0] == 2:
-        # 2D scalar vorticity: ∂u/∂y − ∂v/∂x
-        return jnp.gradient(u[0], axis=1) - jnp.gradient(u[1], axis=0)
+        # 2D scalar vorticity: ∂v/∂x − ∂u/∂y
+        return jnp.gradient(u[1], axis=0) - jnp.gradient(u[0], axis=1)
 
     # 3D: ω = ∇ × u
     dudy = jnp.gradient(u[0], axis=1)
