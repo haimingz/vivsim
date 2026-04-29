@@ -1,9 +1,7 @@
-import jax.numpy as jnp
-
 from .guo import get_guo_forcing_term
 
 
-def forcing_edm(f, g, u, rho):
+def forcing_edm(f, g, u):
     """Apply Exact Difference Method (EDM) forcing scheme.
     
     The Exact Difference Method applies external forces by computing the difference
@@ -22,12 +20,12 @@ def forcing_edm(f, g, u, rho):
             dimension represents force components in x and y directions.
         u (jax.Array): Fluid velocity field with shape (2, NX, NY), where the first
             dimension represents velocity components in x and y directions.
-        rho (jax.Array): Fluid density field with shape (NX, NY).
-    
     Returns:
         jax.Array: Updated distribution function with applied forcing term, shape (9, NX, NY).
     """
 
-    # Algebraically equivalent to 
-    # get_equilibrium(rho, u + g / 2) - get_equilibrium(rho, u - g / 2)
-    return f + rho[None, ...] * get_guo_forcing_term(g, u)
+    # Algebraically equivalent to
+    # get_equilibrium(rho, u + g / (2 * rho))
+    # - get_equilibrium(rho, u - g / (2 * rho))
+    # when g is a force density.
+    return f + get_guo_forcing_term(g, u)

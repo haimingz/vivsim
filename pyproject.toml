@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vivsim"
-version = "1.3.0"
+version = "2.0.0"
 description = "Accelerated immersed boundary-lattice Boltzmann simulations built on JAX"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Haiming Zhu", email = "zhuhaiming@tju.edu.cn" }]
 dependencies = [
-    "jax>=0.8",
     "matplotlib",
     "numpy",
     "tqdm",
+    "pyvista",
 ]
 
 [project.optional-dependencies]

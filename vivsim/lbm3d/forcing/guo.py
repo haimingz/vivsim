@@ -2,31 +2,40 @@
 
 import jax.numpy as jnp
 
-from ..basic import CS2, Q, VELOCITIES, WEIGHTS
+from ..lattice import D3Q19
+from ..collision.mrt import M, M_INV, get_mrt_relaxation_matrix
+
+
+D3Q19_INV_CS2 = 3.0
+D3Q19_INV_CS4 = 9.0
 
 
 def get_guo_forcing_term(g, u):
-    """Compute the D3Q19 lattice forcing term using Guo's scheme.
+    """Compute the D3Q19 lattice forcing term using Guo's scheme."""
 
-    Args:
-        g (jax.Array): External force density with shape ``(3, *spatial_dims)``.
-        u (jax.Array): Fluid velocity with shape ``(3, *spatial_dims)``.
+    ux, uy, uz = u
+    gx, gy, gz = g
 
-    Returns:
-        jax.Array: Lattice forcing term with shape ``(19, *spatial_dims)``.
-    """
+    velocity_projection = jnp.stack([
+        jnp.zeros_like(ux),
+        ux, -ux, uy, -uy, uz, -uz,
+        ux + uy, -ux + uy, ux - uy, -ux - uy,
+        ux + uz, -ux + uz, ux - uz, -ux - uz,
+        uy + uz, -uy + uz, uy - uz, -uy - uz,
+    ])
+    force_projection = jnp.stack([
+        jnp.zeros_like(gx),
+        gx, -gx, gy, -gy, gz, -gz,
+        gx + gy, -gx + gy, gx - gy, -gx - gy,
+        gx + gz, -gx + gz, gx - gz, -gx - gz,
+        gy + gz, -gy + gz, gy - gz, -gy - gz,
+    ])
+    force_velocity = jnp.sum(g * u, axis=0)
 
-    ndim = g.ndim - 1
-    velocity_set = VELOCITIES.reshape((Q, 3) + (1,) * ndim)
-    weights = WEIGHTS.reshape((Q,) + (1,) * ndim)
-
-    cu = jnp.einsum("qd,d...->q...", VELOCITIES, u, precision='highest')
-    forcing_vector = (
-        (velocity_set - u[None, ...]) / CS2
-        + velocity_set * (cu[:, None, ...] / (CS2**2))
+    return D3Q19.w[:, None, None, None] * (
+        D3Q19_INV_CS2 * (force_projection - force_velocity[None, ...])
+        + D3Q19_INV_CS4 * force_projection * velocity_projection
     )
-
-    return weights * jnp.sum(forcing_vector * g[None, ...], axis=1)
 
 
 def forcing_guo_bgk(f, g, u, omega):
@@ -53,20 +62,9 @@ def get_mrt_forcing_operator(omega):
     D3Q19 shape before constructing the forcing operator.
     """
 
-    from ..collision.mrt import M, M_INV, get_mrt_relaxation_matrix
+    S = get_mrt_relaxation_matrix(omega)
 
-    q = VELOCITIES.shape[0]
-    S = jnp.asarray(get_mrt_relaxation_matrix(omega))
-    M = jnp.asarray(M)
-    M_INV = jnp.asarray(M_INV)
-
-    if M.shape != (q, q) or M_INV.shape != (q, q) or S.shape != (q, q):
-        raise NotImplementedError(
-            "Expected lbm3d.collision.mrt to expose D3Q19 operators with "
-            f"shape ({q}, {q}); got M={M.shape}, M_INV={M_INV.shape}, S={S.shape}."
-        )
-
-    return M_INV @ (jnp.eye(q) - 0.5 * S) @ M
+    return M_INV @ (jnp.eye(D3Q19.q) - 0.5 * S) @ M
 
 
 def forcing_guo_mrt(f, g, u, mrt_forcing_operator):
@@ -83,12 +81,7 @@ def forcing_guo_mrt(f, g, u, mrt_forcing_operator):
         jax.Array: Updated distribution function with applied forcing.
     """
 
-    q = VELOCITIES.shape[0]
-    if mrt_forcing_operator.shape != (q, q):
-        raise ValueError(
-            f"Expected mrt_forcing_operator with shape ({q}, {q}), "
-            f"got {mrt_forcing_operator.shape}."
-        )
-
     g_lattice = get_guo_forcing_term(g, u)
-    return f + jnp.tensordot(mrt_forcing_operator, g_lattice, axes=([1], [0]), precision='highest')
+    return f + jnp.tensordot(
+        mrt_forcing_operator, g_lattice, axes=([1], [0]), precision='highest'
+    )

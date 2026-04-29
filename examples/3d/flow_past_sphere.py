@@ -90,7 +90,7 @@ def _icosphere(radius, center, subdivisions=2):
 MARKER_COORDS_NP, MARKER_FACES = _icosphere(D / 2, [SPH_X, SPH_Y, SPH_Z], subdivisions=4)
 MARKER_COORDS = jnp.array(MARKER_COORDS_NP, dtype=jnp.float32)
 N_MARKER = MARKER_COORDS.shape[0]
-MARKER_DS = ib3d.get_vertex_dA(MARKER_COORDS, jnp.array(MARKER_FACES))  # Surface area weights
+MARKER_DS = ib3d.get_ds(MARKER_COORDS, jnp.array(MARKER_FACES))  # Surface area weights
 
 
 # ========================== PHYSICAL PARAMETERS =====================
@@ -144,8 +144,6 @@ def update_step(f):
     f = lbm3d.collision_kbc(f, feq, OMEGA)
 
     # Extract IBM region data for efficient computation
-    ib_rho = jax.lax.dynamic_slice(rho, (IB_X0, IB_Y0, IB_Z0),
-                                   (IB_SIZE, IB_SIZE, IB_SIZE))
     ib_u = jax.lax.dynamic_slice(u, (0, IB_X0, IB_Y0, IB_Z0),
                                  (3, IB_SIZE, IB_SIZE, IB_SIZE))
     ib_f = jax.lax.dynamic_slice(f, (0, IB_X0, IB_Y0, IB_Z0),
@@ -162,7 +160,7 @@ def update_step(f):
     )
 
     # Apply IBM forcing to the fluid in the local IBM region
-    ib_f = lbm3d.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
+    ib_f = lbm3d.forcing_edm(ib_f, ib_g, ib_u)
     f = jax.lax.dynamic_update_slice(f, ib_f, (0, IB_X0, IB_Y0, IB_Z0))
 
     # Streaming and boundary conditions

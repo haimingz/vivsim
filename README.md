@@ -12,7 +12,7 @@ VIVSIM is a Python library for fluid-structure interaction (FSI) simulations bas
 
 Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB](https://github.com/Autodesk/XLB), VIVSIM utilizes [JAX](https://github.com/jax-ml/jax) as the backend to achieve *hardware acceleration* and *automatic differentiation*. The project follows the **Functional Programming** paradigm to facilitate XLA compilation while making the codebase easier to understand and maintain.
 
-## 2D Visuals
+## Examples
 
 <div align="center">
   <table style="border: none; text-align: center;">
@@ -26,43 +26,43 @@ Inspired by projects like [JAX-CFD](https://github.com/google/jax-cfd) and [XLB]
     </tr>
     <tr>
       <td><img src="assets/viv_100.gif" alt="VIV of a cylinder at Re = 1e2" width="250"></td>
-      <td><img src="assets/viv_10000.gif" alt="VIV of a cylinder at Re = 1e4" width="250"></td>
+      <td><img src="assets/viv_10000.gif" alt="VIV of a cylinder at Re = 1e4" width="230"></td>
     </tr>
     <tr>
       <td><i>VIV of a cylinder, U_r = 5, Re = 1e2</i></td>
       <td><i>VIV of a cylinder, U_r = 5, Re = 1e4</i></td>
     </tr>
-  </table>
-</div>
-
-## 3D Visuals
-
-<div align="center">
-  <table style="border: none; text-align: center;">
     <tr>
-      <td><img src="assets/3dcylinder.png" alt="Three-dimensional flow past an oscillating cylinder" width="320"></td>
+      <td><img src="assets/3dcylinder.png" alt="Three-dimensional flow past an oscillating cylinder" width="220"></td>
       <td>
-        <video src="assets/3dsphere.mp4" controls width="360" aria-label="Three-dimensional flow past an immersed sphere"></video>
+        <img src="assets/3dsphere.gif" width="250"></img>
       </td>
+    </tr>
     <tr>
       <td><i>VIV of a cylinder</i></td>
       <td><i>Flow past an immersed sphere</i></td>
-    </tr>
     </tr>
   </table>
 </div>
 
 ## Installation
 
-To locally install VIVSIM for development:
+To locally install VIVSIM for development without selecting a JAX backend:
 
 ```bash
 git clone https://github.com/haimingz/vivsim.git
 cd vivsim
-pip install -e ".[cpu]"
+pip install -e .
 ```
 
-JAX installation depends on the operating system and accelerator backend. VIVSIM now exposes the most common JAX choices as optional extras:
+Installing with no extra flag (`pip install -e .`) installs VIVSIM and its
+non-JAX dependencies only. It does not install, upgrade, downgrade, or otherwise
+modify JAX. This is the recommended option when JAX is already installed in the
+environment, for example when using a cluster-managed JAX module, a custom CUDA
+wheel, or another project that controls the JAX version.
+
+JAX installation depends on the operating system and accelerator backend. If you
+want VIVSIM to install JAX for you, use one of the optional extras:
 
 ```bash
 # CPU-only development on Linux/macOS/Windows
@@ -162,47 +162,91 @@ Immersed Boundary Methods:
 
 ## Benchmark 
 
-Here is a performance snippet showing the average execution time for core JAX-compiled pure functions on a Nvidia RTX4090 GPU. You can generate similar benchmarks on your hardware by running `python examples/benchmark.py`.
+Here is a performance snippet showing the average execution time for core JAX-compiled pure functions on a Nvidia RTX4090 GPU. You can generate similar benchmarks on your hardware by running `python examples/benchmark.py` and `python examples/benchmark3d.py`.
 
 ```
 Benchmarking on cuda:0 | grid: 1024x1024 | markers: 512 | repeats: 200
 
 Function                             Time (us)  Bar
 --------------------------------------------------------------------------------
-lbm.get_macroscopic                      0.619  
-lbm.get_equilibrium                      0.296  
-lbm.streaming                           71.214  ==
-lbm.collision_bgk                       36.594  =
-lbm.collision_kbc                      348.668  ==============
-lbm.collision_mrt                      476.972  ====================
-lbm.collision_reg                      196.233  ========
-lbm.forcing_edm                         79.364  ===
-lbm.forcing_guo_bgk                     56.261  ==
-lbm.forcing_guo_mrt                    204.868  ========
-lbm.get_guo_forcing_term                 0.706  
-lbm.boundary_nee                         7.238  
-lbm.boundary_velocity_nee                6.573  
-lbm.boundary_pressure_nee                6.961  
-lbm.boundary_nebb                        6.481  
-lbm.boundary_velocity_nebb               6.807  
-lbm.boundary_pressure_nebb               6.537  
-lbm.boundary_equilibrium                 3.361  
-lbm.boundary_bounce_back                38.752  =
-lbm.boundary_specular_reflection        39.087  =
-lbm.obstacle_bounce_back                 0.650  
-lbm.boundary_characteristic              0.292  
-ib.get_area                              0.721  
-ib.get_ds_closed                         0.807  
-ib.get_ds_open                           0.979  
-ib.kernel_peskin_3pt                     3.503  
-ib.kernel_peskin_4pt                     3.004  
-ib.kernel_cosine_4pt                     3.211  
-ib.get_ib_stencil                        0.635  
-ib.interpolate                           0.735  
-ib.spread                                1.002  
-ib.multi_direct_forcing                  0.923  
+lbm.get_macroscopic                     34.751  ===
+lbm.get_equilibrium                     43.933  ====
+lbm.streaming                           72.021  =======
+lbm.collision_bgk                       46.804  ====
+lbm.collision_kbc                      178.789  =================
+lbm.collision_mrt                      203.575  ====================
+lbm.collision_reg                      109.997  ==========
+lbm.forcing_edm                         43.279  ====
+lbm.forcing_guo_bgk                     46.363  ====
+lbm.forcing_guo_mrt                    152.419  ==============
+lbm.get_guo_forcing_term                49.493  ====
+lbm.boundary_nee                         6.479  
+lbm.boundary_velocity_nee                6.866  
+lbm.boundary_pressure_nee                6.566  
+lbm.boundary_nebb                        6.805  
+lbm.boundary_velocity_nebb               6.121  
+lbm.boundary_pressure_nebb               6.597  
+lbm.boundary_equilibrium                 3.370  
+lbm.boundary_bounce_back                45.107  ====
+lbm.boundary_specular_reflection        42.676  ====
+lbm.obstacle_bounce_back                 1.103  
+lbm.boundary_characteristic             12.810  =
+ib.get_area                             12.646  =
+ib.get_ds (closed)                      17.055  =
+ib.get_ds (open)                        12.256  =
+ib.kernel_peskin_3pt                     3.141  
+ib.kernel_peskin_4pt                     3.195  
+ib.kernel_cosine_4pt                     3.243  
+ib.get_ib_stencil                       20.201  =
+ib.interpolate                          28.098  ==
+ib.spread                               20.458  ==
+ib.multi_direct_forcing                 71.255  =======
 --------------------------------------------------------------------------------
+Functions count                             32
 ```
+
+```
+Benchmarking on cuda:0 | grid: 128x128x128 | markers: 2562 | repeats: 50
+
+Function                                Time (us)  Bar
+-----------------------------------------------------------------------------------
+lbm3d.get_macroscopic                     466.595  ===
+lbm3d.get_equilibrium                     685.602  ====
+lbm3d.streaming                           806.904  =====
+lbm3d.collision_bgk                       625.101  ====
+lbm3d.collision_kbc                      2884.170  ====================
+lbm3d.collision_mrt                      1188.563  ========
+lbm3d.collision_reg                      1546.651  ==========
+lbm3d.forcing_edm                         602.678  ====
+lbm3d.forcing_guo_bgk                     605.084  ====
+lbm3d.forcing_guo_mrt                     970.082  ======
+lbm3d.get_guo_forcing_term                358.123  ==
+lbm3d.boundary_nee                         26.266  
+lbm3d.boundary_velocity_nee                29.480  
+lbm3d.boundary_pressure_nee                36.615  
+lbm3d.boundary_nebb                        15.011  
+lbm3d.boundary_velocity_nebb               15.279  
+lbm3d.boundary_pressure_nebb               28.991  
+lbm3d.boundary_equilibrium                 15.769  
+lbm3d.boundary_bounce_back                385.016  ==
+lbm3d.boundary_specular_reflection        388.708  ==
+lbm3d.obstacle_bounce_back                  9.113  
+lbm3d.boundary_characteristic              15.910  
+ib3d.get_triangle_areas                    17.877  
+ib3d.get_surface_area                      24.117  
+ib3d.get_volume                            14.897  
+ib3d.get_ds                                12.351  
+ib3d.kernel_peskin_3pt                      4.821  
+ib3d.kernel_peskin_4pt                      4.133  
+ib3d.kernel_cosine_4pt                      6.124  
+ib3d.get_ib_stencil                        12.818  
+ib3d.interpolate                           14.409  
+ib3d.spread                                63.082  
+ib3d.multi_direct_forcing                 184.875  =
+-----------------------------------------------------------------------------------
+Functions count                                33
+```
+
 If you have suggestions for improving the performance of any function, please feel free to open an issue or submit a pull request!
 
 

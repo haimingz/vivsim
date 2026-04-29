@@ -40,7 +40,7 @@ MARKER_THETA = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
 MARKER_X = CYL_X + 0.5 * D * jnp.cos(MARKER_THETA)  # Marker x-coordinates
 MARKER_Y = CYL_Y + 0.5 * D * jnp.sin(MARKER_THETA)  # Marker y-coordinates
 MARKER_COORDS = jnp.stack((MARKER_X, MARKER_Y), axis=1)
-MARKER_DS = ib.get_ds_closed(MARKER_COORDS)  # Marker segment length
+MARKER_DS = ib.get_ds(MARKER_COORDS)  # Marker segment length
 
 
 # ========================== PHYSICAL PARAMETERS =====================
@@ -104,7 +104,6 @@ def update_step(f):
     f = lbm.collision_kbc(f, feq, OMEGA)
 
     # Extract IBM region data for efficient computation
-    ib_rho = jax.lax.dynamic_slice(rho, (IB_X0, IB_Y0), (IB_SIZE, IB_SIZE))
     ib_u = jax.lax.dynamic_slice(u, (0, IB_X0, IB_Y0), (2, IB_SIZE, IB_SIZE))
     ib_f = jax.lax.dynamic_slice(f, (0, IB_X0, IB_Y0), (9, IB_SIZE, IB_SIZE))
 
@@ -121,7 +120,7 @@ def update_step(f):
     h = dyn.get_force_to_obj(marker_h)
 
     # Apply IBM forcing to the fluid in the local IBM region
-    ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u, ib_rho)
+    ib_f = lbm.forcing_edm(ib_f, ib_g, ib_u)
     f = jax.lax.dynamic_update_slice(f, ib_f, (0, IB_X0, IB_Y0))
 
     # Streaming and boundary conditions
@@ -159,7 +158,7 @@ if PLOT:
         cmap="bwr", aspect="equal", origin="lower",
         vmax=10, vmin=-10,
     )
-    plt.colorbar(label="Vorticity * D / U0", shrink=0.8)
+    plt.colorbar(label="$\\omega_z D / U_0$", shrink=0.8)
     plt.xlabel("x / D")
     plt.ylabel("y / D")
     plt.plot(CYL_X / D, CYL_Y / D,

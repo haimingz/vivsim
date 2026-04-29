@@ -20,30 +20,41 @@ Key variables:
 The spatial axes follow the array order (x, y, z).
 """
 
-import jax
 import jax.numpy as jnp
 
-from ._lattice import D3Q19
+from .lattice import D3Q19
 
-DIM = D3Q19.dim
-Q = D3Q19.q
-CS2 = D3Q19.cs2
 
-WEIGHTS = jnp.asarray(D3Q19.weights)
-VELOCITIES = jnp.asarray(D3Q19.velocities, dtype=jnp.int32)
+def shift_x_pos(x):
+    return jnp.concatenate((x[:, -1:, :, :], x[:, :-1, :, :]), axis=1)
 
-RIGHT_DIRS = jnp.asarray(D3Q19.right_dirs)
-LEFT_DIRS = jnp.asarray(D3Q19.left_dirs)
-UP_DIRS = jnp.asarray(D3Q19.up_dirs)
-DOWN_DIRS = jnp.asarray(D3Q19.down_dirs)
-FRONT_DIRS = jnp.asarray(D3Q19.front_dirs)
-BACK_DIRS = jnp.asarray(D3Q19.back_dirs)
-ALL_DIRS = jnp.arange(Q)
-OPP_DIRS = jnp.asarray(D3Q19.opp_dirs, dtype=jnp.int32)
+
+def shift_x_neg(x):
+    return jnp.concatenate((x[:, 1:, :, :], x[:, :1, :, :]), axis=1)
+
+
+def shift_y_pos(x):
+    return jnp.concatenate((x[:, :, -1:, :], x[:, :, :-1, :]), axis=2)
+
+
+def shift_y_neg(x):
+    return jnp.concatenate((x[:, :, 1:, :], x[:, :, :1, :]), axis=2)
+
+
+def shift_z_pos(x):
+    return jnp.concatenate((x[:, :, :, -1:], x[:, :, :, :-1]), axis=3)
+
+
+def shift_z_neg(x):
+    return jnp.concatenate((x[:, :, :, 1:], x[:, :, :, :1]), axis=3)
 
 
 def streaming(f):
     """Perform the D3Q19 streaming step with periodic wrap-around.
+
+    This implementation spells out the D3Q19 unit shifts with static slices.
+    It avoids the generic ``jnp.roll`` path and keeps the work visible to XLA as
+    simple concatenate operations.
 
     Args:
         f (jax.Array): Discrete distribution function with shape
@@ -53,10 +64,27 @@ def streaming(f):
         jax.Array: Streamed distribution function with the same shape as ``f``.
     """
 
-    def shift_fn(f_ch, shift):
-        return jnp.roll(f_ch, shift=shift, axis=(0, 1, 2))
-
-    return jax.vmap(shift_fn)(f, VELOCITIES)
+    return jnp.concatenate((
+        f[0:1],
+        shift_x_pos(f[1:2]),
+        shift_x_neg(f[2:3]),
+        shift_y_pos(f[3:4]),
+        shift_y_neg(f[4:5]),
+        shift_z_pos(f[5:6]),
+        shift_z_neg(f[6:7]),
+        shift_x_pos(shift_y_pos(f[7:8])),
+        shift_x_neg(shift_y_pos(f[8:9])),
+        shift_x_pos(shift_y_neg(f[9:10])),
+        shift_x_neg(shift_y_neg(f[10:11])),
+        shift_x_pos(shift_z_pos(f[11:12])),
+        shift_x_neg(shift_z_pos(f[12:13])),
+        shift_x_pos(shift_z_neg(f[13:14])),
+        shift_x_neg(shift_z_neg(f[14:15])),
+        shift_y_pos(shift_z_pos(f[15:16])),
+        shift_y_neg(shift_z_pos(f[16:17])),
+        shift_y_pos(shift_z_neg(f[17:18])),
+        shift_y_neg(shift_z_neg(f[18:19])),
+    ), axis=0)
 
 
 def get_macroscopic(f):
@@ -73,10 +101,8 @@ def get_macroscopic(f):
     """
 
     rho = jnp.sum(f, axis=0)
-    momentum = jnp.einsum("qd,q...->d...", VELOCITIES, f, precision='highest')
-    rho_safe = jnp.where(rho == 0, 1, rho)
-    u = momentum / rho_safe[None, ...]
-    u = jnp.where(rho[None, ...] > 0, u, 0)
+    momentum = jnp.einsum("qd,q...->d...", D3Q19.c, f, precision='highest')
+    u = momentum / rho[None, ...]
     return rho, u
 
 
@@ -92,13 +118,16 @@ def get_equilibrium(rho, u):
     """
 
     ndim = rho.ndim
-    uc = jnp.einsum("qd,d...->q...", VELOCITIES, u, precision='highest')
-    u_sq = jnp.sum(u**2, axis=0)
-    weights = WEIGHTS.reshape((Q,) + (1,) * ndim)
 
-    return rho[None, ...] * weights * (
-        1 + uc / CS2 + 0.5 * (uc**2) / (CS2**2) - 0.5 * u_sq[None, ...] / CS2
+    uc = jnp.einsum("qd,d...->q...", D3Q19.c, u, precision="highest")
+    weights = D3Q19.w.reshape((D3Q19.q,) + (1,) * ndim)
+    feq = rho[None, ...] * weights * (
+        1 + uc / D3Q19.cs2
+        + 0.5 * (uc**2) / (D3Q19.cs2**2)
+        - 0.5 * jnp.sum(u**2, axis=0)[None, ...] / D3Q19.cs2
     )
+
+    return feq
 
 
 def collision_bgk(f, feq, omega):

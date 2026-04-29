@@ -24,7 +24,29 @@ def get_surface_area(vertex_coords, faces):
     return jnp.sum(get_triangle_areas(vertex_coords, faces))
 
 
-def get_vertex_dA(vertex_coords, faces):
+def get_volume(vertex_coords, faces):
+    """Return the volume enclosed by a closed triangulated surface mesh.
+
+    The mesh faces should have consistent winding. The absolute value is
+    returned so outward and inward orientation give the same volume.
+
+    Args:
+        vertex_coords: Vertex coordinates with shape ``(n_vertices, 3)``.
+        faces: Triangle connectivity with shape ``(n_faces, 3)``.
+
+    Returns:
+        jax.Array: Enclosed volume as a scalar array.
+    """
+    triangles = jnp.asarray(vertex_coords)[jnp.asarray(faces)]
+    signed_volumes = jnp.einsum(
+        "ij,ij->i",
+        triangles[:, 0],
+        jnp.cross(triangles[:, 1], triangles[:, 2]),
+    ) / 6.0
+    return jnp.abs(jnp.sum(signed_volumes))
+
+
+def get_ds(vertex_coords, faces):
     """Return lumped surface-area weights for mesh vertices.
 
     Each triangle area is distributed equally to its three vertices.

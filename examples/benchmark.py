@@ -50,7 +50,7 @@ theta = jnp.linspace(0, 2 * jnp.pi, N_MARKER, endpoint=False)
 marker_x = NX / 2 + 50 * jnp.cos(theta)
 marker_y = NY / 2 + 50 * jnp.sin(theta)
 marker_coords = jnp.stack([marker_x, marker_y], axis=1)
-marker_ds = ib.get_ds_closed(marker_coords)
+marker_ds = ib.get_ds(marker_coords)
 marker_u_zero = jnp.zeros((N_MARKER, 2))
 r_vals = jnp.linspace(0, 2.5, N_MARKER)
 ib_stencil_weights, ib_stencil_indices = ib.get_ib_stencil(marker_x, marker_y, NY)
@@ -58,18 +58,37 @@ ib_stencil_weights, ib_stencil_indices = ib.get_ib_stencil(marker_x, marker_y, N
 # ====================== Timing helper ======================
 
 def measure(fn, *args):   
+    jitted_fn = jax.jit(fn)
+    warmup_result = jitted_fn(*args)
+    jax.block_until_ready(warmup_result)
+
+    can_feed_back = (
+        isinstance(warmup_result, jax.Array)
+        and isinstance(args[0], jax.Array)
+        and warmup_result.shape == args[0].shape
+    )
+
+    if not can_feed_back:
+        for _ in range(N_WARMUP):
+            warmup_result = jitted_fn(*args)
+        jax.block_until_ready(warmup_result)
+
+        start = time.perf_counter()
+        for _ in range(N_REPEAT):
+            result = jitted_fn(*args)
+        jax.block_until_ready(result)
+        elapsed = time.perf_counter() - start
+
+        return elapsed / N_REPEAT * 1e6  # us per call
+
     @jax.jit
     def benchmark_loop(args_tuple):
         def body(carry, _):
             result = fn(*carry)
 
-            # Force memory operations by feeding the result back into the loop
-            # as the new input, provided it has the exact same shape.
-            is_array = isinstance(result, jax.Array) and isinstance(carry[0], jax.Array)
-            if is_array and result.shape == carry[0].shape:
-                carry = (result,) + carry[1:]
-                
-            return carry, result
+            # Feed same-shape array results back into the loop so repeated calls
+            # cannot be optimized away.
+            return (result,) + carry[1:], None
         
         final_carry, _ = jax.lax.scan(body, args_tuple, None, length=N_REPEAT)
         return final_carry
@@ -104,7 +123,7 @@ timings["lbm.collision_mrt"]         = measure(lbm.collision_mrt, f, feq, mrt_op
 timings["lbm.collision_reg"] = measure(lbm.collision_reg, f, feq, omega)
 
 # ------ Forcing ------
-timings["lbm.forcing_edm"]           = measure(lbm.forcing_edm, f, g, u, rho)
+timings["lbm.forcing_edm"]           = measure(lbm.forcing_edm, f, g, u)
 timings["lbm.forcing_guo_bgk"]       = measure(lbm.forcing_guo_bgk, f, g, u, omega)
 timings["lbm.forcing_guo_mrt"]       = measure(lbm.forcing_guo_mrt, f, g, u, mrt_fop)
 timings["lbm.get_guo_forcing_term"]  = measure(lbm.get_guo_forcing_term, g, u)
@@ -132,8 +151,8 @@ timings["lbm.boundary_characteristic"] = measure(partial(lbm.boundary_characteri
 
 # ------ IB: geometry ------
 timings["ib.get_area"]      = measure(ib.get_area, marker_coords) 
-timings["ib.get_ds_closed"] = measure(ib.get_ds_closed, marker_coords)
-timings["ib.get_ds_open"]   = measure(ib.get_ds_open, marker_coords)
+timings["ib.get_ds (closed)"] = measure(ib.get_ds, marker_coords)
+timings["ib.get_ds (open)"]   = measure(partial(ib.get_ds, closed=False), marker_coords)
 
 # ------ IB: kernels (input: 1-D distance array) ------
 timings["ib.kernel_peskin_3pt"] = measure(ib.kernel_peskin_3pt, r_vals)

@@ -35,76 +35,16 @@ Meaning:
     - ``normal_sign`` points from the wall into the fluid
 """
 
-from typing import NamedTuple
-
 import jax.numpy as jnp
 
+from ..lattice import D2Q9
 from ..basic import get_velocity_correction
 
 
-class BoundarySpec(NamedTuple):
-    """Geometry and direction metadata for a single domain boundary."""
-
-    wall: tuple
-    neighbor: tuple
-    in_dirs: tuple[int, int, int]
-    out_dirs: tuple[int, int, int]
-    tan_dirs: tuple[int, int]
-    pos_side_dirs: tuple[int, int, int]
-    neg_side_dirs: tuple[int, int, int]
-    normal_sign: int
-    normal_axis: int
-
-    
-BOUNDARY_SPEC = {
-    "left": BoundarySpec(
-        wall=(0,),
-        neighbor=(1,),
-        in_dirs=(1, 5, 8),
-        out_dirs=(3, 7, 6),
-        tan_dirs=(2, 4),
-        pos_side_dirs=(2, 5, 6),
-        neg_side_dirs=(4, 7, 8),
-        normal_sign=1,
-        normal_axis=0,
-    ),
-    "right": BoundarySpec(
-        wall=(-1,),
-        neighbor=(-2,),
-        in_dirs=(3, 7, 6),
-        out_dirs=(1, 5, 8),
-        tan_dirs=(2, 4),
-        pos_side_dirs=(2, 5, 6),
-        neg_side_dirs=(4, 7, 8),
-        normal_sign=-1,
-        normal_axis=0,
-    ),
-    "top": BoundarySpec(
-        wall=(slice(None), -1),
-        neighbor=(slice(None), -2),
-        in_dirs=(4, 7, 8),
-        out_dirs=(2, 5, 6),
-        tan_dirs=(1, 3),
-        pos_side_dirs=(1, 5, 8),
-        neg_side_dirs=(3, 7, 6),
-        normal_sign=-1,
-        normal_axis=1,
-    ),
-    "bottom": BoundarySpec(
-        wall=(slice(None), 0),
-        neighbor=(slice(None), 1),
-        in_dirs=(2, 5, 6),
-        out_dirs=(4, 7, 8),
-        tan_dirs=(1, 3),
-        pos_side_dirs=(1, 5, 8),
-        neg_side_dirs=(3, 7, 6),
-        normal_sign=1,
-        normal_axis=1,
-    ),
-}
+BOUNDARY_SPEC = D2Q9.boundary_spec
 
 
-def get_boundary_size(f, loc: str):
+def get_boundary_shape(f, loc: str):
     """Return the number of nodes on the selected boundary."""
     spec = BOUNDARY_SPEC[loc]
     return f.shape[2] if spec.normal_axis == 0 else f.shape[1]
@@ -125,14 +65,14 @@ def broadcast_wall_values(f, loc: str, rho_wall=1, ux_wall=0, uy_wall=0):
         tuple: ``(rho_wall, u_wall)`` where ``rho_wall`` has shape ``(N,)`` and
         ``u_wall`` has shape ``(2, N)`` along the selected boundary.
     """
-    size = get_boundary_size(f, loc)
+    shape = get_boundary_shape(f, loc)
 
     if jnp.isscalar(rho_wall):
-        rho_wall = jnp.full(size, rho_wall)
+        rho_wall = jnp.full(shape, rho_wall)
     if jnp.isscalar(ux_wall):
-        ux_wall = jnp.full(size, ux_wall)
+        ux_wall = jnp.full(shape, ux_wall)
     if jnp.isscalar(uy_wall):
-        uy_wall = jnp.full(size, uy_wall)
+        uy_wall = jnp.full(shape, uy_wall)
 
     return rho_wall, jnp.array([ux_wall, uy_wall])
 
@@ -177,7 +117,8 @@ def get_wall_velocity_from_pressure(f, loc: str, rho_wall=1):
     ns0, ns1, ns2 = spec.neg_side_dirs
 
     rho_neighbor = jnp.sum(f[:, *neighbor], axis=0)
-    normal_velocity = _get_rho_wall_numerator(f, loc) / rho_wall - 1
+    normal_velocity_signed = 1 - _get_rho_wall_numerator(f, loc) / rho_wall
+    normal_velocity = spec.normal_sign * normal_velocity_signed
 
     tangential_velocity = (
         f[ps0, *neighbor] - f[ns0, *neighbor]
