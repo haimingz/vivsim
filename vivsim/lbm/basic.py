@@ -17,8 +17,8 @@ Collision Model:
 Key Variables:
     * rho: Macroscopic density, shape (NX, NY)
     * u: Macroscopic velocity vector, shape (2, NX, NY)
-    * f: Discrete Distribution Function (DDF), shape (9, NX, NY)
-    * feq: Equilibrium DDF, shape (9, NX, NY) 
+    * f: Shifted distribution function, ``f_i = f_i^full - w_i``, shape (9, NX, NY)
+    * feq: Equilibrium shifted distribution, shape (9, NX, NY)
     * omega: Relaxation parameter, scalar
     * nu: Kinematic viscosity in lattice units, scalar
     where NX and NY are the numbers of lattice nodes in the x and y directions, respectively.
@@ -86,7 +86,7 @@ def streaming(f):
 
 
 def get_macroscopic(f):
-    """Calculate macroscopic properties from the distribution function.
+    """Calculate macroscopic properties from the shifted distribution function.
     
     Computes the fluid density and velocity by taking moments of the distribution
     function. The density is the zeroth moment (sum of all populations), and the
@@ -104,7 +104,7 @@ def get_macroscopic(f):
         u (jax.Array of shape (2, NX, NY) or (2, NX) or (2, NY)): The macroscopic velocity.
     """
     
-    rho = jnp.sum(f, axis=0)
+    rho = 1 + jnp.sum(f, axis=0)
     u = jnp.zeros((2, *rho.shape))
     u = u.at[0].set((jnp.sum(f[RIGHT_DIRS], axis=0) - jnp.sum(f[LEFT_DIRS], axis=0)) / rho)
     u = u.at[1].set((jnp.sum(f[UP_DIRS], axis=0) - jnp.sum(f[DOWN_DIRS], axis=0)) / rho)
@@ -112,7 +112,7 @@ def get_macroscopic(f):
 
 
 def get_equilibrium(rho, u):
-    """Compute the equilibrium distribution function from macroscopic properties.
+    """Compute the shifted equilibrium distribution from macroscopic properties.
     
     Calculates the Maxwell-Boltzmann equilibrium distribution for the D2Q9 lattice
     using the second-order expansion. The equilibrium is a function of density and
@@ -125,13 +125,15 @@ def get_equilibrium(rho, u):
             First dimension is the velocity components (x, y).
 
     Returns:
-        feq (jax.Array of shape (9, *spatial_dims)): The equilibrium DDF.
+        feq (jax.Array of shape (9, *spatial_dims)): The shifted equilibrium DDF.
     """
     
     ndim = len(rho.shape)
     uc = jnp.sum(u[None, ...] *  VELOCITIES.reshape((9, 2) + (1,) * ndim), axis=1)
-    feq = (rho * WEIGHTS.reshape((9,) + (1,) * ndim) * 
-          (1 + 3 * uc + 4.5 * uc ** 2 - 1.5 * jnp.sum(u ** 2, axis=0)))
+    weights = WEIGHTS.reshape((9,) + (1,) * ndim)
+    feq = weights * (
+        rho * (1 + 3 * uc + 4.5 * uc ** 2 - 1.5 * jnp.sum(u ** 2, axis=0)) - 1
+    )
     return feq 
 
 

@@ -6,6 +6,8 @@ The KBC model is based on the entropic principle to ensure numerical stability.
 import jax 
 import jax.numpy as jnp
 
+from ..lattice import D2Q9
+
 
 def collision_kbc(f: jax.Array, feq: jax.Array, omega: float) -> jax.Array:
     """
@@ -46,9 +48,12 @@ def collision_kbc(f: jax.Array, feq: jax.Array, omega: float) -> jax.Array:
     # Higher-order (non-hydrodynamic) component of the fneq
     high_order_part = fneq - shear_part
 
+    weights = jnp.asarray(D2Q9.w).reshape((D2Q9.q,) + (1,) * (feq.ndim - 1))
+    full_feq = feq + weights
+
     # Entropic inner products
-    inner_sh = jnp.sum(high_order_part * shear_part / (feq + 1e-20), axis=0)
-    inner_hh = jnp.sum(high_order_part * high_order_part / (feq + 1e-20), axis=0)
+    inner_sh = jnp.sum(high_order_part * shear_part / (full_feq + 1e-20), axis=0)
+    inner_hh = jnp.sum(high_order_part * high_order_part / (full_feq + 1e-20), axis=0)
 
     # Entropic stabilizer γ
     half_gamma = 1.0 / omega - (1.0 - 1.0 / omega) * inner_sh / (inner_hh + 1e-20)
@@ -57,4 +62,3 @@ def collision_kbc(f: jax.Array, feq: jax.Array, omega: float) -> jax.Array:
     f -= omega * (shear_part + half_gamma[None, ...] * high_order_part)
     
     return f
-
