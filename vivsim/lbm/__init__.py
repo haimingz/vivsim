@@ -40,3 +40,16 @@ from .boundary.nee import (
     boundary_pressure_nee,
     boundary_velocity_nee,
 )
+
+from .free_surface import (
+    TYPE_FLUID,
+    TYPE_INTERFACE,
+    TYPE_GAS,
+    get_gas_equilibrium,
+    reconstruct_interface_distributions,
+    calculate_mass_exchange,
+    compute_fraction,
+    update_topology,
+    init_new_interface_distributions
+)
+from .basic import VELOCITIES, WEIGHTS, OPP_DIRS
